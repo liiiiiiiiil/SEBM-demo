@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}录入质检记录{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>录入质检记录 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">批次号</label>
+                <input type="text" class="form-control" name="batch_no" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">抽检数量</label>
+                <input type="number" class="form-control" name="inspected_quantity" step="0.01" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">合格数量</label>
+                <input type="number" class="form-control" name="qualified_quantity" step="0.01" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">不合格数量</label>
+                <input type="number" class="form-control" name="unqualified_quantity" step="0.01" value="0">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">质检结果</label>
+                <select class="form-select" name="result" required>
+                    <option value="qualified">合格</option>
+                    <option value="unqualified">不合格</option>
+                    <option value="rework">返工</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">备注</label>
+                <textarea class="form-control" name="remark" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> 保存
+            </button>
+            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

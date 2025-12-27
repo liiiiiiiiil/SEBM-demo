@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}接收生产任务 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>接收生产任务 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>任务信息</h5>
+            <p>产品：{{ task.product.name }}</p>
+            <p>需求数量：{{ task.required_quantity }}{{ task.product.unit }}</p>
+            <p>关联订单：{{ task.order.order_no }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="alert alert-warning">
+                接收任务后，系统将自动根据BOM创建领料单。
+            </div>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 接收任务
+            </button>
+            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

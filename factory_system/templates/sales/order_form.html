@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - 销售管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>{{ title }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">客户</label>
+                {{ form.customer }}
+            </div>
+            <div class="mb-3">
+                <div class="form-check">
+                    {{ form.reserve_inventory }}
+                    <label class="form-check-label">预占库存</label>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">备注</label>
+                {{ form.remark }}
+            </div>
+            
+            <h5 class="mt-4">订单明细</h5>
+            {{ formset.management_form }}
+            <div id="items-container">
+                {% for item_form in formset %}
+                <div class="row mb-3 item-row">
+                    <div class="col-md-4">
+                        <label class="form-label">产品</label>
+                        {{ item_form.product }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">数量</label>
+                        {{ item_form.quantity }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">单价</label>
+                        {{ item_form.unit_price }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">小计</label>
+                        <input type="text" class="form-control subtotal" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        {% if item_form.DELETE %}
+                        <div class="form-check">
+                            {{ item_form.DELETE }}
+                            <label class="form-check-label">删除</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存
+                </button>
+                <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 计算小计
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.item-row').forEach(row => {
+            const quantityInput = row.querySelector('input[name$="-quantity"]');
+            const priceInput = row.querySelector('input[name$="-unit_price"]');
+            const subtotalInput = row.querySelector('.subtotal');
+            
+            function updateSubtotal() {
+                if (quantityInput && priceInput && subtotalInput) {
+                    const qty = parseFloat(quantityInput.value) || 0;
+                    const price = parseFloat(priceInput.value) || 0;
+                    subtotalInput.value = (qty * price).toFixed(2);
+                }
+            }
+            
+            if (quantityInput) quantityInput.addEventListener('input', updateSubtotal);
+            if (priceInput) priceInput.addEventListener('input', updateSubtotal);
+            updateSubtotal(); // 初始计算
+        });
+    });
+</script>
+{% endblock %}

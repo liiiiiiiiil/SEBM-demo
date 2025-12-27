@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}库存管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box-seam"></i> 库存管理</h2>
+</div>
+
+{% if warnings %}
+<div class="alert alert-warning">
+    <h5><i class="bi bi-exclamation-triangle"></i> 库存预警</h5>
+    <p>以下物品低于安全库存：</p>
+    <ul>
+        {% for inv in warnings %}
+        <li>{{ inv.get_item }} - 当前：{{ inv.quantity }}{{ inv.unit }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="mb-3">
+            <div class="row">
+                <div class="col-md-3">
+                    <select name="type" class="form-select">
+                        <option value="">全部类型</option>
+                        <option value="product" {% if inventory_type == 'product' %}selected{% endif %}>成品</option>
+                        <option value="material" {% if inventory_type == 'material' %}selected{% endif %}>原料</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-secondary">筛选</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>类型</th>
+                        <th>物品名称</th>
+                        <th>数量</th>
+                        <th>单位</th>
+                        <th>更新时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in inventories %}
+                    <tr {% if inv.check_safety_stock %}class="table-warning"{% endif %}>
+                        <td>{{ inv.get_inventory_type_display }}</td>
+                        <td>{{ inv.get_item }}</td>
+                        <td>{{ inv.quantity }}</td>
+                        <td>{{ inv.unit }}</td>
+                        <td>{{ inv.updated_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">暂无库存数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}仪表板 - 工厂管理系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> 仪表板</h2>
+
+{% if role == 'ceo' %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">订单总数</h5>
+                <h2>{{ total_orders }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">待审批订单</h5>
+                <h2>{{ pending_orders }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">生产中任务</h5>
+                <h2>{{ active_production_tasks }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">待发货</h5>
+                <h2>{{ pending_shipments }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">欢迎，{{ user.username }}！</h5>
+        <p class="card-text">
+            {% if role %}
+            您的角色：<span class="badge bg-primary">{{ user.profile.get_role_display }}</span>
+            {% else %}
+            您的角色未设置，请联系管理员。
+            {% endif %}
+        </p>
+        <div class="mt-3">
+            <h6>快速操作：</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% if role == 'sales' or role == 'sales_mgr' or role == 'ceo' %}
+                <a href="{% url 'sales:order_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> 创建订单
+                </a>
+                {% endif %}
+                {% if role == 'warehouse' or role == 'ceo' %}
+                <a href="{% url 'inventory:inventory_list' %}" class="btn btn-info">
+                    <i class="bi bi-box-seam"></i> 查看库存
+                </a>
+                {% endif %}
+                {% if role == 'production' or role == 'ceo' %}
+                <a href="{% url 'production:task_list' %}" class="btn btn-success">
+                    <i class="bi bi-gear"></i> 生产任务
+                </a>
+                {% endif %}
+                {% if role == 'logistics' or role == 'ceo' %}
+                <a href="{% url 'logistics:shipping_notice_list' %}" class="btn btn-warning">
+                    <i class="bi bi-truck"></i> 待发货
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

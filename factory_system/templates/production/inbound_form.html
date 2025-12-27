@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}成品入库{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>成品入库 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">入库数量</label>
+                <input type="number" class="form-control" name="quantity" step="0.01" required>
+            </div>
+            {% if qc_records %}
+            <div class="mb-3">
+                <label class="form-label">关联质检记录（可选）</label>
+                <select class="form-select" name="qc_record_id">
+                    <option value="">无</option>
+                    {% for qc in qc_records %}
+                    <option value="{{ qc.pk }}">{{ qc.batch_no }} - 合格率：{{ qc.qualification_rate }}%</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-box-arrow-in"></i> 确认入库
+            </button>
+            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

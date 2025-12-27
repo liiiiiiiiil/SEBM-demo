@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}审批订单 - {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>审批订单 - {{ order.order_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>订单信息</h5>
+            <p>客户：{{ order.customer.name }}</p>
+            <p>订单总额：¥{{ order.total_amount }}</p>
+            <p>订单明细：</p>
+            <ul>
+                {% for item in order.items.all %}
+                <li>{{ item.product.name }} x {{ item.quantity }}{{ item.product.unit }} = ¥{{ item.subtotal }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="alert alert-warning">
+                审批通过后，系统将自动检查库存并创建生产任务或发货通知单。
+            </div>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 批准订单
+            </button>
+            <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}审核领料单 - {{ requisition.requisition_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>审核领料单 - {{ requisition.requisition_no }}</h4>
+    </div>
+    <div class="card-body">
+        {% if insufficient_items %}
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle"></i> 库存不足</h5>
+            <ul>
+                {% for item in insufficient_items %}
+                <li>{{ item.material }} - 需求：{{ item.required }}，可用：{{ item.available }}</li>
+                {% endfor %}
+            </ul>
+            <p>无法批准此领料单，请先补充库存。</p>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5>领料明细</h5>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>原料</th>
+                        <th>需求数量</th>
+                        <th>单位</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in requisition.items.all %}
+                    <tr>
+                        <td>{{ item.material.name }}</td>
+                        <td>{{ item.required_quantity }}</td>
+                        <td>{{ item.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="alert alert-warning">
+                批准后将自动扣减原料库存。
+            </div>
+            <button type="submit" class="btn btn-success" {% if insufficient_items %}disabled{% endif %}>
+                <i class="bi bi-check-circle"></i> 批准领料单
+            </button>
+            <a href="{% url 'production:requisition_list' %}" class="btn btn-secondary">取消</a>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}发货单详情 - {{ shipment.shipment_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between">
+        <h4>发货单详情 - {{ shipment.shipment_no }}</h4>
+        <div>
+            {% if shipment.status == 'loading' %}
+            <a href="{% url 'logistics:shipment_ship' shipment.pk %}" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 确认发货
+            </a>
+            {% endif %}
+            <a href="{% url 'logistics:shipping_notice_list' %}" class="btn btn-secondary">返回列表</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>基本信息</h5>
+                <table class="table table-bordered">
+                    <tr>
+                        <th width="30%">发货单号</th>
+                        <td>{{ shipment.shipment_no }}</td>
+                    </tr>
+                    <tr>
+                        <th>订单号</th>
+                        <td>{{ shipment.order.order_no }}</td>
+                    </tr>
+                    <tr>
+                        <th>客户</th>
+                        <td>{{ shipment.order.customer.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>司机</th>
+                        <td>{{ shipment.driver.name|default:"未分配" }}</td>
+                    </tr>
+                    <tr>
+                        <th>车辆</th>
+                        <td>{{ shipment.vehicle.plate_no|default:"未分配" }}</td>
+                    </tr>
+                    <tr>
+                        <th>运费</th>
+                        <td>¥{{ shipment.freight_cost }}</td>
+                    </tr>
+                    <tr>
+                        <th>状态</th>
+                        <td>
+                            {% if shipment.status == 'pending' %}
+                            <span class="badge bg-warning">待发货</span>
+                            {% elif shipment.status == 'loading' %}
+                            <span class="badge bg-info">装车中</span>
+                            {% elif shipment.status == 'shipped' %}
+                            <span class="badge bg-success">已发货</span>
+                            {% elif shipment.status == 'delivered' %}
+                            <span class="badge bg-secondary">已送达</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>订单明细</h5>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>产品</th>
+                            <th>数量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in shipment.order.items.all %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}{{ item.product.unit }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

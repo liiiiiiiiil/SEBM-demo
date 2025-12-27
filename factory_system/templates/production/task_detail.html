@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}生产任务详情 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between">
+        <h4>生产任务详情 - {{ task.task_no }}</h4>
+        <a href="{% url 'production:task_list' %}" class="btn btn-secondary">返回列表</a>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5>基本信息</h5>
+                <table class="table table-bordered">
+                    <tr>
+                        <th width="30%">任务单号</th>
+                        <td>{{ task.task_no }}</td>
+                    </tr>
+                    <tr>
+                        <th>关联订单</th>
+                        <td>{{ task.order.order_no }}</td>
+                    </tr>
+                    <tr>
+                        <th>产品</th>
+                        <td>{{ task.product.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>需求数量</th>
+                        <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>完成数量</th>
+                        <td>{{ task.completed_quantity }}{{ task.product.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>状态</th>
+                        <td>
+                            {% if task.status == 'pending' %}
+                            <span class="badge bg-secondary">待接收</span>
+                            {% elif task.status == 'received' %}
+                            <span class="badge bg-info">已接收</span>
+                            {% elif task.status == 'material_preparing' %}
+                            <span class="badge bg-warning">备料中</span>
+                            {% elif task.status == 'in_production' %}
+                            <span class="badge bg-primary">生产中</span>
+                            {% elif task.status == 'qc_checking' %}
+                            <span class="badge bg-info">质检中</span>
+                            {% elif task.status == 'completed' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>BOM配方</h5>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>原料</th>
+                            <th>用量</th>
+                            <th>单位</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bom in bom_items %}
+                        <tr>
+                            <td>{{ bom.material.name }}</td>
+                            <td>{{ bom.quantity }}</td>
+                            <td>{{ bom.unit }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">暂无BOM数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            {% if task.status == 'in_production' or task.status == 'material_preparing' %}
+            <a href="{% url 'production:qc_create' task.pk %}" class="btn btn-primary">
+                <i class="bi bi-clipboard-check"></i> 录入质检记录
+            </a>
+            {% endif %}
+            {% if task.status == 'qc_checking' %}
+            <a href="{% url 'production:inbound_create' task.pk %}" class="btn btn-success">
+                <i class="bi bi-box-arrow-in"></i> 成品入库
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
