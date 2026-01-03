@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}客户管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people"></i> 客户管理</h2>
+    {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.create' %}
+    <a href="{% url 'inventory:customer_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> 新增客户
+    </a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="mb-3">
+            <div class="row">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="搜索客户名称、联系人或电话" value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-secondary">搜索</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>客户名称</th>
+                        <th>联系人</th>
+                        <th>联系电话</th>
+                        <th>地址</th>
+                        <th>信用等级</th>
+                        <th>创建人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td>{{ customer.name }}</td>
+                        <td>{{ customer.contact_person }}</td>
+                        <td>{{ customer.phone }}</td>
+                        <td>{{ customer.address|truncatewords:10 }}</td>
+                        <td>
+                            {% if customer.credit_level == 'A' %}
+                            <span class="badge bg-success">A级</span>
+                            {% elif customer.credit_level == 'B' %}
+                            <span class="badge bg-info">B级</span>
+                            {% elif customer.credit_level == 'C' %}
+                            <span class="badge bg-warning">C级</span>
+                            {% else %}
+                            <span class="badge bg-danger">D级</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ customer.created_by.username|default:"系统" }}</td>
+                        <td>{{ customer.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if user.profile.role == 'sales' %}
+                                {% if customer.created_by == user or user|has_permission:'inventory.customer.manage' %}
+                                <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-pencil"></i> 编辑
+                                </a>
+                                <a href="{% url 'inventory:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i> 删除
+                                </a>
+                                {% endif %}
+                            {% elif user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.manage' %}
+                            <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </a>
+                            <a href="{% url 'inventory:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
+                                <i class="bi bi-trash"></i> 删除
+                            </a>
+                            {% elif user|has_permission:'inventory.customer.edit' %}
+                                {% if customer.created_by == user %}
+                                <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-pencil"></i> 编辑
+                                </a>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">暂无客户数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

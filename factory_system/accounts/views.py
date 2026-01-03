@@ -3,28 +3,45 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
-from .models import UserProfile
+from .models import UserProfile, Permission
 
 
 def login_view(request):
-    """用户登录"""
+    """用户登录（调试模式：允许空密码）"""
     if request.user.is_authenticated:
         return redirect('dashboard')
     
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        
+        # 调试模式：如果密码为空，直接验证用户名
+        if not password:
+            try:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user = User.objects.get(username=username)
+                # 空密码直接登录（仅用于调试）
                 login(request, user)
-                messages.success(request, f'欢迎回来，{user.username}！')
+                messages.success(request, f'欢迎回来，{user.username}！（调试模式：空密码登录）')
                 return redirect('dashboard')
-            else:
-                messages.error(request, '用户名或密码错误')
+            except User.DoesNotExist:
+                messages.error(request, '用户名不存在')
+            except Exception as e:
+                messages.error(request, f'登录失败：{str(e)}')
         else:
-            messages.error(request, '请检查输入信息')
+            # 正常密码验证
+            form = AuthenticationForm(request, data=request.POST)
+            if form.is_valid():
+                user = authenticate(username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, f'欢迎回来，{user.username}！')
+                    return redirect('dashboard')
+                else:
+                    messages.error(request, '用户名或密码错误')
+            else:
+                messages.error(request, '请检查输入信息')
     else:
         form = AuthenticationForm()
     
@@ -69,3 +86,32 @@ def logout_view(request):
     logout(request)
     messages.success(request, '您已成功退出登录')
     return redirect('login')
+
+
+@login_required
+def my_permissions(request):
+    """查看我的权限"""
+    try:
+        profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        messages.error(request, '用户角色未设置')
+        return redirect('dashboard')
+    
+    # 获取角色默认权限
+    role_permissions = profile.get_role_default_permissions()
+    role_permission_objs = Permission.objects.filter(code__in=role_permissions)
+    
+    # 获取额外配置的权限
+    extra_permissions = profile.permissions.all()
+    
+    # 获取所有权限
+    all_permissions = profile.get_all_permissions()
+    
+    context = {
+        'profile': profile,
+        'role_permissions': role_permission_objs,
+        'extra_permissions': extra_permissions,
+        'all_permissions': all_permissions,
+    }
+    
+    return render(request, 'accounts/my_permissions.html', context)

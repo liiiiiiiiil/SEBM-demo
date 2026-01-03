@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}我的权限 - 用户中心{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4><i class="bi bi-shield-check"></i> 我的权限</h4>
+    </div>
+    <div class="card-body">
+        <div class="mb-4">
+            <h5>基本信息</h5>
+            <table class="table table-bordered">
+                <tr>
+                    <th width="20%">用户名</th>
+                    <td>{{ user.username }}</td>
+                </tr>
+                <tr>
+                    <th>角色</th>
+                    <td>
+                        <span class="badge bg-primary">{{ profile.get_role_display }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <th>部门</th>
+                    <td>{{ profile.department|default:"未设置" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="mb-4">
+            <h5>角色默认权限</h5>
+            <p class="text-muted">这些权限是您的角色（{{ profile.get_role_display }}）默认拥有的权限。</p>
+            {% if role_permissions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>权限代码</th>
+                            <th>权限名称</th>
+                            <th>分类</th>
+                            <th>描述</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perm in role_permissions %}
+                        <tr>
+                            <td><code>{{ perm.code }}</code></td>
+                            <td>{{ perm.name }}</td>
+                            <td><span class="badge bg-info">{{ perm.get_category_display }}</span></td>
+                            <td>{{ perm.description|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">该角色没有默认权限配置。</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <h5>额外配置的权限</h5>
+            <p class="text-muted">这些权限是管理员为您额外配置的权限，会叠加在角色默认权限之上。</p>
+            {% if extra_permissions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>权限代码</th>
+                            <th>权限名称</th>
+                            <th>分类</th>
+                            <th>描述</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perm in extra_permissions %}
+                        <tr>
+                            <td><code>{{ perm.code }}</code></td>
+                            <td>{{ perm.name }}</td>
+                            <td><span class="badge bg-info">{{ perm.get_category_display }}</span></td>
+                            <td>{{ perm.description|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">您没有额外配置的权限。</div>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <h5>所有权限列表（{{ all_permissions|length }}项）</h5>
+            <p class="text-muted">以下是您拥有的所有权限代码列表。</p>
+            <div class="d-flex flex-wrap gap-2">
+                {% for perm_code in all_permissions %}
+                <span class="badge bg-success">{{ perm_code }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary">返回仪表板</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
