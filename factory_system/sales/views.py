@@ -6,7 +6,7 @@ from django.utils import timezone
 from accounts.decorators import role_required
 from .models import SalesOrder, SalesOrderItem, ShippingNotice
 from inventory.models import Customer, Product, Inventory
-from production.models import ProductionTask
+from production.models import ProductionTask, MaterialRequisition
 
 
 @login_required
@@ -20,12 +20,10 @@ def order_list(request):
         orders = orders.filter(salesperson=request.user)
     
     status_filter = request.GET.get('status', '')
-    # 库存管理员默认显示待库存审批的订单
-    if not status_filter and request.user.profile.role == 'warehouse':
-        status_filter = 'warehouse_pending'
-        orders = orders.filter(status='warehouse_pending')
-    elif status_filter:
+    # 根据筛选条件过滤订单
+    if status_filter:
         orders = orders.filter(status=status_filter)
+    # 注意：总经理默认显示所有订单，不再自动筛选为待审批订单
     
     context = {
         'orders': orders,
@@ -145,7 +143,7 @@ def order_detail(request, pk):
     """订单详情"""
     order = get_object_or_404(SalesOrder.objects.prefetch_related('items__product'), pk=pk)
     
-    # 权限检查：销售员只能看自己的订单，库存管理员和销售经理可以看所有订单
+    # 权限检查：销售员只能看自己的订单，总经理和销售经理可以看所有订单
     if request.user.profile.role == 'sales' and order.salesperson != request.user:
         messages.error(request, '您没有权限查看此订单')
         return redirect('sales:order_list')
@@ -199,7 +197,7 @@ def order_approve(request, pk):
     
     if request.method == 'POST':
         with transaction.atomic():
-            order.status = 'warehouse_pending'  # 销售审批后进入库存审批
+            order.status = 'ceo_pending'  # 销售审批后进入总经理审批
             order.approved_by = request.user
             order.approved_at = timezone.now()
             # 清除退回信息（如果之前被退回过）
@@ -208,7 +206,7 @@ def order_approve(request, pk):
             order.reject_reason = ''
             order.save()
             
-            messages.success(request, f'订单 {order.order_no} 销售审批通过，已提交至库存审批')
+            messages.success(request, f'订单 {order.order_no} 销售审批通过，已提交至总经理审批')
             return redirect('sales:order_detail', pk=pk)
     
     return render(request, 'sales/order_approve.html', {'order': order})
@@ -246,26 +244,26 @@ def order_reject(request, pk):
 
 
 @login_required
-@role_required('warehouse', 'ceo')
-def warehouse_approve(request, pk):
-    """库存审批订单"""
+@role_required('ceo')
+def ceo_approve(request, pk):
+    """总经理审批订单"""
     order = get_object_or_404(SalesOrder, pk=pk)
     
-    if order.status != 'warehouse_pending':
-        messages.error(request, '订单状态不正确，只能审批待库存审批的订单')
+    if order.status != 'ceo_pending':
+        messages.error(request, '订单状态不正确，只能审批待总经理审批的订单')
         return redirect('sales:order_detail', pk=pk)
     
     if request.method == 'POST':
         with transaction.atomic():
-            order.status = 'warehouse_approved'
-            order.warehouse_approved_by = request.user
-            order.warehouse_approved_at = timezone.now()
+            order.status = 'ceo_approved'
+            order.ceo_approved_by = request.user
+            order.ceo_approved_at = timezone.now()
             order.save()
             
-            # 库存审批完成后，进入智能库存研判
+            # 总经理审批完成后，进入智能库存研判
             check_inventory_and_create_tasks(order)
             
-            messages.success(request, f'订单 {order.order_no} 库存审批通过，已进入生产/物流环节')
+            messages.success(request, f'订单 {order.order_no} 总经理审批通过，已进入生产/物流环节')
             return redirect('sales:order_detail', pk=pk)
     
     # 审批前进行库存判断（不实际创建任务）
@@ -275,17 +273,17 @@ def warehouse_approve(request, pk):
         'order': order,
         'inventory_check': inventory_check_result,
     }
-    return render(request, 'sales/warehouse_approve.html', context)
+    return render(request, 'sales/ceo_approve.html', context)
 
 
 @login_required
-@role_required('warehouse', 'ceo')
-def warehouse_reject(request, pk):
-    """库存退回订单"""
+@role_required('ceo')
+def ceo_reject(request, pk):
+    """总经理退回订单"""
     order = get_object_or_404(SalesOrder, pk=pk)
     
-    if order.status != 'warehouse_pending':
-        messages.error(request, '只能退回待库存审批状态的订单')
+    if order.status != 'ceo_pending':
+        messages.error(request, '只能退回待总经理审批状态的订单')
         return redirect('sales:order_detail', pk=pk)
     
     if request.method == 'POST':
@@ -293,7 +291,7 @@ def warehouse_reject(request, pk):
         
         if not reject_reason:
             messages.error(request, '请输入退回原因')
-            return render(request, 'sales/warehouse_reject.html', {'order': order})
+            return render(request, 'sales/ceo_reject.html', {'order': order})
         
         with transaction.atomic():
             order.status = 'rejected'
@@ -305,7 +303,79 @@ def warehouse_reject(request, pk):
             messages.success(request, f'订单 {order.order_no} 已退回给销售员 {order.salesperson.username}')
             return redirect('sales:order_detail', pk=pk)
     
-    return render(request, 'sales/warehouse_reject.html', {'order': order})
+    return render(request, 'sales/ceo_reject.html', {'order': order})
+
+
+def terminate_order_chain(order, terminated_by, terminate_reason):
+    """终结订单及其所有关联流程的完整链路"""
+    with transaction.atomic():
+        # 1. 终结销售订单
+        order.status = 'terminated'
+        order.terminated_by = terminated_by
+        order.terminated_at = timezone.now()
+        order.terminate_reason = terminate_reason
+        order.save()
+        
+        # 2. 终结所有关联的生产任务
+        production_tasks = ProductionTask.objects.filter(order=order)
+        for task in production_tasks:
+            if task.status not in ['completed', 'cancelled', 'terminated']:
+                task.status = 'terminated'
+                task.terminated_by = terminated_by
+                task.terminated_at = timezone.now()
+                task.terminate_reason = f"关联订单 {order.order_no} 已终结：{terminate_reason}"
+                task.save()
+                
+                # 3. 终结所有关联的领料单
+                requisitions = MaterialRequisition.objects.filter(task=task)
+                for requisition in requisitions:
+                    if requisition.status not in ['cancelled', 'terminated']:
+                        requisition.status = 'terminated'
+                        requisition.terminated_by = terminated_by
+                        requisition.terminated_at = timezone.now()
+                        requisition.terminate_reason = f"关联订单 {order.order_no} 已终结：{terminate_reason}"
+                        requisition.save()
+        
+        # 注意：ShippingNotice和Shipment模型没有terminated状态，但可以通过订单状态判断是否已终结
+
+
+@login_required
+@role_required('ceo')
+def order_terminate(request, pk):
+    """总经理终结订单（终结整个链路）"""
+    order = get_object_or_404(SalesOrder, pk=pk)
+    
+    # 只能终结进行中的订单
+    active_statuses = ['in_production', 'ready_to_ship', 'shipped']
+    if order.status not in active_statuses:
+        messages.error(request, '只能终结进行中的订单（生产中、待发货、已发货）')
+        return redirect('sales:order_detail', pk=pk)
+    
+    if request.method == 'POST':
+        terminate_reason = request.POST.get('terminate_reason', '').strip()
+        
+        if not terminate_reason:
+            messages.error(request, '请输入终结原因')
+            return render(request, 'sales/order_terminate.html', {'order': order})
+        
+        # 终结整个链路
+        terminate_order_chain(order, request.user, terminate_reason)
+        
+        messages.success(request, f'订单 {order.order_no} 及其所有关联流程已终结')
+        return redirect('sales:order_detail', pk=pk)
+    
+    # 显示关联流程信息
+    production_tasks = ProductionTask.objects.filter(order=order)
+    requisitions = MaterialRequisition.objects.filter(task__order=order)
+    shipping_notices = ShippingNotice.objects.filter(order=order)
+    
+    context = {
+        'order': order,
+        'production_tasks': production_tasks,
+        'requisitions': requisitions,
+        'shipping_notices': shipping_notices,
+    }
+    return render(request, 'sales/order_terminate.html', context)
 
 
 def check_inventory_status(order):

@@ -20,6 +20,7 @@
                         <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>生产中</option>
                         <option value="qc_checking" {% if status_filter == 'qc_checking' %}selected{% endif %}>质检中</option>
                         <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
+                        <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -63,6 +64,10 @@
                             <span class="badge bg-info">质检中</span>
                             {% elif task.status == 'completed' %}
                             <span class="badge bg-success">已完成</span>
+                            {% elif task.status == 'cancelled' %}
+                            <span class="badge bg-dark">已取消</span>
+                            {% elif task.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
                         <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>

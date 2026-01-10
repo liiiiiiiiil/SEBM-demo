@@ -6,7 +6,16 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between">
         <h4>生产任务详情 - {{ task.task_no }}</h4>
-        <a href="{% url 'production:task_list' %}" class="btn btn-secondary">返回列表</a>
+        <div>
+            {% if task.status == 'received' or task.status == 'material_preparing' or task.status == 'in_production' or task.status == 'qc_checking' %}
+                {% if user.profile.role == 'ceo' %}
+                <a href="{% url 'production:task_terminate' task.pk %}" class="btn btn-danger">
+                    <i class="bi bi-x-octagon"></i> 终结流程
+                </a>
+                {% endif %}
+            {% endif %}
+            <a href="{% url 'production:task_list' %}" class="btn btn-secondary">返回列表</a>
+        </div>
     </div>
     <div class="card-body">
         <div class="row mb-4">
@@ -48,9 +57,31 @@
                             <span class="badge bg-info">质检中</span>
                             {% elif task.status == 'completed' %}
                             <span class="badge bg-success">已完成</span>
+                            {% elif task.status == 'cancelled' %}
+                            <span class="badge bg-dark">已取消</span>
+                            {% elif task.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
                     </tr>
+                    {% if task.terminated_by %}
+                    <tr>
+                        <th>终结原因</th>
+                        <td>
+                            <div class="alert alert-danger mb-0">
+                                {{ task.terminate_reason|default:"无" }}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>终结人</th>
+                        <td>{{ task.terminated_by.username|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>终结时间</th>
+                        <td>{{ task.terminated_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
             <div class="col-md-6">

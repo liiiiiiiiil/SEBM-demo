@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}终结生产任务 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4><i class="bi bi-x-octagon"></i> 终结生产任务</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5>任务信息</h5>
+            <p><strong>任务单号：</strong>{{ task.task_no }}</p>
+            <p><strong>关联订单：</strong>{{ task.order.order_no }}</p>
+            <p><strong>产品：</strong>{{ task.product.name }}</p>
+            <p><strong>需求数量：</strong>{{ task.required_quantity }}{{ task.product.unit }}</p>
+            <p><strong>完成数量：</strong>{{ task.completed_quantity }}{{ task.product.unit }}</p>
+            <p><strong>当前状态：</strong>
+                {% if task.status == 'received' %}
+                <span class="badge bg-info">已接收</span>
+                {% elif task.status == 'material_preparing' %}
+                <span class="badge bg-warning">备料中</span>
+                {% elif task.status == 'in_production' %}
+                <span class="badge bg-primary">生产中</span>
+                {% elif task.status == 'qc_checking' %}
+                <span class="badge bg-info">质检中</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="alert alert-danger">
+            <strong>警告：</strong>终结生产任务将同时终结关联的销售订单（{{ task.order.order_no }}）及其所有关联流程（领料单等），这是不可逆的操作，请谨慎操作。
+        </div>
+        
+        {% if requisitions %}
+        <div class="mt-3">
+            <h6>关联的领料单（将同时终结）：</h6>
+            <ul>
+                {% for req in requisitions %}
+                <li>{{ req.requisition_no }} - {{ req.get_status_display }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="terminate_reason" class="form-label">终结原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="terminate_reason" name="terminate_reason" rows="4" required placeholder="请输入终结原因"></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-x-octagon"></i> 确认终结
+            </button>
+            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

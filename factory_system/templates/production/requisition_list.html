@@ -17,6 +17,7 @@
                         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待审核</option>
                         <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>已批准</option>
                         <option value="issued" {% if status_filter == 'issued' %}selected{% endif %}>已发料</option>
+                        <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -50,6 +51,10 @@
                             <span class="badge bg-success">已批准</span>
                             {% elif req.status == 'issued' %}
                             <span class="badge bg-info">已发料</span>
+                            {% elif req.status == 'cancelled' %}
+                            <span class="badge bg-dark">已取消</span>
+                            {% elif req.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
                         <td>{{ req.created_at|date:"Y-m-d H:i" }}</td>
@@ -58,6 +63,13 @@
                             <a href="{% url 'production:requisition_approve' req.pk %}" class="btn btn-sm btn-success">
                                 <i class="bi bi-check-circle"></i> 审核
                             </a>
+                            {% endif %}
+                            {% if req.status == 'pending' or req.status == 'approved' or req.status == 'issued' %}
+                                {% if user.profile.role == 'ceo' %}
+                                <a href="{% url 'production:requisition_terminate' req.pk %}" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-x-octagon"></i> 终结
+                                </a>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>

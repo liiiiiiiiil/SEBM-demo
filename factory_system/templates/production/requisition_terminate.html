@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}终结领料单 - {{ requisition.requisition_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4><i class="bi bi-x-octagon"></i> 终结领料单</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5>领料单信息</h5>
+            <p><strong>领料单号：</strong>{{ requisition.requisition_no }}</p>
+            <p><strong>生产任务：</strong>{{ requisition.task.task_no }}</p>
+            <p><strong>申请人：</strong>{{ requisition.requested_by.username }}</p>
+            <p><strong>当前状态：</strong>
+                {% if requisition.status == 'pending' %}
+                <span class="badge bg-warning">待审核</span>
+                {% elif requisition.status == 'approved' %}
+                <span class="badge bg-success">已批准</span>
+                {% elif requisition.status == 'issued' %}
+                <span class="badge bg-info">已发料</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="alert alert-danger">
+            <strong>警告：</strong>终结领料单将同时终结关联的销售订单（{{ order.order_no }}）及其所有关联流程（生产任务等），这是不可逆的操作，请谨慎操作。
+        </div>
+        
+        <div class="mt-3">
+            <h6>关联信息：</h6>
+            <ul>
+                <li>生产任务：{{ task.task_no }}</li>
+                <li>销售订单：{{ order.order_no }}</li>
+            </ul>
+        </div>
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="terminate_reason" class="form-label">终结原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="terminate_reason" name="terminate_reason" rows="4" required placeholder="请输入终结原因"></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-x-octagon"></i> 确认终结
+            </button>
+            <a href="{% url 'production:requisition_list' %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

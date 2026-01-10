@@ -139,6 +139,12 @@ class Command(BaseCommand):
                 'description': '审批库存调整申请',
             },
             {
+                'code': 'inventory.bom.view',
+                'name': '查看BOM配方',
+                'category': 'inventory',
+                'description': '查看BOM配方信息',
+            },
+            {
                 'code': 'inventory.bom.manage',
                 'name': '管理BOM配方',
                 'category': 'inventory',

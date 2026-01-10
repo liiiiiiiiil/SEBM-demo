@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from accounts.decorators import role_required, permission_required, role_or_permission_required
-from .models import Inventory, StockTransaction, Product, Material, Customer, ProductCategory, MaterialCategory, InventoryAdjustmentRequest
+from .models import Inventory, StockTransaction, Product, Material, Customer, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM
 
 
 @login_required
@@ -335,3 +335,37 @@ def adjustment_approve(request, pk):
         return redirect('inventory:adjustment_list')
     
     return render(request, 'inventory/adjustment_approve.html', {'adjustment': adjustment})
+
+
+@login_required
+@role_or_permission_required('production', 'ceo', permission_code='inventory.bom.view')
+def bom_list(request):
+    """BOM配方列表"""
+    boms = BOM.objects.select_related('product', 'material').all()
+    
+    # 按产品筛选
+    product_filter = request.GET.get('product', '')
+    if product_filter:
+        boms = boms.filter(product_id=product_filter)
+    
+    # 获取所有产品用于筛选
+    products = Product.objects.all().order_by('sku')
+    
+    # 按产品分组
+    bom_by_product = {}
+    for bom in boms:
+        product_id = bom.product.id
+        if product_id not in bom_by_product:
+            bom_by_product[product_id] = {
+                'product': bom.product,
+                'items': []
+            }
+        bom_by_product[product_id]['items'].append(bom)
+    
+    context = {
+        'bom_by_product': bom_by_product,
+        'products': products,
+        'product_filter': product_filter,
+        'can_manage': request.user.profile.has_permission('inventory.bom.manage'),
+    }
+    return render(request, 'inventory/bom_list.html', context)

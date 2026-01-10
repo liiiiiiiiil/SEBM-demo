@@ -17,5 +17,6 @@ urlpatterns = [
     path('adjustments/', views.adjustment_list, name='adjustment_list'),
     path('adjustments/create/<int:inventory_pk>/', views.inventory_adjustment_create, name='adjustment_create'),
     path('adjustments/<int:pk>/approve/', views.adjustment_approve, name='adjustment_approve'),
+    path('boms/', views.bom_list, name='bom_list'),
 ]
 

@@ -58,6 +58,12 @@ class Shipment(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     shipped_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='shipped_shipments', verbose_name='发货人')
     shipped_at = models.DateTimeField(null=True, blank=True, verbose_name='发货时间')
+    # 发货回执相关字段
+    delivered_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, null=True, blank=True, related_name='delivered_shipments', verbose_name='回执录入人')
+    delivered_at = models.DateTimeField(null=True, blank=True, verbose_name='收货时间')
+    receiver_name = models.CharField(max_length=100, blank=True, verbose_name='收货人姓名')
+    receiver_phone = models.CharField(max_length=20, blank=True, verbose_name='收货人电话')
+    delivery_remark = models.TextField(blank=True, verbose_name='回执备注')
     remark = models.TextField(blank=True, verbose_name='备注')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')

@@ -73,43 +73,50 @@
                     </li>
                     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'sales.order.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'sales' in request.path %}active{% endif %}" href="{% url 'sales:order_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'order_list' or request.resolver_match.url_name == 'order_create' or request.resolver_match.url_name == 'order_edit' or request.resolver_match.url_name == 'order_detail' or request.resolver_match.url_name == 'order_approve' or request.resolver_match.url_name == 'order_reject' or request.resolver_match.url_name == 'ceo_approve' or request.resolver_match.url_name == 'ceo_reject' or request.resolver_match.url_name == 'order_cancel' %}active{% endif %}" href="{% url 'sales:order_list' %}">
                             <i class="bi bi-cart"></i> 销售订单
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'customers' in request.path %}active{% endif %}" href="{% url 'inventory:customer_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'customer_list' or request.resolver_match.url_name == 'customer_create' or request.resolver_match.url_name == 'customer_edit' or request.resolver_match.url_name == 'customer_delete' %}active{% endif %}" href="{% url 'inventory:customer_list' %}">
                             <i class="bi bi-people"></i> 客户管理
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'warehouse' or user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'inventory.view' or user|has_permission:'inventory.view_product' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'inventory' in request.path %}active{% endif %}" href="{% url 'inventory:inventory_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'inventory_list' or request.resolver_match.url_name == 'stock_transactions' or request.resolver_match.url_name == 'product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_edit' or request.resolver_match.url_name == 'product_delete' or request.resolver_match.url_name == 'adjustment_list' or request.resolver_match.url_name == 'adjustment_create' or request.resolver_match.url_name == 'adjustment_approve' %}active{% endif %}" href="{% url 'inventory:inventory_list' %}">
                             <i class="bi bi-box-seam"></i> 库存管理
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'production.task.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'production' in request.path %}active{% endif %}" href="{% url 'production:task_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'task_list' or request.resolver_match.url_name == 'task_detail' or request.resolver_match.url_name == 'task_receive' or request.resolver_match.url_name == 'qc_create' or request.resolver_match.url_name == 'inbound_create' %}active{% endif %}" href="{% url 'production:task_list' %}">
                             <i class="bi bi-gear"></i> 生产管理
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'inventory.bom.view' %}
+                    <li class="nav-item mb-2">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'bom_list' %}active{% endif %}" href="{% url 'inventory:bom_list' %}">
+                            <i class="bi bi-list-check"></i> BOM配方
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'production.requisition.approve' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'production' in request.path and 'requisition' in request.path %}active{% endif %}" href="{% url 'production:requisition_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'requisition_list' or request.resolver_match.url_name == 'requisition_approve' %}active{% endif %}" href="{% url 'production:requisition_list' %}">
                             <i class="bi bi-clipboard-check"></i> 领料单审核
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'logistics' or user.profile.role == 'ceo' or user|has_permission:'logistics.shipment.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if 'logistics' in request.path %}active{% endif %}" href="{% url 'logistics:shipping_notice_list' %}">
-                            <i class="bi bi-truck"></i> 物流发货
+                        <a class="nav-link {% if request.resolver_match.url_name == 'shipping_notice_list' or request.resolver_match.url_name == 'shipment_create' or request.resolver_match.url_name == 'shipment_detail' or request.resolver_match.url_name == 'shipment_ship' or request.resolver_match.url_name == 'shipment_list' or request.resolver_match.url_name == 'shipment_delivery_confirm' or request.resolver_match.url_name == 'driver_list' or request.resolver_match.url_name == 'vehicle_list' %}active{% endif %}" href="{% url 'logistics:shipment_list' %}">
+                            <i class="bi bi-truck"></i> 物流管理
                         </a>
                     </li>
                     {% endif %}

@@ -108,10 +108,11 @@ def shipment_ship(request, pk):
             shipment.shipping_notice.status = 'shipped'
             shipment.shipping_notice.save()
             
+            # 发货后订单状态保持为'已发货'，不直接变为'已完成'
             shipment.order.status = 'shipped'
             shipment.order.save()
             
-            messages.success(request, f'发货单 {shipment.shipment_no} 已发货')
+            messages.success(request, f'发货单 {shipment.shipment_no} 已发货，待客户收货后请补充发货回执')
             return redirect('logistics:shipment_detail', pk=pk)
     
     return render(request, 'logistics/shipment_ship.html', {'shipment': shipment})
@@ -123,6 +124,69 @@ def driver_list(request):
     """司机列表"""
     drivers = Driver.objects.all()
     return render(request, 'logistics/driver_list.html', {'drivers': drivers})
+
+
+@login_required
+@role_required('logistics', 'ceo')
+def shipment_list(request):
+    """发货单列表（包括所有状态）"""
+    shipments = Shipment.objects.select_related('order', 'driver', 'vehicle', 'shipped_by').all()
+    
+    # 状态筛选
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        shipments = shipments.filter(status=status_filter)
+    
+    context = {
+        'shipments': shipments,
+        'status_filter': status_filter,
+    }
+    return render(request, 'logistics/shipment_list.html', context)
+
+
+@login_required
+@role_required('logistics', 'ceo')
+def shipment_delivery_confirm(request, pk):
+    """发货回执确认"""
+    shipment = get_object_or_404(Shipment.objects.select_related('order'), pk=pk)
+    
+    if shipment.status != 'shipped':
+        messages.error(request, '只能对已发货的发货单进行回执确认')
+        return redirect('logistics:shipment_detail', pk=pk)
+    
+    if request.method == 'POST':
+        receiver_name = request.POST.get('receiver_name', '').strip()
+        receiver_phone = request.POST.get('receiver_phone', '').strip()
+        delivery_remark = request.POST.get('delivery_remark', '').strip()
+        
+        if not receiver_name:
+            messages.error(request, '请输入收货人姓名')
+            return render(request, 'logistics/shipment_delivery_confirm.html', {'shipment': shipment})
+        
+        with transaction.atomic():
+            shipment.status = 'delivered'
+            shipment.delivered_by = request.user
+            shipment.delivered_at = timezone.now()
+            shipment.receiver_name = receiver_name
+            shipment.receiver_phone = receiver_phone
+            shipment.delivery_remark = delivery_remark
+            shipment.save()
+            
+            # 检查订单的所有发货单是否都已送达
+            all_shipments_delivered = all(
+                s.status == 'delivered' 
+                for s in Shipment.objects.filter(order=shipment.order)
+            )
+            
+            # 如果所有发货单都已送达，订单状态变为已完成
+            if all_shipments_delivered:
+                shipment.order.status = 'completed'
+                shipment.order.save()
+            
+            messages.success(request, f'发货单 {shipment.shipment_no} 回执确认成功，订单流程已完成')
+            return redirect('logistics:shipment_detail', pk=pk)
+    
+    return render(request, 'logistics/shipment_delivery_confirm.html', {'shipment': shipment})
 
 
 @login_required

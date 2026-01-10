@@ -310,3 +310,86 @@ def check_order_ready_to_ship(order):
         )
         order.status = 'ready_to_ship'
         order.save()
+
+
+@login_required
+@role_required('ceo')
+def task_terminate(request, pk):
+    """总经理终结生产任务（终结整个链路）"""
+    from sales.views import terminate_order_chain
+    
+    task = get_object_or_404(ProductionTask, pk=pk)
+    
+    # 只能终结进行中的任务
+    active_statuses = ['received', 'material_preparing', 'in_production', 'qc_checking']
+    if task.status not in active_statuses:
+        messages.error(request, '只能终结进行中的任务（已接收、备料中、生产中、质检中）')
+        return redirect('production:task_detail', pk=pk)
+    
+    if request.method == 'POST':
+        terminate_reason = request.POST.get('terminate_reason', '').strip()
+        
+        if not terminate_reason:
+            messages.error(request, '请输入终结原因')
+            return render(request, 'production/task_terminate.html', {'task': task})
+        
+        # 向上追溯到销售订单，终结整个链路
+        order = task.order
+        # 导入终结函数（避免循环导入）
+        from sales.views import terminate_order_chain
+        terminate_order_chain(order, request.user, f"通过生产任务 {task.task_no} 终结：{terminate_reason}")
+        
+        messages.success(request, f'生产任务 {task.task_no} 及其关联订单 {order.order_no} 的所有流程已终结')
+        return redirect('production:task_detail', pk=pk)
+    
+    # 显示关联信息
+    order = task.order
+    requisitions = MaterialRequisition.objects.filter(task=task)
+    
+    context = {
+        'task': task,
+        'order': order,
+        'requisitions': requisitions,
+    }
+    return render(request, 'production/task_terminate.html', context)
+
+
+@login_required
+@role_required('ceo')
+def requisition_terminate(request, pk):
+    """总经理终结领料单（终结整个链路）"""
+    requisition = get_object_or_404(MaterialRequisition, pk=pk)
+    
+    # 只能终结进行中的领料单
+    active_statuses = ['pending', 'approved', 'issued']
+    if requisition.status not in active_statuses:
+        messages.error(request, '只能终结进行中的领料单（待审核、已批准、已发料）')
+        return redirect('production:requisition_list')
+    
+    if request.method == 'POST':
+        terminate_reason = request.POST.get('terminate_reason', '').strip()
+        
+        if not terminate_reason:
+            messages.error(request, '请输入终结原因')
+            return render(request, 'production/requisition_terminate.html', {'requisition': requisition})
+        
+        # 向上追溯到销售订单，终结整个链路
+        task = requisition.task
+        order = task.order
+        # 导入终结函数（避免循环导入）
+        from sales.views import terminate_order_chain
+        terminate_order_chain(order, request.user, f"通过领料单 {requisition.requisition_no} 终结：{terminate_reason}")
+        
+        messages.success(request, f'领料单 {requisition.requisition_no} 及其关联订单 {order.order_no} 的所有流程已终结')
+        return redirect('production:requisition_list')
+    
+    # 显示关联信息
+    task = requisition.task
+    order = task.order
+    
+    context = {
+        'requisition': requisition,
+        'task': task,
+        'order': order,
+    }
+    return render(request, 'production/requisition_terminate.html', context)

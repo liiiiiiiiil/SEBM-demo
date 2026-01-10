@@ -21,13 +21,14 @@
                         <option value="">全部状态</option>
                         <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待销售审批</option>
                         <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>销售已审批</option>
-                        <option value="warehouse_pending" {% if status_filter == 'warehouse_pending' %}selected{% endif %}>待库存审批</option>
-                        <option value="warehouse_approved" {% if status_filter == 'warehouse_approved' %}selected{% endif %}>库存已审批</option>
+                        <option value="ceo_pending" {% if status_filter == 'ceo_pending' %}selected{% endif %}>待总经理审批</option>
+                        <option value="ceo_approved" {% if status_filter == 'ceo_approved' %}selected{% endif %}>总经理已审批</option>
                         <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>已退回</option>
                         <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>已取消</option>
                         <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>生产中</option>
                         <option value="ready_to_ship" {% if status_filter == 'ready_to_ship' %}selected{% endif %}>待发货</option>
                         <option value="shipped" {% if status_filter == 'shipped' %}selected{% endif %}>已发货</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -60,10 +61,10 @@
                             <span class="badge bg-warning">待销售审批</span>
                             {% elif order.status == 'approved' %}
                             <span class="badge bg-info">销售已审批</span>
-                            {% elif order.status == 'warehouse_pending' %}
-                            <span class="badge bg-warning">待库存审批</span>
-                            {% elif order.status == 'warehouse_approved' %}
-                            <span class="badge bg-info">库存已审批</span>
+                            {% elif order.status == 'ceo_pending' %}
+                            <span class="badge bg-warning">待总经理审批</span>
+                            {% elif order.status == 'ceo_approved' %}
+                            <span class="badge bg-info">总经理已审批</span>
                             {% elif order.status == 'rejected' %}
                             <span class="badge bg-danger">已退回</span>
                             {% elif order.status == 'in_production' %}
@@ -76,6 +77,8 @@
                             <span class="badge bg-success">已完成</span>
                             {% elif order.status == 'cancelled' %}
                             <span class="badge bg-dark">已取消</span>
+                            {% elif order.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
                         <td>¥{{ order.total_amount }}</td>
@@ -84,19 +87,21 @@
                             <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-sm btn-info">
                                 <i class="bi bi-eye"></i> 查看
                             </a>
-                            {% if order.status == 'pending' and user.profile.role == 'sales_mgr' %}
-                            <a href="{% url 'sales:order_approve' order.pk %}" class="btn btn-sm btn-success">
-                                <i class="bi bi-check-circle"></i> 销售审批
-                            </a>
-                            <a href="{% url 'sales:order_reject' order.pk %}" class="btn btn-sm btn-warning">
-                                <i class="bi bi-arrow-return-left"></i> 退回
-                            </a>
+                            {% if order.status == 'pending' %}
+                                {% if user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' %}
+                                <a href="{% url 'sales:order_approve' order.pk %}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle"></i> 销售审批
+                                </a>
+                                <a href="{% url 'sales:order_reject' order.pk %}" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-arrow-return-left"></i> 退回
+                                </a>
+                                {% endif %}
                             {% endif %}
-                            {% if order.status == 'warehouse_pending' and user.profile.role == 'warehouse' %}
-                            <a href="{% url 'sales:warehouse_approve' order.pk %}" class="btn btn-sm btn-success">
-                                <i class="bi bi-check-circle"></i> 库存审批
+                            {% if order.status == 'ceo_pending' and user.profile.role == 'ceo' %}
+                            <a href="{% url 'sales:ceo_approve' order.pk %}" class="btn btn-sm btn-success">
+                                <i class="bi bi-check-circle"></i> 总经理审批
                             </a>
-                            <a href="{% url 'sales:warehouse_reject' order.pk %}" class="btn btn-sm btn-warning">
+                            <a href="{% url 'sales:ceo_reject' order.pk %}" class="btn btn-sm btn-warning">
                                 <i class="bi bi-arrow-return-left"></i> 退回
                             </a>
                             {% endif %}

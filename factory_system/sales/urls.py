@@ -10,8 +10,9 @@ urlpatterns = [
     path('orders/<int:pk>/', views.order_detail, name='order_detail'),
     path('orders/<int:pk>/approve/', views.order_approve, name='order_approve'),
     path('orders/<int:pk>/reject/', views.order_reject, name='order_reject'),
-    path('orders/<int:pk>/warehouse-approve/', views.warehouse_approve, name='warehouse_approve'),
-    path('orders/<int:pk>/warehouse-reject/', views.warehouse_reject, name='warehouse_reject'),
+    path('orders/<int:pk>/ceo-approve/', views.ceo_approve, name='ceo_approve'),
+    path('orders/<int:pk>/ceo-reject/', views.ceo_reject, name='ceo_reject'),
+    path('orders/<int:pk>/terminate/', views.order_terminate, name='order_terminate'),
     path('orders/<int:pk>/cancel/', views.order_cancel, name='order_cancel'),
 ]
 

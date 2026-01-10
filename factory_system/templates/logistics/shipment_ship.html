@@ -23,7 +23,7 @@
         <form method="post">
             {% csrf_token %}
             <div class="alert alert-warning">
-                确认发货后将自动扣减成品库存，订单状态将更新为"已发货"。
+                确认发货后将自动扣减成品库存，订单状态将更新为"已发货"。待客户收货后，请补充发货回执以完成订单流程。
             </div>
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-check-circle"></i> 确认发货

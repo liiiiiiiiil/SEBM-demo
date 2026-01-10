@@ -14,6 +14,7 @@ class ProductionTask(models.Model):
         ('qc_checking', '质检中'),
         ('completed', '已完成'),
         ('cancelled', '已取消'),
+        ('terminated', '已终结'),
     ]
     
     task_no = models.CharField(max_length=50, unique=True, verbose_name='任务单号')
@@ -26,6 +27,9 @@ class ProductionTask(models.Model):
     received_at = models.DateTimeField(null=True, blank=True, verbose_name='接收时间')
     started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
+    terminated_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='terminated_tasks', verbose_name='终结人')
+    terminated_at = models.DateTimeField(null=True, blank=True, verbose_name='终结时间')
+    terminate_reason = models.TextField(blank=True, verbose_name='终结原因')
     remark = models.TextField(blank=True, verbose_name='备注')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
@@ -46,6 +50,7 @@ class MaterialRequisition(models.Model):
         ('approved', '已批准'),
         ('issued', '已发料'),
         ('cancelled', '已取消'),
+        ('terminated', '已终结'),
     ]
     
     requisition_no = models.CharField(max_length=50, unique=True, verbose_name='领料单号')
@@ -56,6 +61,9 @@ class MaterialRequisition(models.Model):
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
     issued_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='issued_requisitions', verbose_name='发料人')
     issued_at = models.DateTimeField(null=True, blank=True, verbose_name='发料时间')
+    terminated_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='terminated_requisitions', verbose_name='终结人')
+    terminated_at = models.DateTimeField(null=True, blank=True, verbose_name='终结时间')
+    terminate_reason = models.TextField(blank=True, verbose_name='终结原因')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     
     class Meta:

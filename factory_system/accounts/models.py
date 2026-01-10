@@ -106,7 +106,7 @@ class UserProfile(models.Model):
                 'production.task.view',
                 'production.task.receive',
                 'production.requisition.create',
-                'production.task.view',
+                'inventory.bom.view',
             ],
             'qc': [
                 'production.qc.create',
@@ -118,7 +118,49 @@ class UserProfile(models.Model):
                 'logistics.driver.manage',
                 'logistics.vehicle.manage',
             ],
-            'ceo': [],  # CEO通过has_permission方法直接返回True
+            'ceo': [
+                # 销售权限
+                'sales.order.create',
+                'sales.order.view',
+                'sales.order.view_all',
+                'sales.order.edit',
+                'sales.order.approve',
+                'sales.order.delete',
+                # 库存权限
+                'inventory.view',
+                'inventory.view_product',
+                'inventory.view_material',
+                'inventory.transaction.view',
+                'inventory.customer.view',
+                'inventory.customer.create',
+                'inventory.customer.edit',
+                'inventory.customer.delete',
+                'inventory.customer.manage',
+                'inventory.product.view',
+                'inventory.product.manage',
+                'inventory.material.manage',
+                'inventory.category.manage',
+                'inventory.adjustment.create',
+                'inventory.adjustment.approve',
+                'inventory.bom.view',
+                'inventory.bom.manage',
+                # 生产权限
+                'production.task.view',
+                'production.task.receive',
+                'production.requisition.create',
+                'production.requisition.approve',
+                'production.qc.create',
+                'production.inbound.create',
+                # 物流权限
+                'logistics.shipment.view',
+                'logistics.shipment.create',
+                'logistics.shipment.ship',
+                'logistics.driver.manage',
+                'logistics.vehicle.manage',
+                # 系统权限
+                'system.dashboard.view',
+                'system.user.manage',
+            ],  # CEO通过has_permission方法直接返回True，但这里列出所有权限以便显示
         }
         return role_permission_map.get(self.role, [])
     
