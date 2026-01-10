@@ -9,7 +9,28 @@
         <div>
             {% if order.status == 'pending' and user.profile.role == 'sales_mgr' %}
             <a href="{% url 'sales:order_approve' order.pk %}" class="btn btn-success">
-                <i class="bi bi-check-circle"></i> 审批订单
+                <i class="bi bi-check-circle"></i> 销售审批
+            </a>
+            <a href="{% url 'sales:order_reject' order.pk %}" class="btn btn-warning">
+                <i class="bi bi-arrow-return-left"></i> 退回订单
+            </a>
+            {% endif %}
+            {% if order.status == 'warehouse_pending' and user.profile.role == 'warehouse' %}
+            <a href="{% url 'sales:warehouse_approve' order.pk %}" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 库存审批
+            </a>
+            <a href="{% url 'sales:warehouse_reject' order.pk %}" class="btn btn-warning">
+                <i class="bi bi-arrow-return-left"></i> 退回订单
+            </a>
+            {% endif %}
+            {% if order.status == 'pending' and order.salesperson == user %}
+            <a href="{% url 'sales:order_cancel' order.pk %}" class="btn btn-danger">
+                <i class="bi bi-x-circle"></i> 取消订单
+            </a>
+            {% endif %}
+            {% if order.status == 'rejected' and order.salesperson == user %}
+            <a href="{% url 'sales:order_edit' order.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> 编辑并重新提交
             </a>
             {% endif %}
             <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">返回列表</a>
@@ -36,18 +57,58 @@
                         <th>状态</th>
                         <td>
                             {% if order.status == 'pending' %}
-                            <span class="badge bg-warning">待审批</span>
+                            <span class="badge bg-warning">待销售审批</span>
                             {% elif order.status == 'approved' %}
-                            <span class="badge bg-info">已审核</span>
+                            <span class="badge bg-info">销售已审批</span>
+                            {% elif order.status == 'warehouse_pending' %}
+                            <span class="badge bg-warning">待库存审批</span>
+                            {% elif order.status == 'warehouse_approved' %}
+                            <span class="badge bg-info">库存已审批</span>
+                            {% elif order.status == 'rejected' %}
+                            <span class="badge bg-danger">已退回</span>
                             {% elif order.status == 'in_production' %}
                             <span class="badge bg-primary">生产中</span>
                             {% elif order.status == 'ready_to_ship' %}
                             <span class="badge bg-success">待发货</span>
                             {% elif order.status == 'shipped' %}
                             <span class="badge bg-secondary">已发货</span>
+                            {% elif order.status == 'completed' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% elif order.status == 'cancelled' %}
+                            <span class="badge bg-dark">已取消</span>
                             {% endif %}
                         </td>
                     </tr>
+                    {% if order.approved_by %}
+                    <tr>
+                        <th>销售审批人</th>
+                        <td>{{ order.approved_by.username }} - {{ order.approved_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if order.warehouse_approved_by %}
+                    <tr>
+                        <th>库存审批人</th>
+                        <td>{{ order.warehouse_approved_by.username }} - {{ order.warehouse_approved_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if order.status == 'rejected' %}
+                    <tr>
+                        <th>退回原因</th>
+                        <td>
+                            <div class="alert alert-warning mb-0">
+                                {{ order.reject_reason|default:"无" }}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>退回人</th>
+                        <td>{{ order.rejected_by.username|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>退回时间</th>
+                        <td>{{ order.rejected_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    </tr>
+                    {% endif %}
                     <tr>
                         <th>订单总额</th>
                         <td><strong>¥{{ order.total_amount }}</strong></td>

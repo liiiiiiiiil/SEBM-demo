@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - 产品管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>{{ title }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {% if form.errors %}
+            <div class="alert alert-danger">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                    <p>{{ field }}: {{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.sku.label }} <span class="text-danger">*</span></label>
+                {{ form.sku }}
+                {% if form.sku.errors %}
+                <div class="text-danger">{{ form.sku.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.name.label }} <span class="text-danger">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                <div class="text-danger">{{ form.name.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.category.label }}</label>
+                {{ form.category }}
+                {% if form.category.errors %}
+                <div class="text-danger">{{ form.category.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.specification.label }}</label>
+                {{ form.specification }}
+                {% if form.specification.errors %}
+                <div class="text-danger">{{ form.specification.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.sale_price.label }} <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <span class="input-group-text">¥</span>
+                    {{ form.sale_price }}
+                </div>
+                {% if form.sale_price.errors %}
+                <div class="text-danger">{{ form.sale_price.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.safety_stock.label }}</label>
+                {{ form.safety_stock }}
+                {% if form.safety_stock.errors %}
+                <div class="text-danger">{{ form.safety_stock.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.unit.label }}</label>
+                {{ form.unit }}
+                {% if form.unit.errors %}
+                <div class="text-danger">{{ form.unit.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存
+                </button>
+                <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}库存审批订单 - {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h4><i class="bi bi-check-circle"></i> 库存审批订单</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>订单信息</h5>
+            <p><strong>订单号：</strong>{{ order.order_no }}</p>
+            <p><strong>客户：</strong>{{ order.customer.name }}</p>
+            <p><strong>销售员：</strong>{{ order.salesperson.username }}</p>
+            <p><strong>订单总额：</strong>¥{{ order.total_amount }}</p>
+            <p><strong>状态：</strong><span class="badge bg-warning">待库存审批</span></p>
+        </div>
+        
+        <h5 class="mt-4">订单明细</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>产品</th>
+                    <th>订单数量</th>
+                    <th>单价</th>
+                    <th>小计</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.quantity }}{{ item.product.unit }}</td>
+                    <td>¥{{ item.unit_price }}</td>
+                    <td>¥{{ item.subtotal }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if inventory_check %}
+        <div class="mt-4">
+            <h5><i class="bi bi-clipboard-check"></i> 库存研判结果</h5>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>产品</th>
+                        <th>订单数量</th>
+                        <th>可用库存</th>
+                        <th>缺口数量</th>
+                        <th>库存状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item_check in inventory_check.items %}
+                    <tr>
+                        <td>{{ item_check.product.name }}</td>
+                        <td>{{ item_check.required_quantity }}{{ item_check.product.unit }}</td>
+                        <td>{{ item_check.available_quantity }}{{ item_check.product.unit }}</td>
+                        <td>
+                            {% if item_check.shortage > 0 %}
+                            <span class="text-danger">{{ item_check.shortage }}{{ item_check.product.unit }}</span>
+                            {% else %}
+                            <span class="text-success">0{{ item_check.product.unit }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item_check.sufficient %}
+                            <span class="badge bg-success">库存充足</span>
+                            {% else %}
+                            <span class="badge bg-danger">库存不足</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="alert {% if inventory_check.all_sufficient %}alert-success{% else %}alert-warning{% endif %} mt-3">
+                <h6><i class="bi bi-info-circle"></i> 流程判断</h6>
+                <p class="mb-1"><strong>审批通过后，订单将进入：</strong></p>
+                {% if inventory_check.all_sufficient %}
+                <p class="mb-0">
+                    <span class="badge bg-success fs-6">{{ inventory_check.next_step_display }}</span>
+                    <br>
+                    <small>所有产品库存充足，系统将自动锁定库存并生成发货通知单，进入物流发货环节。</small>
+                </p>
+                {% else %}
+                <p class="mb-0">
+                    <span class="badge bg-warning fs-6">{{ inventory_check.next_step_display }}</span>
+                    <br>
+                    <small>部分产品库存不足，系统将自动创建生产任务单，进入生产环节。库存充足的产品将直接锁定库存。</small>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="alert alert-info">
+                <strong>提示：</strong>请仔细核对库存研判结果，确认无误后点击"确认审批"。
+            </div>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 确认审批
+            </button>
+            <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-secondary">返回</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

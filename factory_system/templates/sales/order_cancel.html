@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}取消订单 - {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4><i class="bi bi-exclamation-triangle"></i> 取消订单</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5>订单信息</h5>
+            <p><strong>订单号：</strong>{{ order.order_no }}</p>
+            <p><strong>客户：</strong>{{ order.customer.name }}</p>
+            <p><strong>订单总额：</strong>¥{{ order.total_amount }}</p>
+            <p><strong>状态：</strong><span class="badge bg-warning">待审批</span></p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="cancel_reason" class="form-label">取消原因 <span class="text-muted">(可选)</span></label>
+                <textarea class="form-control" id="cancel_reason" name="cancel_reason" rows="3" placeholder="请输入取消订单的原因（可选）"></textarea>
+            </div>
+            <div class="alert alert-danger">
+                <strong>警告：</strong>取消订单后，订单状态将变为"已取消"，此操作不可恢复！
+            </div>
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-x-circle"></i> 确认取消
+            </button>
+            <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-secondary">返回</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

@@ -68,10 +68,23 @@ class Material(models.Model):
         return f"{self.sku} - {self.name}"
 
 
+class ProductCategory(models.Model):
+    """成品分类"""
+    name = models.CharField(max_length=100, unique=True, verbose_name='分类名称')
+    
+    class Meta:
+        verbose_name = '成品分类'
+        verbose_name_plural = '成品分类'
+    
+    def __str__(self):
+        return self.name
+
+
 class Product(models.Model):
     """成品信息"""
     sku = models.CharField(max_length=50, unique=True, verbose_name='SKU编码')
     name = models.CharField(max_length=200, verbose_name='产品名称')
+    category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name='分类')
     specification = models.TextField(blank=True, verbose_name='规格说明')
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='售价')
     safety_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='安全库存')
@@ -173,3 +186,35 @@ class StockTransaction(models.Model):
     
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.inventory} - {self.quantity}{self.unit}"
+
+
+class InventoryAdjustmentRequest(models.Model):
+    """库存调整申请"""
+    STATUS_CHOICES = [
+        ('pending', '待审批'),
+        ('approved', '已审批'),
+        ('rejected', '已拒绝'),
+        ('completed', '已完成'),
+    ]
+    
+    request_no = models.CharField(max_length=50, unique=True, verbose_name='申请单号')
+    inventory = models.ForeignKey(Inventory, on_delete=models.PROTECT, verbose_name='库存')
+    current_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='当前数量')
+    adjust_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='调整数量')
+    new_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='调整后数量')
+    reason = models.TextField(verbose_name='调整原因')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    applicant = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='inventory_adjustment_requests', verbose_name='申请人')
+    approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_inventory_adjustments', verbose_name='审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    reject_reason = models.TextField(blank=True, verbose_name='拒绝原因')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '库存调整申请'
+        verbose_name_plural = '库存调整申请'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.request_no} - {self.inventory} - {self.get_status_display()}"

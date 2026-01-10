@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}退回订单 - {{ order.order_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-warning">
+        <h4>退回订单 - {{ order.order_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>订单信息</h5>
+            <p>客户：{{ order.customer.name }}</p>
+            <p>销售员：{{ order.salesperson.username }}</p>
+            <p>订单总额：¥{{ order.total_amount }}</p>
+            <p>订单明细：</p>
+            <ul>
+                {% for item in order.items.all %}
+                <li>{{ item.product.name }} x {{ item.quantity }}{{ item.product.unit }} = ¥{{ item.subtotal }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="reject_reason" class="form-label">退回原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="reject_reason" name="reject_reason" rows="4" required placeholder="请详细说明退回原因，以便销售员修改订单"></textarea>
+                <small class="form-text text-muted">退回后，订单将返回给销售员 {{ order.salesperson.username }}，销售员可以修改后重新提交。</small>
+            </div>
+            <div class="alert alert-warning">
+                退回后，订单状态将变为"已退回"，销售员可以编辑并重新提交。
+            </div>
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-arrow-return-left"></i> 确认退回
+            </button>
+            <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

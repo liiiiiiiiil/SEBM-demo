@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}创建库存调整申请{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4><i class="bi bi-pencil"></i> 创建库存调整申请</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info mb-4">
+            <h5>库存信息</h5>
+            <p><strong>类型：</strong>{{ inventory.get_inventory_type_display }}</p>
+            <p><strong>物品名称：</strong>
+                {% if inventory.inventory_type == 'product' %}
+                    {{ inventory.product.name }}
+                {% else %}
+                    {{ inventory.material.name }}
+                {% endif %}
+            </p>
+            <p><strong>当前数量：</strong>{{ inventory.quantity }}{{ inventory.unit }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            {% if form.errors %}
+            <div class="alert alert-danger">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                    <p>{{ field }}: {{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.adjust_quantity.label }} <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <span class="input-group-text">调整数量</span>
+                    {{ form.adjust_quantity }}
+                </div>
+                <small class="form-text text-muted">
+                    正数表示增加库存，负数表示减少库存。例如：+10 表示增加10，-5 表示减少5。
+                </small>
+                {% if form.adjust_quantity.errors %}
+                <div class="text-danger">{{ form.adjust_quantity.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.reason.label }} <span class="text-danger">*</span></label>
+                {{ form.reason }}
+                <small class="form-text text-muted">请详细说明库存调整的原因，此信息将提交给总经理审批。</small>
+                {% if form.reason.errors %}
+                <div class="text-danger">{{ form.reason.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="alert alert-warning">
+                <strong>注意：</strong>库存调整申请需要总经理审批后才能生效。调整后数量不能为负数。
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send"></i> 提交申请
+                </button>
+                <a href="{% url 'inventory:inventory_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

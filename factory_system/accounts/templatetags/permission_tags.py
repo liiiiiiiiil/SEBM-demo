@@ -44,3 +44,4 @@ def has_any_permission(user, *permission_codes):
     except AttributeError:
         return False
 
+

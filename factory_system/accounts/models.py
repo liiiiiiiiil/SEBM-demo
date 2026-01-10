@@ -94,8 +94,11 @@ class UserProfile(models.Model):
             'warehouse': [
                 'inventory.view',
                 'inventory.transaction.view',
-                'inventory.customer.view',
                 'inventory.product.view',
+                'inventory.product.manage',
+                'inventory.material.manage',
+                'inventory.category.manage',
+                'inventory.adjustment.create',
                 'production.requisition.approve',
                 'production.inbound.create',
             ],

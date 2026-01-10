@@ -121,6 +121,24 @@ class Command(BaseCommand):
                 'description': '创建、编辑、删除原料信息',
             },
             {
+                'code': 'inventory.category.manage',
+                'name': '管理产品/原料类别',
+                'category': 'inventory',
+                'description': '创建、编辑、删除产品类别和原料类别',
+            },
+            {
+                'code': 'inventory.adjustment.create',
+                'name': '创建库存调整申请',
+                'category': 'inventory',
+                'description': '创建库存调整申请',
+            },
+            {
+                'code': 'inventory.adjustment.approve',
+                'name': '审批库存调整申请',
+                'category': 'inventory',
+                'description': '审批库存调整申请',
+            },
+            {
                 'code': 'inventory.bom.manage',
                 'name': '管理BOM配方',
                 'category': 'inventory',

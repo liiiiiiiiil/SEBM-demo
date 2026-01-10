@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}审批库存调整申请 - {{ adjustment.request_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4><i class="bi bi-check-circle"></i> 审批库存调整申请</h4>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5>申请信息</h5>
+                <table class="table table-bordered">
+                    <tr>
+                        <th width="40%">申请单号</th>
+                        <td>{{ adjustment.request_no }}</td>
+                    </tr>
+                    <tr>
+                        <th>库存物品</th>
+                        <td>
+                            {% if adjustment.inventory.inventory_type == 'product' %}
+                                {{ adjustment.inventory.product.name }}
+                            {% else %}
+                                {{ adjustment.inventory.material.name }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>当前数量</th>
+                        <td>{{ adjustment.current_quantity }}{{ adjustment.inventory.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>调整数量</th>
+                        <td>
+                            {% if adjustment.adjust_quantity >= 0 %}
+                            <span class="text-success">+{{ adjustment.adjust_quantity }}</span>
+                            {% else %}
+                            <span class="text-danger">{{ adjustment.adjust_quantity }}</span>
+                            {% endif %}
+                            {{ adjustment.inventory.unit }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>调整后数量</th>
+                        <td><strong>{{ adjustment.new_quantity }}{{ adjustment.inventory.unit }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>申请人</th>
+                        <td>{{ adjustment.applicant.username }}</td>
+                    </tr>
+                    <tr>
+                        <th>申请时间</th>
+                        <td>{{ adjustment.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>状态</th>
+                        <td>
+                            {% if adjustment.status == 'pending' %}
+                            <span class="badge bg-warning">待审批</span>
+                            {% elif adjustment.status == 'approved' %}
+                            <span class="badge bg-info">已审批</span>
+                            {% elif adjustment.status == 'rejected' %}
+                            <span class="badge bg-danger">已拒绝</span>
+                            {% elif adjustment.status == 'completed' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>调整原因</h5>
+                <div class="alert alert-info">
+                    {{ adjustment.reason|linebreaks }}
+                </div>
+            </div>
+        </div>
+        
+        {% if adjustment.status == 'pending' %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6">
+                    <button type="submit" name="action" value="approve" class="btn btn-success btn-lg w-100">
+                        <i class="bi bi-check-circle"></i> 审批通过
+                    </button>
+                    <div class="alert alert-success mt-2 mb-0">
+                        <small>审批通过后，库存将立即更新为调整后数量，并创建库存变动记录。</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="reject_reason" class="form-label">拒绝原因</label>
+                        <textarea class="form-control" id="reject_reason" name="reject_reason" rows="3" placeholder="请输入拒绝原因（如果拒绝）"></textarea>
+                    </div>
+                    <button type="submit" name="action" value="reject" class="btn btn-danger btn-lg w-100">
+                        <i class="bi bi-x-circle"></i> 拒绝申请
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-info">
+            {% if adjustment.status == 'approved' or adjustment.status == 'completed' %}
+            <p><strong>审批人：</strong>{{ adjustment.approved_by.username|default:"-" }}</p>
+            <p><strong>审批时间：</strong>{{ adjustment.approved_at|date:"Y-m-d H:i"|default:"-" }}</p>
+            {% elif adjustment.status == 'rejected' %}
+            <p><strong>拒绝人：</strong>{{ adjustment.approved_by.username|default:"-" }}</p>
+            <p><strong>拒绝时间：</strong>{{ adjustment.approved_at|date:"Y-m-d H:i"|default:"-" }}</p>
+            <p><strong>拒绝原因：</strong>{{ adjustment.reject_reason|default:"-" }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="mt-4">
+            <a href="{% url 'inventory:adjustment_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

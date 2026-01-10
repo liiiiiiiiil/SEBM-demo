@@ -10,9 +10,27 @@
     <div class="card-body">
         <form method="post">
             {% csrf_token %}
+            {% if form.errors or formset.errors %}
+            <div class="alert alert-danger">
+                <h6>表单错误：</h6>
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                    {% endfor %}
+                {% endif %}
+                {% if formset.non_form_errors %}
+                    {% for error in formset.non_form_errors %}
+                    <p>{{ error }}</p>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endif %}
             <div class="mb-3">
                 <label class="form-label">客户</label>
                 {{ form.customer }}
+                {% if form.customer.errors %}
+                <div class="text-danger small">{{ form.customer.errors }}</div>
+                {% endif %}
             </div>
             <div class="mb-3">
                 <div class="form-check">
@@ -27,36 +45,64 @@
             
             <h5 class="mt-4">订单明细</h5>
             {{ formset.management_form }}
+            {% if formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {{ formset.non_form_errors }}
+            </div>
+            {% endif %}
             <div id="items-container">
                 {% for item_form in formset %}
-                <div class="row mb-3 item-row">
+                <div class="row mb-3 item-row" data-form-index="{{ forloop.counter0 }}">
                     <div class="col-md-4">
                         <label class="form-label">产品</label>
                         {{ item_form.product }}
+                        {% if item_form.product.errors %}
+                        <div class="text-danger small">{{ item_form.product.errors }}</div>
+                        {% endif %}
+                        {% if item_form.id %}
+                        {{ item_form.id }}
+                        {% endif %}
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">数量</label>
                         {{ item_form.quantity }}
+                        {% if item_form.quantity.errors %}
+                        <div class="text-danger small">{{ item_form.quantity.errors }}</div>
+                        {% endif %}
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">单价</label>
                         {{ item_form.unit_price }}
+                        {% if item_form.unit_price.errors %}
+                        <div class="text-danger small">{{ item_form.unit_price.errors }}</div>
+                        {% endif %}
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">小计</label>
                         <input type="text" class="form-control subtotal" readonly>
                     </div>
                     <div class="col-md-2">
+                        {% if not forloop.first %}
                         <label class="form-label">&nbsp;</label>
                         {% if item_form.DELETE %}
                         <div class="form-check">
                             {{ item_form.DELETE }}
                             <label class="form-check-label">删除</label>
                         </div>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row d-block">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="add-item-btn" onclick="addItemRow()">
+                    <i class="bi bi-plus-circle"></i> 添加产品
+                </button>
             </div>
             
             <div class="mt-4">
@@ -73,23 +119,142 @@
 {% block extra_js %}
 <script>
     // 计算小计
-    document.addEventListener('DOMContentLoaded', function() {
+    function updateAllSubtotals() {
         document.querySelectorAll('.item-row').forEach(row => {
             const quantityInput = row.querySelector('input[name$="-quantity"]');
             const priceInput = row.querySelector('input[name$="-unit_price"]');
             const subtotalInput = row.querySelector('.subtotal');
             
-            function updateSubtotal() {
-                if (quantityInput && priceInput && subtotalInput) {
-                    const qty = parseFloat(quantityInput.value) || 0;
-                    const price = parseFloat(priceInput.value) || 0;
-                    subtotalInput.value = (qty * price).toFixed(2);
-                }
+            if (quantityInput && priceInput && subtotalInput) {
+                const qty = parseFloat(quantityInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                subtotalInput.value = (qty * price).toFixed(2);
             }
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAllSubtotals();
+        
+        // 为所有输入框添加事件监听
+        document.querySelectorAll('.item-row').forEach(row => {
+            const quantityInput = row.querySelector('input[name$="-quantity"]');
+            const priceInput = row.querySelector('input[name$="-unit_price"]');
             
-            if (quantityInput) quantityInput.addEventListener('input', updateSubtotal);
-            if (priceInput) priceInput.addEventListener('input', updateSubtotal);
-            updateSubtotal(); // 初始计算
+            if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
+            if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
+        });
+    });
+    
+    // 添加产品行
+    function addItemRow() {
+        // 确保变量已初始化
+        if (!totalFormsInput) {
+            totalFormsInput = document.querySelector('#id_items-TOTAL_FORMS');
+        }
+        if (!itemsContainer) {
+            itemsContainer = document.getElementById('items-container');
+        }
+        
+        if (!totalFormsInput || !itemsContainer) {
+            alert('无法添加产品行，请刷新页面重试');
+            return;
+        }
+        
+        const totalForms = parseInt(totalFormsInput.value);
+        const newFormIndex = totalForms;
+        
+        // 获取第一个产品选择框的选项（作为模板）
+        const firstProductSelect = document.querySelector('select[name^="items-"][name$="-product"]');
+        if (!firstProductSelect) {
+            alert('无法添加产品行，请刷新页面重试');
+            return;
+        }
+        
+        // 复制产品选项
+        const productOptions = Array.from(firstProductSelect.options).map(opt => 
+            `<option value="${opt.value}">${opt.text}</option>`
+        ).join('');
+        
+        // 创建新的行
+        const newRow = document.createElement('div');
+        newRow.className = 'row mb-3 item-row';
+        newRow.setAttribute('data-form-index', newFormIndex);
+        
+        newRow.innerHTML = `
+            <div class="col-md-4">
+                <label class="form-label">产品</label>
+                <select name="items-${newFormIndex}-product" class="form-control" id="id_items-${newFormIndex}-product" required>
+                    ${productOptions}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">数量</label>
+                <input type="number" name="items-${newFormIndex}-quantity" class="form-control" step="0.01" id="id_items-${newFormIndex}-quantity" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">单价</label>
+                <input type="number" name="items-${newFormIndex}-unit_price" class="form-control" step="0.01" id="id_items-${newFormIndex}-unit_price" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">小计</label>
+                <input type="text" class="form-control subtotal" readonly>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-row d-block">
+                    <i class="bi bi-trash"></i> 删除
+                </button>
+            </div>
+        `;
+        
+        itemsContainer.appendChild(newRow);
+        totalFormsInput.value = totalForms + 1;
+        
+        // 为新行添加事件监听
+        const quantityInput = newRow.querySelector('input[name$="-quantity"]');
+        const priceInput = newRow.querySelector('input[name$="-unit_price"]');
+        if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
+        if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
+        
+        // 删除按钮事件
+        const removeBtn = newRow.querySelector('.remove-row');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                newRow.remove();
+                totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+            });
+        }
+        
+        updateAllSubtotals();
+    }
+    
+    // 初始化删除按钮事件
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化formset相关变量
+        totalFormsInput = document.querySelector('#id_items-TOTAL_FORMS');
+        itemsContainer = document.getElementById('items-container');
+        
+        updateAllSubtotals();
+        
+        // 为所有输入框添加事件监听
+        document.querySelectorAll('.item-row').forEach(row => {
+            const quantityInput = row.querySelector('input[name$="-quantity"]');
+            const priceInput = row.querySelector('input[name$="-unit_price"]');
+            
+            if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
+            if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
+        });
+        
+        // 删除按钮事件（对于没有DELETE checkbox的行）
+        document.querySelectorAll('.remove-row').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('.item-row');
+                row.remove();
+                if (totalFormsInput) {
+                    totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+                }
+            });
         });
     });
 </script>

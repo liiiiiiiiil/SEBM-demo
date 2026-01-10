@@ -15,6 +15,11 @@ def login_view(request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         
+        if not username:
+            messages.error(request, '请输入用户名')
+            form = AuthenticationForm()
+            return render(request, 'accounts/login.html', {'form': form})
+        
         # 调试模式：如果密码为空，直接验证用户名
         if not password:
             try:
@@ -26,22 +31,31 @@ def login_view(request):
                 messages.success(request, f'欢迎回来，{user.username}！（调试模式：空密码登录）')
                 return redirect('dashboard')
             except User.DoesNotExist:
-                messages.error(request, '用户名不存在')
+                messages.error(request, '用户名不存在，请检查用户名是否正确')
             except Exception as e:
                 messages.error(request, f'登录失败：{str(e)}')
         else:
             # 正常密码验证
-            form = AuthenticationForm(request, data=request.POST)
-            if form.is_valid():
-                user = authenticate(username=username, password=password)
-                if user is not None:
-                    login(request, user)
-                    messages.success(request, f'欢迎回来，{user.username}！')
-                    return redirect('dashboard')
+            try:
+                form = AuthenticationForm(request, data=request.POST)
+                if form.is_valid():
+                    user = authenticate(username=username, password=password)
+                    if user is not None:
+                        login(request, user)
+                        messages.success(request, f'欢迎回来，{user.username}！')
+                        return redirect('dashboard')
+                    else:
+                        messages.error(request, '用户名或密码错误')
                 else:
-                    messages.error(request, '用户名或密码错误')
-            else:
-                messages.error(request, '请检查输入信息')
+                    # 检查是否是用户名不存在的问题
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    if not User.objects.filter(username=username).exists():
+                        messages.error(request, '用户名不存在，请检查用户名是否正确')
+                    else:
+                        messages.error(request, '密码错误，请检查密码是否正确')
+            except Exception as e:
+                messages.error(request, f'登录失败：{str(e)}')
     else:
         form = AuthenticationForm()
     

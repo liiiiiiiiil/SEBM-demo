@@ -14,12 +14,25 @@ class SalesOrderItemForm(forms.ModelForm):
         }
 
 
+# 默认formset（用于新建订单，extra=1显示一个空行）
+# 注意：不要设置min_num，否则会和extra叠加导致多出空行
 SalesOrderItemFormSet = forms.inlineformset_factory(
     SalesOrder,
     SalesOrderItem,
     form=SalesOrderItemForm,
     extra=1,
     can_delete=True,
+)
+
+# 编辑订单时的formset（extra=0，不显示空行）
+SalesOrderItemFormSetEdit = forms.inlineformset_factory(
+    SalesOrder,
+    SalesOrderItem,
+    form=SalesOrderItemForm,
+    extra=0,
+    can_delete=True,
+    min_num=1,  # 编辑时至少需要1个明细
+    validate_min=True,
 )
 
 

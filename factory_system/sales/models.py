@@ -6,8 +6,11 @@ from inventory.models import Customer, Product
 class SalesOrder(models.Model):
     """销售订单"""
     STATUS_CHOICES = [
-        ('pending', '待审批'),
-        ('approved', '已审核'),
+        ('pending', '待销售审批'),
+        ('approved', '销售已审批'),
+        ('warehouse_pending', '待库存审批'),
+        ('warehouse_approved', '库存已审批'),
+        ('rejected', '已退回'),
         ('in_production', '生产中'),
         ('ready_to_ship', '待发货'),
         ('shipped', '已发货'),
@@ -21,8 +24,13 @@ class SalesOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='订单总额')
     reserve_inventory = models.BooleanField(default=False, verbose_name='预占库存')
-    approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_orders', verbose_name='审批人')
-    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_orders', verbose_name='销售审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='销售审批时间')
+    warehouse_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='warehouse_approved_orders', verbose_name='库存审批人')
+    warehouse_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='库存审批时间')
+    rejected_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='rejected_orders', verbose_name='退回人')
+    rejected_at = models.DateTimeField(null=True, blank=True, verbose_name='退回时间')
+    reject_reason = models.TextField(blank=True, verbose_name='退回原因')
     remark = models.TextField(blank=True, verbose_name='备注')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
