@@ -218,3 +218,52 @@ class InventoryAdjustmentRequest(models.Model):
     
     def __str__(self):
         return f"{self.request_no} - {self.inventory} - {self.get_status_display()}"
+
+
+class PurchaseOrder(models.Model):
+    """采购单"""
+    STATUS_CHOICES = [
+        ('pending', '待采购'),
+        ('ordered', '已下单'),
+        ('received', '已收货'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消'),
+    ]
+    
+    order_no = models.CharField(max_length=50, unique=True, verbose_name='采购单号')
+    supplier = models.CharField(max_length=200, verbose_name='供应商')
+    contact_person = models.CharField(max_length=100, blank=True, verbose_name='联系人')
+    contact_phone = models.CharField(max_length=20, blank=True, verbose_name='联系电话')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='采购总额')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    created_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='created_purchase_orders', verbose_name='创建人')
+    received_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='received_purchase_orders', verbose_name='收货人')
+    received_at = models.DateTimeField(null=True, blank=True, verbose_name='收货时间')
+    remark = models.TextField(blank=True, verbose_name='备注')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '采购单'
+        verbose_name_plural = '采购单'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.order_no} - {self.supplier} - {self.get_status_display()}"
+
+
+class PurchaseOrderItem(models.Model):
+    """采购单明细"""
+    order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='items', verbose_name='采购单')
+    material = models.ForeignKey(Material, on_delete=models.PROTECT, verbose_name='原料')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='采购数量')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价')
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='小计')
+    received_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='已收货数量')
+    
+    class Meta:
+        verbose_name = '采购单明细'
+        verbose_name_plural = '采购单明细'
+    
+    def __str__(self):
+        return f"{self.order.order_no} - {self.material.name} x {self.quantity}"

@@ -8,6 +8,41 @@
     <h2><i class="bi bi-box-seam"></i> 库存管理</h2>
 </div>
 
+{% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'production.requisition.approve' or user|has_permission:'inventory.purchase.view' %}
+<div class="row mb-4">
+    {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'production.requisition.approve' %}
+    <div class="col-md-6 mb-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-clipboard-check text-primary"></i> 领料单审核
+                </h5>
+                <p class="card-text">审核生产任务的领料申请，检查库存并批准领料单</p>
+                <a href="{% url 'inventory:requisition_list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle"></i> 进入领料单审核
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'inventory.purchase.view' %}
+    <div class="col-md-6 mb-3">
+        <div class="card border-success">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-cart text-success"></i> 采购单管理
+                </h5>
+                <p class="card-text">创建和管理采购单，收货后自动更新原料库存</p>
+                <a href="{% url 'inventory:purchase_order_list' %}" class="btn btn-success">
+                    <i class="bi bi-arrow-right-circle"></i> 进入采购单管理
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 {% if warnings %}
 <div class="alert alert-warning">
     <h5><i class="bi bi-exclamation-triangle"></i> 库存预警</h5>

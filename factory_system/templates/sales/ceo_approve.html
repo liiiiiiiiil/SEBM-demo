@@ -42,6 +42,9 @@
         {% if inventory_check %}
         <div class="mt-4">
             <h5><i class="bi bi-clipboard-check"></i> 库存研判结果</h5>
+            
+            <!-- 产品库存研判 -->
+            <h6 class="mt-3">产品库存分析</h6>
             <table class="table table-bordered">
                 <thead>
                     <tr>
@@ -73,9 +76,81 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% if item_check.shortage > 0 and item_check.material_needs %}
+                    <tr class="table-light">
+                        <td colspan="5" class="p-2">
+                            <small class="text-muted"><strong>缺口产品 {{ item_check.product.name }} ({{ item_check.shortage }}{{ item_check.product.unit }}) 所需原料：</strong></small>
+                            <table class="table table-sm table-bordered mb-0 mt-2">
+                                <thead>
+                                    <tr>
+                                        <th>原料</th>
+                                        <th>需求数量</th>
+                                        <th>可用库存</th>
+                                        <th>缺口数量</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for material_need in item_check.material_needs %}
+                                    <tr>
+                                        <td>{{ material_need.material.name }}</td>
+                                        <td>{{ material_need.required }}{{ material_need.unit }}</td>
+                                        <td>{{ material_need.available }}{{ material_need.unit }}</td>
+                                        <td>
+                                            {% if material_need.shortage > 0 %}
+                                            <span class="text-danger">{{ material_need.shortage }}{{ material_need.unit }}</span>
+                                            {% else %}
+                                            <span class="text-success">0{{ material_need.unit }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
+            
+            <!-- 原料需求汇总 -->
+            {% if inventory_check.material_requirements %}
+            <h6 class="mt-4">原料需求汇总</h6>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>原料</th>
+                        <th>总需求数量</th>
+                        <th>可用库存</th>
+                        <th>缺口数量</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material_id, material_req in inventory_check.material_requirements.items %}
+                    <tr>
+                        <td>{{ material_req.material.name }}</td>
+                        <td>{{ material_req.required }}{{ material_req.unit }}</td>
+                        <td>{{ material_req.available }}{{ material_req.unit }}</td>
+                        <td>
+                            {% if material_req.shortage > 0 %}
+                            <span class="text-danger">{{ material_req.shortage }}{{ material_req.unit }}</span>
+                            {% else %}
+                            <span class="text-success">0{{ material_req.unit }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if material_req.shortage > 0 %}
+                            <span class="badge bg-danger">原料不足</span>
+                            {% else %}
+                            <span class="badge bg-success">原料充足</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
             
             <div class="alert {% if inventory_check.all_sufficient %}alert-success{% else %}alert-warning{% endif %} mt-3">
                 <h6><i class="bi bi-info-circle"></i> 流程判断</h6>
@@ -91,6 +166,10 @@
                     <span class="badge bg-warning fs-6">{{ inventory_check.next_step_display }}</span>
                     <br>
                     <small>部分产品库存不足，系统将自动创建生产任务单，进入生产环节。库存充足的产品将直接锁定库存。</small>
+                    {% if inventory_check.material_requirements %}
+                    <br>
+                    <small class="text-danger"><strong>注意：</strong>请检查原料需求汇总，确保有足够的原料进行生产。</small>
+                    {% endif %}
                 </p>
                 {% endif %}
             </div>

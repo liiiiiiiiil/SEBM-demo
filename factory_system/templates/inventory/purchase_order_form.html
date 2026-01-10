@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}创建采购单{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>创建采购单</h4>
+    </div>
+    <div class="card-body">
+        <form method="post" id="purchaseForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">供应商 <span class="text-danger">*</span></label>
+                <input type="text" name="supplier" class="form-control" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">联系人</label>
+                    <input type="text" name="contact_person" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">联系电话</label>
+                    <input type="text" name="contact_phone" class="form-control">
+                </div>
+            </div>
+            
+            <h5 class="mt-4">采购明细</h5>
+            <div id="itemsContainer">
+                <div class="item-row mb-3 border p-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">原料 <span class="text-danger">*</span></label>
+                            <select name="material_id" class="form-select material-select" required>
+                                <option value="">请选择原料</option>
+                                {% for material in materials %}
+                                <option value="{{ material.id }}" {% if prefill_material and material.id == prefill_material.id %}selected{% endif %}>
+                                    {{ material.sku }} - {{ material.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">数量 <span class="text-danger">*</span></label>
+                            <input type="number" name="quantity" class="form-control quantity-input" step="0.01" min="0.01" {% if prefill_quantity %}value="{{ prefill_quantity }}"{% endif %} required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">单价 <span class="text-danger">*</span></label>
+                            <input type="number" name="unit_price" class="form-control unit-price-input" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">小计</label>
+                            <input type="text" class="form-control subtotal-display" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-danger w-100 remove-item">删除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="addItemBtn">
+                <i class="bi bi-plus-circle"></i> 添加明细
+            </button>
+            
+            <div class="mb-3 mt-3">
+                <label class="form-label">备注</label>
+                <textarea name="remark" class="form-control" rows="3"></textarea>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> 创建采购单
+                </button>
+                <a href="{% url 'inventory:purchase_order_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const itemsContainer = document.getElementById('itemsContainer');
+    const addItemBtn = document.getElementById('addItemBtn');
+    
+    // 计算小计
+    function calculateSubtotal(row) {
+        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('.unit-price-input').value) || 0;
+        const subtotal = quantity * unitPrice;
+        row.querySelector('.subtotal-display').value = subtotal.toFixed(2);
+    }
+    
+    // 添加明细行
+    addItemBtn.addEventListener('click', function() {
+        const firstRow = itemsContainer.querySelector('.item-row');
+        const newRow = firstRow.cloneNode(true);
+        newRow.querySelectorAll('input, select').forEach(input => {
+            if (input.type !== 'hidden') {
+                input.value = '';
+            }
+        });
+        newRow.querySelector('.subtotal-display').value = '';
+        itemsContainer.appendChild(newRow);
+        attachEventListeners(newRow);
+    });
+    
+    // 删除明细行
+    function attachEventListeners(row) {
+        row.querySelector('.remove-item').addEventListener('click', function() {
+            if (itemsContainer.querySelectorAll('.item-row').length > 1) {
+                row.remove();
+            } else {
+                alert('至少需要保留一个明细项');
+            }
+        });
+        
+        row.querySelector('.quantity-input').addEventListener('input', function() {
+            calculateSubtotal(row);
+        });
+        
+        row.querySelector('.unit-price-input').addEventListener('input', function() {
+            calculateSubtotal(row);
+        });
+    }
+    
+    // 为所有现有行附加事件监听器
+    itemsContainer.querySelectorAll('.item-row').forEach(row => {
+        attachEventListeners(row);
+    });
+});
+</script>
+{% endblock %}

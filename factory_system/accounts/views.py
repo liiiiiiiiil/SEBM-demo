@@ -103,17 +103,23 @@ def dashboard(request):
     # 根据角色加载不同的数据
     if role == 'ceo':
         # 总经理视图 - 数据驾驶舱
-        from sales.models import SalesOrder
+        from sales.models import SalesOrder, ShippingNotice
         from inventory.models import Inventory
         from production.models import ProductionTask
         from logistics.models import Shipment
         
         context.update({
             'total_orders': SalesOrder.objects.count(),
-            'pending_orders': SalesOrder.objects.filter(status='pending').count(),
+            # 待审批订单：总经理应该看到待总经理审批的订单
+            'pending_orders': SalesOrder.objects.filter(status='ceo_pending').count(),
             'total_inventory_value': 0,  # 可以计算库存总价值
-            'active_production_tasks': ProductionTask.objects.filter(status__in=['in_production', 'material_preparing']).count(),
-            'pending_shipments': Shipment.objects.filter(status='pending').count(),
+            # 生产中的任务：包括已接收、备料中、生产中、质检中等状态
+            'active_production_tasks': ProductionTask.objects.filter(
+                status__in=['received', 'material_preparing', 'in_production', 'qc_checking']
+            ).count(),
+            # 待发货：包括待发货状态的发货单和发货通知单
+            'pending_shipments': Shipment.objects.filter(status='pending').count() + 
+                                 ShippingNotice.objects.filter(status='pending').count(),
         })
     
     return render(request, 'accounts/dashboard.html', context)

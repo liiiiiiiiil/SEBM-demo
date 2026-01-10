@@ -129,16 +129,32 @@ def driver_list(request):
 @login_required
 @role_required('logistics', 'ceo')
 def shipment_list(request):
-    """发货单列表（包括所有状态）"""
+    """发货单列表（包括所有状态和待发货通知单）"""
+    # 获取所有发货单
     shipments = Shipment.objects.select_related('order', 'driver', 'vehicle', 'shipped_by').all()
+    
+    # 获取所有待发货通知单（还没有创建发货单的）
+    pending_notices = ShippingNotice.objects.select_related('order').filter(
+        status='pending'
+    ).exclude(
+        id__in=Shipment.objects.values_list('shipping_notice_id', flat=True)
+    )
     
     # 状态筛选
     status_filter = request.GET.get('status', '')
     if status_filter:
-        shipments = shipments.filter(status=status_filter)
+        if status_filter == 'pending':
+            # 筛选时，只显示待发货通知单
+            shipments = Shipment.objects.none()
+            pending_notices = pending_notices
+        else:
+            # 其他状态筛选发货单
+            shipments = shipments.filter(status=status_filter)
+            pending_notices = ShippingNotice.objects.none()
     
     context = {
         'shipments': shipments,
+        'pending_notices': pending_notices,
         'status_filter': status_filter,
     }
     return render(request, 'logistics/shipment_list.html', context)

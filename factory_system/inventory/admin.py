@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, MaterialCategory, Material, Product, BOM, Inventory, StockTransaction
+from .models import Customer, MaterialCategory, Material, Product, BOM, Inventory, StockTransaction, PurchaseOrder, PurchaseOrderItem
 
 
 @admin.register(Customer)
@@ -48,3 +48,18 @@ class StockTransactionAdmin(admin.ModelAdmin):
     list_display = ['transaction_type', 'inventory', 'quantity', 'operator', 'created_at']
     list_filter = ['transaction_type', 'created_at']
     readonly_fields = ['created_at']
+
+
+@admin.register(PurchaseOrder)
+class PurchaseOrderAdmin(admin.ModelAdmin):
+    list_display = ['order_no', 'supplier', 'total_amount', 'status', 'created_by', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['order_no', 'supplier']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(PurchaseOrderItem)
+class PurchaseOrderItemAdmin(admin.ModelAdmin):
+    list_display = ['order', 'material', 'quantity', 'unit_price', 'subtotal', 'received_quantity']
+    list_filter = ['order__status']
+    search_fields = ['order__order_no', 'material__name']

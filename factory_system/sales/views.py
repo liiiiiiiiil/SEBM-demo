@@ -380,9 +380,13 @@ def order_terminate(request, pk):
 
 def check_inventory_status(order):
     """检查库存状态（不实际创建任务，仅用于显示判断结果）"""
+    from inventory.models import BOM
+    from decimal import Decimal
+    
     result = {
         'all_sufficient': True,
         'items': [],
+        'material_requirements': {},  # 汇总所有原料需求 {material_id: {'material': Material, 'required': Decimal, 'available': Decimal, 'shortage': Decimal}}
         'next_step': None,
         'next_step_display': None,
     }
@@ -395,13 +399,60 @@ def check_inventory_status(order):
         except Inventory.DoesNotExist:
             available_qty = 0
         
+        shortage = max(Decimal('0'), item.quantity - available_qty)
         item_result = {
             'product': item.product,
             'required_quantity': item.quantity,
             'available_quantity': available_qty,
             'sufficient': available_qty >= item.quantity,
-            'shortage': max(0, item.quantity - available_qty),
+            'shortage': shortage,
+            'material_needs': [],  # 该产品缺口所需的原料列表
         }
+        
+        # 如果有缺口，计算生产缺口产品所需的原料
+        if shortage > 0:
+            bom_items = BOM.objects.filter(product=item.product)
+            for bom_item in bom_items:
+                # 计算生产缺口数量所需该原料的数量
+                material_required = bom_item.quantity * shortage
+                
+                # 获取该原料的库存
+                try:
+                    material_inventory = Inventory.objects.get(
+                        inventory_type='material',
+                        material=bom_item.material
+                    )
+                    material_available = material_inventory.quantity
+                except Inventory.DoesNotExist:
+                    material_available = Decimal('0')
+                
+                material_shortage = max(Decimal('0'), material_required - material_available)
+                
+                # 记录该产品的原料需求
+                item_result['material_needs'].append({
+                    'material': bom_item.material,
+                    'required': material_required,
+                    'available': material_available,
+                    'shortage': material_shortage,
+                    'unit': bom_item.unit,
+                })
+                
+                # 汇总到总原料需求中
+                material_id = bom_item.material.id
+                if material_id not in result['material_requirements']:
+                    result['material_requirements'][material_id] = {
+                        'material': bom_item.material,
+                        'required': Decimal('0'),
+                        'available': material_available,
+                        'shortage': Decimal('0'),
+                        'unit': bom_item.unit,
+                    }
+                result['material_requirements'][material_id]['required'] += material_required
+                result['material_requirements'][material_id]['shortage'] = max(
+                    Decimal('0'),
+                    result['material_requirements'][material_id]['required'] - 
+                    result['material_requirements'][material_id]['available']
+                )
         
         result['items'].append(item_result)
         

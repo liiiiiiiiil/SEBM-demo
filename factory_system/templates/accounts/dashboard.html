@@ -53,36 +53,6 @@
             您的角色未设置，请联系管理员。
             {% endif %}
         </p>
-        <div class="mt-3">
-            <h6>快速操作：</h6>
-            <div class="d-flex flex-wrap gap-2">
-                {% if role == 'sales' or role == 'sales_mgr' or role == 'ceo' or user|has_permission:'sales.order.create' %}
-                <a href="{% url 'sales:order_create' %}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> 创建订单
-                </a>
-                {% endif %}
-                {% if role == 'warehouse' or role == 'ceo' or user|has_permission:'inventory.view' or user|has_permission:'inventory.view_product' %}
-                <a href="{% url 'inventory:inventory_list' %}" class="btn btn-info">
-                    <i class="bi bi-box-seam"></i> 查看库存
-                </a>
-                {% endif %}
-                {% if role == 'sales' or role == 'sales_mgr' or role == 'ceo' or user|has_permission:'inventory.customer.view' %}
-                <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">
-                    <i class="bi bi-people"></i> 客户管理
-                </a>
-                {% endif %}
-                {% if role == 'production' or role == 'ceo' or user|has_permission:'production.task.view' %}
-                <a href="{% url 'production:task_list' %}" class="btn btn-success">
-                    <i class="bi bi-gear"></i> 生产任务
-                </a>
-                {% endif %}
-                {% if role == 'logistics' or role == 'ceo' or user|has_permission:'logistics.shipment.view' %}
-                <a href="{% url 'logistics:shipping_notice_list' %}" class="btn btn-warning">
-                    <i class="bi bi-truck"></i> 待发货
-                </a>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}

@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from decimal import Decimal
 from accounts.decorators import role_required
 from .models import ProductionTask, MaterialRequisition, MaterialRequisitionItem, QCRecord, FinishedProductInbound
 from inventory.models import BOM, Inventory, StockTransaction
@@ -226,54 +227,80 @@ def inbound_create(request, task_pk):
     task = get_object_or_404(ProductionTask, pk=task_pk)
     
     if request.method == 'POST':
-        quantity = float(request.POST.get('quantity'))
-        qc_record_id = request.POST.get('qc_record_id')
-        
-        qc_record = None
-        if qc_record_id:
-            qc_record = QCRecord.objects.get(pk=qc_record_id)
-        
-        with transaction.atomic():
-            inbound = FinishedProductInbound.objects.create(
-                inbound_no=f"IN{timezone.now().strftime('%Y%m%d%H%M%S')}",
-                task=task,
-                qc_record=qc_record,
-                quantity=quantity,
-                unit=task.product.unit,
-                operator=request.user,
-            )
+        try:
+            quantity_str = request.POST.get('quantity', '').strip()
+            if not quantity_str:
+                messages.error(request, '请输入入库数量')
+                return redirect('production:inbound_create', task_pk=task_pk)
             
-            # 增加成品库存
-            inventory, created = Inventory.objects.get_or_create(
-                inventory_type='product',
-                product=task.product,
-                defaults={'quantity': 0, 'unit': task.product.unit}
-            )
-            inventory.quantity += quantity
-            inventory.save()
+            quantity = Decimal(quantity_str)
+            if quantity <= 0:
+                messages.error(request, '入库数量必须大于0')
+                return redirect('production:inbound_create', task_pk=task_pk)
             
-            # 记录库存变动
-            StockTransaction.objects.create(
-                transaction_type='production_in',
-                inventory=inventory,
-                quantity=quantity,
-                unit=task.product.unit,
-                reference_no=inbound.inbound_no,
-                operator=request.user,
-            )
+            qc_record_id = request.POST.get('qc_record_id', '').strip()
+            qc_record = None
+            if qc_record_id:
+                try:
+                    qc_record = QCRecord.objects.get(pk=qc_record_id, task=task)
+                except QCRecord.DoesNotExist:
+                    messages.error(request, '质检记录不存在')
+                    return redirect('production:inbound_create', task_pk=task_pk)
             
-            # 更新任务完成数量
-            task.completed_quantity += quantity
-            if task.completed_quantity >= task.required_quantity:
-                task.status = 'completed'
-                task.completed_at = timezone.now()
-            task.save()
-            
-            # 检查订单是否可以发货
-            check_order_ready_to_ship(task.order)
-            
-            messages.success(request, f'入库单 {inbound.inbound_no} 创建成功')
-            return redirect('production:task_detail', pk=task_pk)
+            with transaction.atomic():
+                # 生成唯一的入库单号
+                import random
+                inbound_no = f"IN{timezone.now().strftime('%Y%m%d%H%M%S')}{random.randint(100, 999)}"
+                # 确保入库单号唯一
+                while FinishedProductInbound.objects.filter(inbound_no=inbound_no).exists():
+                    inbound_no = f"IN{timezone.now().strftime('%Y%m%d%H%M%S')}{random.randint(100, 999)}"
+                
+                inbound = FinishedProductInbound.objects.create(
+                    inbound_no=inbound_no,
+                    task=task,
+                    qc_record=qc_record,
+                    quantity=quantity,
+                    unit=task.product.unit,
+                    operator=request.user,
+                )
+                
+                # 增加成品库存
+                inventory, created = Inventory.objects.get_or_create(
+                    inventory_type='product',
+                    product=task.product,
+                    defaults={'quantity': 0, 'unit': task.product.unit}
+                )
+                inventory.quantity += quantity
+                inventory.save()
+                
+                # 记录库存变动
+                StockTransaction.objects.create(
+                    transaction_type='production_in',
+                    inventory=inventory,
+                    quantity=quantity,
+                    unit=task.product.unit,
+                    reference_no=inbound.inbound_no,
+                    operator=request.user,
+                )
+                
+                # 更新任务完成数量
+                task.completed_quantity += quantity
+                if task.completed_quantity >= task.required_quantity:
+                    task.status = 'completed'
+                    task.completed_at = timezone.now()
+                task.save()
+                
+                # 检查订单是否可以发货
+                check_order_ready_to_ship(task.order)
+                
+                messages.success(request, f'入库单 {inbound.inbound_no} 创建成功')
+                return redirect('production:task_detail', pk=task_pk)
+        except ValueError:
+            messages.error(request, '入库数量格式不正确')
+            return redirect('production:inbound_create', task_pk=task_pk)
+        except Exception as e:
+            messages.error(request, f'创建入库单失败：{str(e)}')
+            return redirect('production:inbound_create', task_pk=task_pk)
     
     qc_records = QCRecord.objects.filter(task=task, result='qualified')
     context = {
