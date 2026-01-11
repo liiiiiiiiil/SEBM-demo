@@ -24,6 +24,7 @@ class SalesOrder(models.Model):
     salesperson = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='sales_orders', verbose_name='销售员')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='订单总额')
+    delivery_date = models.DateField(null=True, blank=True, verbose_name='交付日期')
     reserve_inventory = models.BooleanField(default=False, verbose_name='预占库存')
     approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_orders', verbose_name='销售审批人')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='销售审批时间')

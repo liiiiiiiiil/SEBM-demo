@@ -27,7 +27,7 @@
         </form>
 
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover table-sm">
                 <thead>
                     <tr>
                         <th>领料单号</th>
@@ -81,6 +81,9 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- 分页 -->
+        {% include 'includes/pagination.html' with page_obj=requisitions extra_params=extra_params %}
     </div>
 </div>
 {% endblock %}

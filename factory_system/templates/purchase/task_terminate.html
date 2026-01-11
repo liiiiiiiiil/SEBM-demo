@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}终结采购任务 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4>终结采购任务 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle"></i> 警告</h5>
+            <p>终结采购任务后，该任务将无法继续执行。请确认是否要终结此采购任务。</p>
+        </div>
+        
+        <div class="mb-3">
+            <h5>采购任务信息</h5>
+            <p><strong>供应商：</strong>{{ task.supplier }}</p>
+            <p><strong>采购总额：</strong>¥{{ task.total_amount }}</p>
+            <p><strong>状态：</strong>{{ task.get_status_display }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">终结原因 <span class="text-danger">*</span></label>
+                <textarea name="terminate_reason" class="form-control" rows="4" required placeholder="请输入终结原因"></textarea>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-x-octagon"></i> 确认终结
+                </button>
+                <a href="{% url 'purchase:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

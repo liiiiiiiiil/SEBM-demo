@@ -86,6 +86,7 @@ class Product(models.Model):
     name = models.CharField(max_length=200, verbose_name='产品名称')
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name='分类')
     specification = models.TextField(blank=True, verbose_name='规格说明')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='基础单价')
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='售价')
     safety_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='安全库存')
     unit = models.CharField(max_length=20, default='件', verbose_name='单位')
@@ -158,6 +159,21 @@ class Inventory(models.Model):
         if item and hasattr(item, 'safety_stock'):
             return self.quantity < item.safety_stock
         return False
+    
+    def get_unit_price(self):
+        """获取基础单价"""
+        if self.inventory_type == 'product' and self.product:
+            return self.product.unit_price or 0
+        elif self.inventory_type == 'material' and self.material:
+            return self.material.unit_price or 0
+        return 0
+    
+    def get_total_value(self):
+        """计算总价值（单价 * 数量）"""
+        from decimal import Decimal
+        unit_price = Decimal(str(self.get_unit_price()))
+        quantity = Decimal(str(self.quantity))
+        return float(unit_price * quantity)
 
 
 class StockTransaction(models.Model):
@@ -174,6 +190,8 @@ class StockTransaction(models.Model):
     inventory = models.ForeignKey(Inventory, on_delete=models.PROTECT, verbose_name='库存')
     quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='数量')
     unit = models.CharField(max_length=20, verbose_name='单位')
+    old_unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='调整前单价')
+    new_unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='调整后单价')
     reference_no = models.CharField(max_length=100, blank=True, verbose_name='关联单号')
     remark = models.TextField(blank=True, verbose_name='备注')
     operator = models.ForeignKey('auth.User', on_delete=models.PROTECT, verbose_name='操作人')
@@ -202,6 +220,9 @@ class InventoryAdjustmentRequest(models.Model):
     current_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='当前数量')
     adjust_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='调整数量')
     new_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='调整后数量')
+    current_unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='当前单价')
+    adjust_unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='调整单价')
+    new_unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='调整后单价')
     reason = models.TextField(verbose_name='调整原因')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     applicant = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='inventory_adjustment_requests', verbose_name='申请人')
@@ -267,3 +288,5 @@ class PurchaseOrderItem(models.Model):
     
     def __str__(self):
         return f"{self.order.order_no} - {self.material.name} x {self.quantity}"
+
+

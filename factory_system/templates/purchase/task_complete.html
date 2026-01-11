@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}完成采购任务 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>完成采购任务 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="alert alert-info">
+                <h5>采购明细</h5>
+                <p>请填写实际收货数量，系统将自动更新库存。</p>
+            </div>
+            
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>物料</th>
+                        <th>类型</th>
+                        <th>采购数量</th>
+                        <th>已收货数量</th>
+                        <th>本次收货数量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in task.items.all %}
+                    <tr>
+                        <td>{{ item.material.name }}</td>
+                        <td>{{ item.material.get_material_type_display }}</td>
+                        <td>{{ item.quantity }}{{ item.material.unit }}</td>
+                        <td>{{ item.received_quantity }}{{ item.material.unit }}</td>
+                        <td>
+                            <input type="number" 
+                                   name="received_quantity_{{ item.id }}" 
+                                   class="form-control" 
+                                   step="0.01" 
+                                   min="0" 
+                                   max="{{ item.quantity }}"
+                                   value="0">
+                            <small class="text-muted">{{ item.material.unit }}</small>
+                            {% if item.received_quantity > 0 %}
+                            <br><small class="text-info">已收货：{{ item.received_quantity }}{{ item.material.unit }}</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="alert alert-warning">
+                <strong>注意：</strong>收货后，系统将自动增加物料库存，并记录库存变动。
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> 确认完成
+                </button>
+                <a href="{% url 'purchase:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

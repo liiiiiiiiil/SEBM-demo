@@ -15,15 +15,58 @@
             <p>关联订单：{{ task.order.order_no }}</p>
         </div>
         
+        {% if insufficient_materials %}
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-triangle"></i> 原材料不足</h5>
+            <p>以下原材料库存不足，无法接收任务。请先通过采购补齐原材料。</p>
+            <table class="table table-sm table-bordered mt-3">
+                <thead>
+                    <tr>
+                        <th>原料名称</th>
+                        <th>需求数量</th>
+                        <th>可用数量</th>
+                        <th>缺口数量</th>
+                        <th>单位</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in insufficient_materials %}
+                    <tr>
+                        <td>{{ material.material.name }}</td>
+                        <td>{{ material.required }}</td>
+                        <td class="text-danger">{{ material.available }}</td>
+                        <td class="text-danger"><strong>{{ material.shortage }}</strong></td>
+                        <td>{{ material.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-success">
+            <h5><i class="bi bi-check-circle"></i> 原材料充足</h5>
+            <p>所有原材料库存充足，可以接收任务。</p>
+        </div>
+        {% endif %}
+        
         <form method="post">
             {% csrf_token %}
+            {% if all_sufficient %}
             <div class="alert alert-warning">
-                接收任务后，系统将自动根据BOM创建领料单。
+                接收任务后，系统将自动根据BOM创建领料单并扣减库存，任务状态将变为"生产中"。
             </div>
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-check-circle"></i> 接收任务
             </button>
-            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+            {% else %}
+            <div class="alert alert-warning">
+                由于原材料不足，无法接收任务。任务状态将更新为"原料不足"。
+            </div>
+            <button type="submit" class="btn btn-danger" disabled>
+                <i class="bi bi-x-circle"></i> 无法接收（原材料不足）
+            </button>
+            {% endif %}
+            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">返回</a>
         </form>
     </div>
 </div>

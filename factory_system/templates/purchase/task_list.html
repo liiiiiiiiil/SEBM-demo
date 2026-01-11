@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}采购任务列表{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-cart"></i> 采购任务列表</h2>
+    <a href="{% url 'purchase:task_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> 发起采购任务
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="mb-3">
+            <div class="row">
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">全部状态</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待审批</option>
+                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>已审批</option>
+                        <option value="purchasing" {% if status_filter == 'purchasing' %}selected{% endif %}>采购中</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
+                        <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-secondary">筛选</button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>采购任务号</th>
+                        <th>供应商</th>
+                        <th>采购总额</th>
+                        <th>状态</th>
+                        <th>创建人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.task_no }}</td>
+                        <td>{{ task.supplier }}</td>
+                        <td>¥{{ task.total_amount }}</td>
+                        <td>
+                            {% if task.status == 'pending' %}
+                            <span class="badge bg-warning">待审批</span>
+                            {% elif task.status == 'approved' %}
+                            <span class="badge bg-success">已审批</span>
+                            {% elif task.status == 'purchasing' %}
+                            <span class="badge bg-info">采购中</span>
+                            {% elif task.status == 'completed' %}
+                            <span class="badge bg-secondary">已完成</span>
+                            {% elif task.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ task.created_by.username }}</td>
+                        <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'purchase:task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> 查看
+                            </a>
+                            {% if task.status == 'pending' and user.profile.role == 'ceo' %}
+                            <a href="{% url 'purchase:task_approve' task.pk %}" class="btn btn-sm btn-success">
+                                <i class="bi bi-check-circle"></i> 审批
+                            </a>
+                            {% endif %}
+                            {% if task.status in 'approved,purchasing' %}
+                            <a href="{% url 'purchase:task_complete' task.pk %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-check"></i> 完成采购
+                            </a>
+                            {% endif %}
+                            {% if task.status in 'pending,approved,purchasing' and user.profile.role == 'ceo' %}
+                            <a href="{% url 'purchase:task_terminate' task.pk %}" class="btn btn-sm btn-danger">
+                                <i class="bi bi-x-octagon"></i> 终结
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">暂无采购任务</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% include 'includes/pagination.html' with page_obj=tasks extra_params=extra_params %}
+    </div>
+</div>
+{% endblock %}

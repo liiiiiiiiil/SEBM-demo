@@ -19,6 +19,7 @@
                 {% endif %}
             </p>
             <p><strong>当前数量：</strong>{{ inventory.quantity }}{{ inventory.unit }}</p>
+            <p><strong>当前单价：</strong>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
         </div>
         
         <form method="post">
@@ -34,7 +35,32 @@
             {% endif %}
             
             <div class="mb-3">
-                <label class="form-label">{{ form.adjust_quantity.label }} <span class="text-danger">*</span></label>
+                <label class="form-label">{{ form.adjustment_type.label }} <span class="text-danger">*</span></label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_quantity" value="quantity" checked onchange="toggleAdjustmentFields()">
+                    <label class="form-check-label" for="adjustment_type_quantity">
+                        仅调整数量
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_price" value="price" onchange="toggleAdjustmentFields()">
+                    <label class="form-check-label" for="adjustment_type_price">
+                        仅调整单价
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_both" value="both" onchange="toggleAdjustmentFields()">
+                    <label class="form-check-label" for="adjustment_type_both">
+                        同时调整数量和单价
+                    </label>
+                </div>
+                {% if form.adjustment_type.errors %}
+                <div class="text-danger">{{ form.adjustment_type.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3" id="quantity_field">
+                <label class="form-label">{{ form.adjust_quantity.label }}</label>
                 <div class="input-group">
                     <span class="input-group-text">调整数量</span>
                     {{ form.adjust_quantity }}
@@ -44,6 +70,20 @@
                 </small>
                 {% if form.adjust_quantity.errors %}
                 <div class="text-danger">{{ form.adjust_quantity.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3" id="price_field" style="display: none;">
+                <label class="form-label">{{ form.adjust_unit_price.label }}</label>
+                <div class="input-group">
+                    <span class="input-group-text">¥</span>
+                    {{ form.adjust_unit_price }}
+                </div>
+                <small class="form-text text-muted">
+                    填写新的单价，将替换当前单价。
+                </small>
+                {% if form.adjust_unit_price.errors %}
+                <div class="text-danger">{{ form.adjust_unit_price.errors }}</div>
                 {% endif %}
             </div>
             
@@ -71,3 +111,30 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+function toggleAdjustmentFields() {
+    const adjustmentType = document.querySelector('input[name="adjustment_type"]:checked').value;
+    const quantityField = document.getElementById('quantity_field');
+    const priceField = document.getElementById('price_field');
+    
+    if (adjustmentType === 'quantity') {
+        quantityField.style.display = 'block';
+        priceField.style.display = 'none';
+        document.getElementById('id_adjust_unit_price').value = '';
+    } else if (adjustmentType === 'price') {
+        quantityField.style.display = 'none';
+        priceField.style.display = 'block';
+        document.getElementById('id_adjust_quantity').value = '';
+    } else if (adjustmentType === 'both') {
+        quantityField.style.display = 'block';
+        priceField.style.display = 'block';
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    toggleAdjustmentFields();
+});
+</script>
+{% endblock %}

@@ -62,6 +62,9 @@
                         {% if item_form.id %}
                         {{ item_form.id }}
                         {% endif %}
+                        <div class="inventory-info mt-1" style="display: none;">
+                            <small class="inventory-text">当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit"></span> | 基础单价: ¥<span class="inventory-unit-price">0.00</span></small>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">数量</label>
@@ -118,6 +121,20 @@
 
 {% block extra_js %}
 <script>
+    // 全局变量
+    let totalFormsInput = null;
+    let itemsContainer = null;
+    
+    // 初始化变量（立即执行，不等待DOMContentLoaded）
+    function initVariables() {
+        if (!totalFormsInput) {
+            totalFormsInput = document.querySelector('#id_items-TOTAL_FORMS');
+        }
+        if (!itemsContainer) {
+            itemsContainer = document.getElementById('items-container');
+        }
+    }
+    
     // 计算小计
     function updateAllSubtotals() {
         document.querySelectorAll('.item-row').forEach(row => {
@@ -133,30 +150,16 @@
         });
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
-        updateAllSubtotals();
-        
-        // 为所有输入框添加事件监听
-        document.querySelectorAll('.item-row').forEach(row => {
-            const quantityInput = row.querySelector('input[name$="-quantity"]');
-            const priceInput = row.querySelector('input[name$="-unit_price"]');
-            
-            if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
-            if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
-        });
-    });
-    
     // 添加产品行
     function addItemRow() {
         // 确保变量已初始化
-        if (!totalFormsInput) {
-            totalFormsInput = document.querySelector('#id_items-TOTAL_FORMS');
-        }
-        if (!itemsContainer) {
-            itemsContainer = document.getElementById('items-container');
-        }
+        initVariables();
         
         if (!totalFormsInput || !itemsContainer) {
+            console.error('无法找到必要的DOM元素:', {
+                totalFormsInput: totalFormsInput,
+                itemsContainer: itemsContainer
+            });
             alert('无法添加产品行，请刷新页面重试');
             return;
         }
@@ -187,6 +190,9 @@
                 <select name="items-${newFormIndex}-product" class="form-control" id="id_items-${newFormIndex}-product" required>
                     ${productOptions}
                 </select>
+                <div class="inventory-info mt-1" style="display: none;">
+                    <small class="inventory-text">当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit"></span> | 基础单价: ¥<span class="inventory-unit-price">0.00</span></small>
+                </div>
             </div>
             <div class="col-md-2">
                 <label class="form-label">数量</label>
@@ -214,8 +220,17 @@
         // 为新行添加事件监听
         const quantityInput = newRow.querySelector('input[name$="-quantity"]');
         const priceInput = newRow.querySelector('input[name$="-unit_price"]');
+        const productSelect = newRow.querySelector('select[name$="-product"]');
+        
         if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
         if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
+        
+        // 产品选择变化时更新库存信息
+        if (productSelect) {
+            productSelect.addEventListener('change', function() {
+                updateInventoryInfo(this, newRow);
+            });
+        }
         
         // 删除按钮事件
         const removeBtn = newRow.querySelector('.remove-row');
@@ -229,11 +244,46 @@
         updateAllSubtotals();
     }
     
+    // 产品库存数据
+    const productInventoryData = {{ product_inventory_data_json|safe }};
+    
+    // 更新产品库存显示
+    function updateInventoryInfo(productSelect, row) {
+        const inventoryInfo = row.querySelector('.inventory-info');
+        const inventoryQuantity = row.querySelector('.inventory-quantity');
+        const inventoryUnit = row.querySelector('.inventory-unit');
+        const inventoryUnitPrice = row.querySelector('.inventory-unit-price');
+        const inventoryText = row.querySelector('.inventory-text');
+        
+        if (!productSelect || !inventoryInfo) return;
+        
+        const productId = productSelect.value;
+        if (productId && productInventoryData[productId]) {
+            const inventory = productInventoryData[productId];
+            inventoryQuantity.textContent = inventory.quantity;
+            inventoryUnit.textContent = inventory.unit;
+            if (inventoryUnitPrice) {
+                inventoryUnitPrice.textContent = inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00';
+            }
+            inventoryInfo.style.display = 'block';
+            
+            // 如果库存为0，显示警告
+            if (inventory.quantity <= 0) {
+                inventoryText.className = 'text-danger';
+                inventoryText.innerHTML = `当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit">${inventory.unit}</span> | 基础单价: ¥<span class="inventory-unit-price">${inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00'}</span> <span class="badge bg-danger">库存不足</span>`;
+            } else {
+                inventoryText.className = 'text-primary';
+                inventoryText.innerHTML = `当前库存: <span class="inventory-quantity">${inventory.quantity}</span> <span class="inventory-unit">${inventory.unit}</span> | 基础单价: ¥<span class="inventory-unit-price">${inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00'}</span>`;
+            }
+        } else {
+            inventoryInfo.style.display = 'none';
+        }
+    }
+    
     // 初始化删除按钮事件
     document.addEventListener('DOMContentLoaded', function() {
         // 初始化formset相关变量
-        totalFormsInput = document.querySelector('#id_items-TOTAL_FORMS');
-        itemsContainer = document.getElementById('items-container');
+        initVariables();
         
         updateAllSubtotals();
         
@@ -241,9 +291,21 @@
         document.querySelectorAll('.item-row').forEach(row => {
             const quantityInput = row.querySelector('input[name$="-quantity"]');
             const priceInput = row.querySelector('input[name$="-unit_price"]');
+            const productSelect = row.querySelector('select[name$="-product"]');
             
             if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
             if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
+            
+            // 产品选择变化时更新库存信息
+            if (productSelect) {
+                productSelect.addEventListener('change', function() {
+                    updateInventoryInfo(this, row);
+                });
+                // 初始化显示当前选择的产品的库存
+                if (productSelect.value) {
+                    updateInventoryInfo(productSelect, row);
+                }
+            }
         });
         
         // 删除按钮事件（对于没有DELETE checkbox的行）

@@ -1,11 +1,14 @@
 {% extends 'base.html' %}
 {% load permission_tags %}
 
-{% block title %}BOM配方列表 - 库存管理{% endblock %}
+{% block title %}BOM配方列表 - 生产流程{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-check"></i> BOM配方列表</h2>
+    <a href="{% url 'production:task_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回生产任务
+    </a>
 </div>
 
 <div class="card">

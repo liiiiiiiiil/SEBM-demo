@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from django.core.paginator import Paginator
+import json
 from accounts.decorators import role_required
 from .models import SalesOrder, SalesOrderItem, ShippingNotice
 from inventory.models import Customer, Product, Inventory
@@ -25,9 +27,20 @@ def order_list(request):
         orders = orders.filter(status=status_filter)
     # 注意：总经理默认显示所有订单，不再自动筛选为待审批订单
     
+    # 分页处理
+    paginator = Paginator(orders, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if status_filter:
+        extra_params = f'status={status_filter}'
+    
     context = {
-        'orders': orders,
+        'orders': page_obj,
         'status_filter': status_filter,
+        'extra_params': extra_params,
     }
     return render(request, 'sales/order_list.html', context)
 
@@ -134,7 +147,35 @@ def order_create(request, order_pk=None):
             formset = SalesOrderItemFormSet(instance=None)
     
     title = '编辑订单' if order_pk else '创建订单'
-    return render(request, 'sales/order_form.html', {'form': form, 'formset': formset, 'title': title, 'order': order})
+    
+    # 获取产品库存数据用于前端显示
+    import json
+    products = Product.objects.all()
+    product_inventory_data = {}
+    for product in products:
+        try:
+            inventory = Inventory.objects.get(inventory_type='product', product=product)
+            product_inventory_data[str(product.pk)] = {
+                'quantity': float(inventory.quantity),
+                'unit': inventory.unit,
+                'unit_price': float(product.unit_price) if product.unit_price else 0.0
+            }
+        except Inventory.DoesNotExist:
+            product_inventory_data[str(product.pk)] = {
+                'quantity': 0,
+                'unit': product.unit,
+                'unit_price': float(product.unit_price) if product.unit_price else 0.0
+            }
+    
+    product_inventory_data_json = json.dumps(product_inventory_data)
+    
+    return render(request, 'sales/order_form.html', {
+        'form': form, 
+        'formset': formset, 
+        'title': title, 
+        'order': order,
+        'product_inventory_data_json': product_inventory_data_json
+    })
 
 
 @login_required
@@ -494,13 +535,32 @@ def check_inventory_and_create_tasks(order):
                 all_sufficient = False
                 shortage = item.quantity - available_qty
                 
-                # 创建生产任务
+                # 检查原材料是否充足
+                from inventory.models import BOM
+                material_sufficient = True
+                bom_items = BOM.objects.filter(product=item.product)
+                for bom_item in bom_items:
+                    material_required = bom_item.quantity * shortage
+                    try:
+                        material_inventory = Inventory.objects.get(
+                            inventory_type='material',
+                            material=bom_item.material
+                        )
+                        if material_inventory.quantity < material_required:
+                            material_sufficient = False
+                            break
+                    except Inventory.DoesNotExist:
+                        material_sufficient = False
+                        break
+                
+                # 创建生产任务，根据原材料是否充足设置状态
+                task_status = 'pending' if material_sufficient else 'material_insufficient'
                 task = ProductionTask.objects.create(
                     task_no=f"PT{timezone.now().strftime('%Y%m%d%H%M%S')}{order.pk}",
                     order=order,
                     product=item.product,
                     required_quantity=shortage,
-                    status='pending',
+                    status=task_status,
                 )
         
         if all_sufficient:

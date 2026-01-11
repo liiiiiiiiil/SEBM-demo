@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from django.core.paginator import Paginator
 from accounts.decorators import role_required
 from .models import Shipment, Driver, Vehicle
 from sales.models import ShippingNotice, SalesOrder
@@ -15,8 +16,14 @@ def shipping_notice_list(request):
     """发货通知单列表"""
     notices = ShippingNotice.objects.select_related('order').filter(status='pending')
     
+    # 分页处理
+    paginator = Paginator(notices, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
     context = {
-        'notices': notices,
+        'notices': page_obj,
+        'extra_params': '',
     }
     return render(request, 'logistics/shipping_notice_list.html', context)
 
@@ -123,7 +130,16 @@ def shipment_ship(request, pk):
 def driver_list(request):
     """司机列表"""
     drivers = Driver.objects.all()
-    return render(request, 'logistics/driver_list.html', {'drivers': drivers})
+    
+    # 分页处理
+    paginator = Paginator(drivers, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'logistics/driver_list.html', {
+        'drivers': page_obj,
+        'extra_params': '',
+    })
 
 
 @login_required
@@ -152,10 +168,27 @@ def shipment_list(request):
             shipments = shipments.filter(status=status_filter)
             pending_notices = ShippingNotice.objects.none()
     
+    # 合并发货单和待发货通知单用于分页
+    all_items = list(shipments) + list(pending_notices)
+    # 按创建时间倒序排序
+    all_items.sort(key=lambda x: x.created_at if hasattr(x, 'created_at') else x.order.created_at, reverse=True)
+    
+    # 分页处理
+    paginator = Paginator(all_items, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if status_filter:
+        extra_params = f'status={status_filter}'
+    
     context = {
+        'page_obj': page_obj,
         'shipments': shipments,
         'pending_notices': pending_notices,
         'status_filter': status_filter,
+        'extra_params': extra_params,
     }
     return render(request, 'logistics/shipment_list.html', context)
 
@@ -210,4 +243,13 @@ def shipment_delivery_confirm(request, pk):
 def vehicle_list(request):
     """车辆列表"""
     vehicles = Vehicle.objects.all()
-    return render(request, 'logistics/vehicle_list.html', {'vehicles': vehicles})
+    
+    # 分页处理
+    paginator = Paginator(vehicles, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'logistics/vehicle_list.html', {
+        'vehicles': page_obj,
+        'extra_params': '',
+    })

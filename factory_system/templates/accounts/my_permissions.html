@@ -33,7 +33,7 @@
             <p class="text-muted">这些权限是您的角色（{{ profile.get_role_display }}）默认拥有的权限。</p>
             {% if role_permissions %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover table-sm">
                     <thead>
                         <tr>
                             <th>权限代码</th>
@@ -64,7 +64,7 @@
             <p class="text-muted">这些权限是管理员为您额外配置的权限，会叠加在角色默认权限之上。</p>
             {% if extra_permissions %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover table-sm">
                     <thead>
                         <tr>
                             <th>权限代码</th>

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}采购任务详情 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>采购任务详情 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <p><strong>供应商：</strong>{{ task.supplier }}</p>
+                <p><strong>联系人：</strong>{{ task.contact_person|default:"-" }}</p>
+                <p><strong>联系电话：</strong>{{ task.contact_phone|default:"-" }}</p>
+                <p><strong>状态：</strong>
+                    {% if task.status == 'pending' %}
+                    <span class="badge bg-warning">待审批</span>
+                    {% elif task.status == 'approved' %}
+                    <span class="badge bg-success">已审批</span>
+                    {% elif task.status == 'purchasing' %}
+                    <span class="badge bg-info">采购中</span>
+                    {% elif task.status == 'completed' %}
+                    <span class="badge bg-secondary">已完成</span>
+                    {% elif task.status == 'terminated' %}
+                    <span class="badge bg-danger">已终结</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>创建人：</strong>{{ task.created_by.username }}</p>
+                <p><strong>创建时间：</strong>{{ task.created_at|date:"Y-m-d H:i" }}</p>
+                {% if task.approved_by %}
+                <p><strong>审批人：</strong>{{ task.approved_by.username }}</p>
+                <p><strong>审批时间：</strong>{{ task.approved_at|date:"Y-m-d H:i" }}</p>
+                {% endif %}
+                {% if task.terminated_by %}
+                <p><strong>终结人：</strong>{{ task.terminated_by.username }}</p>
+                <p><strong>终结时间：</strong>{{ task.terminated_at|date:"Y-m-d H:i" }}</p>
+                <p><strong>终结原因：</strong>{{ task.terminate_reason }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <h5>采购明细</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>物料</th>
+                    <th>类型</th>
+                    <th>采购数量</th>
+                    <th>单价</th>
+                    <th>小计</th>
+                    <th>已收货数量</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in task.items.all %}
+                <tr>
+                    <td>{{ item.material.name }}</td>
+                    <td>{{ item.material.get_material_type_display }}</td>
+                    <td>{{ item.quantity }}{{ item.material.unit }}</td>
+                    <td>¥{{ item.unit_price }}</td>
+                    <td>¥{{ item.subtotal }}</td>
+                    <td>
+                        {% if item.received_quantity > 0 %}
+                        {{ item.received_quantity }}{{ item.material.unit }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="4">合计</th>
+                    <th>¥{{ task.total_amount }}</th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+        
+        {% if task.remark %}
+        <div class="mt-3">
+            <strong>备注：</strong>
+            <p>{{ task.remark }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="mt-4">
+            <a href="{% url 'purchase:task_list' %}" class="btn btn-secondary">返回列表</a>
+            {% if task.status == 'pending' and user.profile.role == 'ceo' %}
+            <a href="{% url 'purchase:task_approve' task.pk %}" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 审批
+            </a>
+            {% endif %}
+            {% if task.status in 'approved,purchasing' %}
+            <a href="{% url 'purchase:task_complete' task.pk %}" class="btn btn-primary">
+                <i class="bi bi-check"></i> 完成采购
+            </a>
+            {% endif %}
+            {% if task.status in 'pending,approved,purchasing' and user.profile.role == 'ceo' %}
+            <a href="{% url 'purchase:task_terminate' task.pk %}" class="btn btn-danger">
+                <i class="bi bi-x-octagon"></i> 终结
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

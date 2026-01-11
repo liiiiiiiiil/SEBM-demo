@@ -6,47 +6,10 @@
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-speedometer2"></i> 仪表板</h2>
 
-{% if role == 'ceo' %}
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <h5 class="card-title">订单总数</h5>
-                <h2>{{ total_orders }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <h5 class="card-title">待审批订单</h5>
-                <h2>{{ pending_orders }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <h5 class="card-title">生产中任务</h5>
-                <h2>{{ active_production_tasks }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <h5 class="card-title">待发货</h5>
-                <h2>{{ pending_shipments }}</h2>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<div class="card">
+<div class="card mb-3">
     <div class="card-body">
         <h5 class="card-title">欢迎，{{ user.username }}！</h5>
-        <p class="card-text">
+        <p class="card-text mb-0">
             {% if role %}
             您的角色：<span class="badge bg-primary">{{ user.profile.get_role_display }}</span>
             {% else %}
@@ -55,5 +18,321 @@
         </p>
     </div>
 </div>
-{% endblock %}
 
+{% if alerts %}
+<!-- 五、异常预警 -->
+<div class="card mb-4">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> 异常预警</h5>
+    </div>
+    <div class="card-body">
+        {% for alert in alerts %}
+        <div class="alert alert-{{ alert.level }} alert-dismissible fade show" role="alert">
+            <strong>
+                {% if alert.type == 'order_delivery_conflict' %}
+                <i class="bi bi-calendar-x"></i> 订单交期冲突预警
+                {% elif alert.type == 'near_unplanned_orders' %}
+                <i class="bi bi-exclamation-circle"></i> 临期未排产订单
+                {% elif alert.type == 'overdue_orders' %}
+                <i class="bi bi-x-circle"></i> 已逾期未交付订单
+                {% elif alert.type == 'overdue_tasks' %}
+                <i class="bi bi-clock-history"></i> 生产任务延期预警
+                {% elif alert.type == 'no_progress_tasks' %}
+                <i class="bi bi-pause-circle"></i> 生产任务长时间未推进
+                {% elif alert.type == 'material_shortage' %}
+                <i class="bi bi-box-x"></i> 关键物料缺料预警
+                {% elif alert.type == 'low_stock' %}
+                <i class="bi bi-exclamation-triangle"></i> 安全库存跌破预警
+                {% elif alert.type == 'overdue_shipment' %}
+                <i class="bi bi-truck-flatbed"></i> 逾期未发货预警
+                {% else %}
+                <i class="bi bi-info-circle"></i> 预警
+                {% endif %}
+            </strong>
+            {{ alert.message }}
+            {% if alert.count %}
+            <span class="badge bg-{{ alert.level }} ms-2">{{ alert.count }}</span>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> 当前无异常预警，系统运行正常
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if order_status %}
+<!-- 一、订单态势 -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-cart"></i> 订单态势</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="text-muted">订单总数</h6>
+                        <h3 class="mb-0">{{ order_status.total_orders }}</h3>
+                        <small class="text-muted">当前筛选条件下的订单数量</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h6 class="text-muted">订单总金额</h6>
+                        <h3 class="mb-0">¥{{ order_status.total_order_amount|floatformat:2 }}</h3>
+                        <small class="text-muted">累计订单金额</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">待审批订单数</h6>
+                        <h3 class="mb-0">{{ order_status.pending_approval_orders }}</h3>
+                        <small class="text-muted">状态为"待审批"的订单</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="text-muted">本期新增订单数</h6>
+                        <h3 class="mb-0">{{ order_status.new_orders }}</h3>
+                        <small class="text-muted">本月新创建的订单</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">临近交期订单数</h6>
+                        <h3 class="mb-0 text-warning">{{ order_status.near_delivery_orders }}</h3>
+                        <small class="text-muted">未来7天内需交付的订单</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="text-muted">已逾期未交付订单数</h6>
+                        <h3 class="mb-0 text-danger">{{ order_status.overdue_orders }}</h3>
+                        <small class="text-muted">超过交付日期未完成的订单</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if production_status %}
+<!-- 二、生产态势 -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-gear"></i> 生产态势</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="text-muted">生产任务总数</h6>
+                        <h3 class="mb-0">{{ production_status.total_tasks }}</h3>
+                        <small class="text-muted">系统中所有生产任务</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="text-muted">进行中生产任务数</h6>
+                        <h3 class="mb-0">{{ production_status.active_tasks }}</h3>
+                        <small class="text-muted">状态为"生产中"的任务</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="text-muted">已延期生产任务数</h6>
+                        <h3 class="mb-0 text-danger">{{ production_status.overdue_tasks }}</h3>
+                        <small class="text-muted">超过计划完成时间的任务</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if inventory_status %}
+<!-- 三、库存态势 -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-box-seam"></i> 库存态势</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="text-muted">库存物料总数</h6>
+                        <h3 class="mb-0">{{ inventory_status.total_materials }}</h3>
+                        <small class="text-muted">所有物料SKU数量</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h6 class="text-muted">库存总数量</h6>
+                        <h3 class="mb-0">{{ inventory_status.total_quantity|floatformat:0 }}</h3>
+                        <small class="text-muted">所有物料数量之和</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">库存总金额</h6>
+                        <h3 class="mb-0">¥{{ inventory_status.total_inventory_value|floatformat:2 }}</h3>
+                        <small class="text-muted">按成本价计算的总金额</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="text-muted">低于安全库存物料数</h6>
+                        <h3 class="mb-0 text-danger">{{ inventory_status.low_stock_materials }}</h3>
+                        <small class="text-muted">库存低于安全库存阈值</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="text-muted">缺料物料数</h6>
+                        <h3 class="mb-0 text-danger">{{ inventory_status.shortage_materials }}</h3>
+                        <small class="text-muted">不足以满足已排产需求</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">呆滞库存物料数</h6>
+                        <h3 class="mb-0 text-warning">{{ inventory_status.idle_materials }}</h3>
+                        <small class="text-muted">90天无出入库记录</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">呆滞库存金额</h6>
+                        <h3 class="mb-0 text-warning">¥{{ inventory_status.idle_value|floatformat:2 }}</h3>
+                        <small class="text-muted">呆滞物料对应的金额</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if purchase_status %}
+<!-- 四、采购态势 -->
+<div class="card mb-4">
+    <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0"><i class="bi bi-cart"></i> 采购态势</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="text-muted">采购任务数量</h6>
+                        <h3 class="mb-0">{{ purchase_status.total_tasks }}</h3>
+                        <small class="text-muted">所有采购任务总数</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h6 class="text-muted">采购总金额</h6>
+                        <h3 class="mb-0">¥{{ purchase_status.total_amount|floatformat:2 }}</h3>
+                        <small class="text-muted">累计采购金额</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="text-muted">本期采购金额</h6>
+                        <h3 class="mb-0">¥{{ purchase_status.current_month_amount|floatformat:2 }}</h3>
+                        <small class="text-muted">本月采购金额</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if logistics_status %}
+<!-- 五、物流态势 -->
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="bi bi-truck"></i> 物流态势</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h6 class="text-muted">待发货订单数</h6>
+                        <h3 class="mb-0">{{ logistics_status.pending_ship_orders }}</h3>
+                        <small class="text-muted">已完成生产但未发货</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="text-muted">今日待发货订单数</h6>
+                        <h3 class="mb-0">{{ logistics_status.today_pending_ship }}</h3>
+                        <small class="text-muted">计划今日发货的订单</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="text-muted">已发货未签收订单数</h6>
+                        <h3 class="mb-0 text-warning">{{ logistics_status.shipped_not_delivered }}</h3>
+                        <small class="text-muted">在途中的订单</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <h6 class="text-muted">逾期未发货订单数</h6>
+                        <h3 class="mb-0 text-danger">{{ logistics_status.overdue_ship_orders }}</h3>
+                        <small class="text-muted">超过计划发货日期</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

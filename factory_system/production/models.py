@@ -8,6 +8,7 @@ class ProductionTask(models.Model):
     """生产任务单"""
     STATUS_CHOICES = [
         ('pending', '待接收'),
+        ('material_insufficient', '原料不足'),
         ('received', '已接收'),
         ('material_preparing', '备料中'),
         ('in_production', '生产中'),
@@ -22,7 +23,8 @@ class ProductionTask(models.Model):
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='产品')
     required_quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='需求数量')
     completed_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='完成数量')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
+    planned_completion_date = models.DateField(null=True, blank=True, verbose_name='计划完成日期')
     received_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='received_tasks', verbose_name='接收人')
     received_at = models.DateTimeField(null=True, blank=True, verbose_name='接收时间')
     started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')

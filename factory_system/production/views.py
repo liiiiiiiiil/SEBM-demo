@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from django.core.paginator import Paginator
 from decimal import Decimal
 from accounts.decorators import role_required
 from .models import ProductionTask, MaterialRequisition, MaterialRequisitionItem, QCRecord, FinishedProductInbound
@@ -19,9 +20,20 @@ def task_list(request):
     if status_filter:
         tasks = tasks.filter(status=status_filter)
     
+    # 分页处理
+    paginator = Paginator(tasks, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if status_filter:
+        extra_params = f'status={status_filter}'
+    
     context = {
-        'tasks': tasks,
+        'tasks': page_obj,
         'status_filter': status_filter,
+        'extra_params': extra_params,
     }
     return render(request, 'production/task_list.html', context)
 
@@ -35,11 +47,124 @@ def task_detail(request, pk):
     # 获取BOM信息
     bom_items = BOM.objects.filter(product=task.product)
     
+    # 计算每种原料的总需求量（BOM用量 × 需求数量）和缺口数量
+    material_requirements = []
+    total_materials_summary = {}  # {material_id: {'material': Material, 'total_quantity': Decimal, 'unit': str, 'available_quantity': Decimal, 'shortage': Decimal}}
+    
+    for bom_item in bom_items:
+        total_required = bom_item.quantity * task.required_quantity
+        
+        # 获取当前库存
+        try:
+            inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+            available_quantity = inventory.quantity
+        except Inventory.DoesNotExist:
+            available_quantity = Decimal('0')
+        
+        # 计算缺口数量
+        shortage = total_required - available_quantity
+        if shortage < 0:
+            shortage = Decimal('0')
+        
+        material_requirements.append({
+            'material': bom_item.material,
+            'material_id': bom_item.material.id,  # 用于JavaScript更新
+            'bom_quantity': bom_item.quantity,  # 单位产品用量
+            'total_required': total_required,  # 总需求量
+            'available_quantity': available_quantity,  # 当前库存
+            'shortage': shortage,  # 缺口数量
+            'unit': bom_item.unit,
+        })
+        
+        # 汇总到总原料统计中
+        material_id = bom_item.material.id
+        if material_id in total_materials_summary:
+            total_materials_summary[material_id]['total_quantity'] += total_required
+            # 更新可用库存和缺口（取最小值，因为同一原料可能在不同BOM中出现）
+            try:
+                inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+                available_qty = inventory.quantity
+            except Inventory.DoesNotExist:
+                available_qty = Decimal('0')
+            total_shortage = total_materials_summary[material_id]['total_quantity'] - available_qty
+            if total_shortage < 0:
+                total_shortage = Decimal('0')
+            total_materials_summary[material_id]['available_quantity'] = available_qty
+            total_materials_summary[material_id]['shortage'] = total_shortage
+        else:
+            try:
+                inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+                available_qty = inventory.quantity
+            except Inventory.DoesNotExist:
+                available_qty = Decimal('0')
+            total_shortage = total_required - available_qty
+            if total_shortage < 0:
+                total_shortage = Decimal('0')
+            total_materials_summary[material_id] = {
+                'material': bom_item.material,
+                'material_id': bom_item.material.id,
+                'total_quantity': total_required,
+                'available_quantity': available_qty,
+                'shortage': total_shortage,
+                'unit': bom_item.unit,
+            }
+    
+    # 计算产品缺口数量
+    shortage_quantity = task.required_quantity - task.completed_quantity
+    if shortage_quantity < 0:
+        shortage_quantity = 0  # 如果完成数量超过需求数量，缺口为0
+    
     context = {
         'task': task,
         'bom_items': bom_items,
+        'material_requirements': material_requirements,  # 每种产品所需原料
+        'total_materials_summary': list(total_materials_summary.values()),  # 全部所需原料总数（汇总）
+        'shortage_quantity': shortage_quantity,  # 缺口数量
     }
     return render(request, 'production/task_detail.html', context)
+
+
+@login_required
+@role_required('production', 'ceo')
+def task_status_api(request, pk):
+    """获取生产任务最新状态的API（用于动态更新）"""
+    task = get_object_or_404(ProductionTask, pk=pk)
+    
+    # 计算产品缺口数量
+    shortage_quantity = task.required_quantity - task.completed_quantity
+    if shortage_quantity < 0:
+        shortage_quantity = 0
+    
+    # 计算每种原料的缺口数量
+    bom_items = BOM.objects.filter(product=task.product)
+    material_shortages = {}
+    
+    for bom_item in bom_items:
+        total_required = bom_item.quantity * task.required_quantity
+        try:
+            inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+            available_quantity = inventory.quantity
+        except Inventory.DoesNotExist:
+            available_quantity = Decimal('0')
+        
+        shortage = total_required - available_quantity
+        if shortage < 0:
+            shortage = Decimal('0')
+        
+        material_shortages[bom_item.material.id] = {
+            'total_required': float(total_required),
+            'available_quantity': float(available_quantity),
+            'shortage': float(shortage),
+        }
+    
+    return JsonResponse({
+        'completed_quantity': float(task.completed_quantity),
+        'required_quantity': float(task.required_quantity),
+        'shortage_quantity': float(shortage_quantity),
+        'status': task.status,
+        'status_display': task.get_status_display(),
+        'material_shortages': material_shortages,  # 每种原料的缺口信息
+    })
 
 
 @login_required
@@ -48,23 +173,86 @@ def task_receive(request, pk):
     """接收生产任务"""
     task = get_object_or_404(ProductionTask, pk=pk)
     
-    if task.status != 'pending':
-        messages.error(request, '任务状态不正确')
+    # 只能接收待接收或原料不足状态的任务
+    if task.status not in ['pending', 'material_insufficient']:
+        messages.error(request, '任务状态不正确，只能接收待接收或原料不足状态的任务')
         return redirect('production:task_detail', pk=pk)
+    
+    # 检查原材料是否充足
+    bom_items = BOM.objects.filter(product=task.product)
+    insufficient_materials = []
+    all_sufficient = True
+    
+    for bom_item in bom_items:
+        total_required = bom_item.quantity * task.required_quantity
+        try:
+            inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+            available_quantity = inventory.quantity
+        except Inventory.DoesNotExist:
+            available_quantity = Decimal('0')
+        
+        if available_quantity < total_required:
+            all_sufficient = False
+            shortage = total_required - available_quantity
+            insufficient_materials.append({
+                'material': bom_item.material,
+                'required': total_required,
+                'available': available_quantity,
+                'shortage': shortage,
+                'unit': bom_item.unit,
+            })
     
     if request.method == 'POST':
-        task.status = 'received'
+        if not all_sufficient:
+            # 原材料不足，更新状态为原料不足
+            task.status = 'material_insufficient'
+            task.save()
+            messages.warning(request, f'任务 {task.task_no} 原材料不足，无法接收。请先采购补齐原材料。')
+            return redirect('production:task_detail', pk=pk)
+        
+        # 原材料充足，可以接收
+        task.status = 'in_production'  # 直接进入生产中状态
         task.received_by = request.user
         task.received_at = timezone.now()
+        task.started_at = timezone.now()
         task.save()
         
-        # 自动创建领料单
-        create_material_requisition(task)
+        # 自动创建领料单并扣减库存
+        requisition = create_material_requisition(task)
+        if requisition:
+            # 自动批准领料单并扣减库存
+            from inventory.models import StockTransaction
+            requisition.status = 'approved'
+            requisition.approved_by = request.user
+            requisition.approved_at = timezone.now()
+            requisition.save()
+            
+            # 扣减库存
+            for item in requisition.items.all():
+                inventory = Inventory.objects.get(inventory_type='material', material=item.material)
+                inventory.quantity -= item.required_quantity
+                inventory.save()
+                
+                # 记录库存变动
+                StockTransaction.objects.create(
+                    transaction_type='production_out',
+                    inventory=inventory,
+                    quantity=item.required_quantity,
+                    unit=item.unit,
+                    reference_no=requisition.requisition_no,
+                    operator=request.user,
+                )
         
-        messages.success(request, f'任务 {task.task_no} 已接收，领料单已生成')
+        messages.success(request, f'任务 {task.task_no} 已接收，已进入生产中状态')
         return redirect('production:task_detail', pk=pk)
     
-    return render(request, 'production/task_receive.html', {'task': task})
+    # GET请求：显示接收页面，包含原材料检查结果
+    context = {
+        'task': task,
+        'insufficient_materials': insufficient_materials,
+        'all_sufficient': all_sufficient,
+    }
+    return render(request, 'production/task_receive.html', context)
 
 
 def create_material_requisition(task):
@@ -105,9 +293,20 @@ def requisition_list(request):
     if status_filter:
         requisitions = requisitions.filter(status=status_filter)
     
+    # 分页处理
+    paginator = Paginator(requisitions, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if status_filter:
+        extra_params = f'status={status_filter}'
+    
     context = {
-        'requisitions': requisitions,
+        'requisitions': page_obj,
         'status_filter': status_filter,
+        'extra_params': extra_params,
     }
     return render(request, 'production/requisition_list.html', context)
 
@@ -178,6 +377,25 @@ def requisition_approve(request, pk):
         'insufficient_items': insufficient_items,
     }
     return render(request, 'production/requisition_approve.html', context)
+
+
+@login_required
+@role_required('production', 'ceo')
+def task_complete(request, pk):
+    """完成生产，进入质检环节"""
+    task = get_object_or_404(ProductionTask, pk=pk)
+    
+    if task.status != 'in_production':
+        messages.error(request, '只能完成处于生产中状态的任务')
+        return redirect('production:task_detail', pk=pk)
+    
+    if request.method == 'POST':
+        task.status = 'qc_checking'
+        task.save()
+        messages.success(request, f'任务 {task.task_no} 已完成生产，已进入质检环节')
+        return redirect('production:task_detail', pk=pk)
+    
+    return render(request, 'production/task_complete.html', {'task': task})
 
 
 @login_required

@@ -1,0 +1,47 @@
+{% comment %}
+通用分页模板
+使用方式：{% include 'includes/pagination.html' with page_obj=page_obj extra_params='status=xxx&search=yyy' %}
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+<nav aria-label="分页导航">
+    <ul class="pagination justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1{% if extra_params %}&{{ extra_params }}{% endif %}">首页</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}">上一页</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">首页</span>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link">上一页</span>
+        </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">
+                第 {{ page_obj.number }} 页，共 {{ page_obj.paginator.num_pages }} 页（共 {{ page_obj.paginator.count }} 条）
+            </span>
+        </li>
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}">下一页</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if extra_params %}&{{ extra_params }}{% endif %}">末页</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">下一页</span>
+        </li>
+        <li class="page-item disabled">
+            <span class="page-link">末页</span>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

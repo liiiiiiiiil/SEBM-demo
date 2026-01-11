@@ -4,10 +4,10 @@ from django.contrib import messages
 from django.db.models import Q
 from django.db import transaction
 from django.utils import timezone
+from django.core.paginator import Paginator
 from decimal import Decimal
 from accounts.decorators import role_required, permission_required, role_or_permission_required
-from .models import Inventory, StockTransaction, Product, Material, Customer, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM, PurchaseOrder, PurchaseOrderItem
-from production.models import MaterialRequisition, MaterialRequisitionItem
+from .models import Inventory, StockTransaction, Product, Material, Customer, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM
 
 
 @login_required
@@ -16,6 +16,90 @@ def inventory_list(request):
     """库存列表"""
     inventory_type = request.GET.get('type', '')
     
+    # 合并两类记录，创建一个统一的记录列表
+    all_records = []
+    
+    # 添加库存变动记录（排除调整类型，因为调整记录会单独处理）
+    stock_transactions = StockTransaction.objects.filter(
+        ~Q(transaction_type='adjustment')
+    ).select_related('inventory', 'operator').order_by('-created_at')
+    
+    for trans in stock_transactions:
+        # 根据transaction_type判断是入库还是出库
+        # 出库类型：sale_out, production_out 显示负数
+        # 入库类型：production_in, purchase_in 显示正数
+        if trans.transaction_type in ['sale_out', 'production_out']:
+            display_quantity = -trans.quantity  # 出库显示负数
+        else:
+            display_quantity = trans.quantity  # 入库显示正数
+        
+        all_records.append({
+            'type': 'transaction',
+            'record_type': '出入库',
+            'transaction_type': trans.get_transaction_type_display(),
+            'item_name': trans.inventory.product.name if trans.inventory.inventory_type == 'product' else trans.inventory.material.name,
+            'item_type': trans.inventory.get_inventory_type_display(),
+            'quantity': display_quantity,  # 使用带符号的数量
+            'unit': trans.unit,
+            'reference_no': trans.reference_no,
+            'operator': trans.operator.username,
+            'created_at': trans.created_at,
+            'remark': trans.remark,
+        })
+    
+    # 添加库存调整记录（从StockTransaction中获取，因为已经记录了价格变动）
+    adjustment_transactions = StockTransaction.objects.filter(
+        transaction_type='adjustment'
+    ).select_related('inventory', 'operator').order_by('-created_at')
+    
+    for trans in adjustment_transactions:
+        # 查找对应的调整申请以获取详细信息
+        try:
+            adj = InventoryAdjustmentRequest.objects.get(request_no=trans.reference_no)
+            all_records.append({
+                'type': 'adjustment',
+                'record_type': '库存调整',
+                'transaction_type': '库存调整',
+                'item_name': trans.inventory.product.name if trans.inventory.inventory_type == 'product' else trans.inventory.material.name,
+                'item_type': trans.inventory.get_inventory_type_display(),
+                'quantity': trans.quantity,
+                'unit': trans.unit,
+                'reference_no': trans.reference_no,
+                'operator': trans.operator.username,
+                'created_at': trans.created_at,
+                'remark': trans.remark,
+                'old_unit_price': trans.old_unit_price,
+                'new_unit_price': trans.new_unit_price,
+                'current_quantity': adj.current_quantity if hasattr(adj, 'current_quantity') else None,
+                'new_quantity': adj.new_quantity if hasattr(adj, 'new_quantity') else None,
+            })
+        except InventoryAdjustmentRequest.DoesNotExist:
+            # 如果找不到对应的调整申请，仍然显示记录
+            all_records.append({
+                'type': 'adjustment',
+                'record_type': '库存调整',
+                'transaction_type': '库存调整',
+                'item_name': trans.inventory.product.name if trans.inventory.inventory_type == 'product' else trans.inventory.material.name,
+                'item_type': trans.inventory.get_inventory_type_display(),
+                'quantity': trans.quantity,
+                'unit': trans.unit,
+                'reference_no': trans.reference_no,
+                'operator': trans.operator.username,
+                'created_at': trans.created_at,
+                'remark': trans.remark,
+                'old_unit_price': trans.old_unit_price,
+                'new_unit_price': trans.new_unit_price,
+            })
+    
+    # 按时间倒序排序
+    all_records.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    # 分页处理
+    paginator = Paginator(all_records, 20)  # 每页20条记录
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    # 获取库存列表
     inventories = Inventory.objects.select_related('product', 'material').all()
     
     if inventory_type == 'product':
@@ -23,16 +107,30 @@ def inventory_list(request):
     elif inventory_type == 'material':
         inventories = inventories.filter(inventory_type='material')
     
-    # 检查安全库存预警
-    warnings = []
-    for inv in inventories:
-        if inv.check_safety_stock():
-            warnings.append(inv)
+    # 为每个库存查询是否有待审批的调整申请
+    # 只对总经理显示审批选项
+    can_approve = request.user.profile.role == 'ceo' or request.user.profile.has_permission('inventory.adjustment.approve')
+    pending_adjustments = {}
+    if can_approve:
+        pending_adjs = InventoryAdjustmentRequest.objects.filter(
+            status='pending'
+        ).select_related('inventory', 'applicant')
+        for adj in pending_adjs:
+            inv_id = adj.inventory_id
+            if inv_id not in pending_adjustments:
+                pending_adjustments[inv_id] = []
+            pending_adjustments[inv_id].append(adj)
+    
+    # 将待审批的调整申请信息附加到每个库存对象上
+    inventories_list = list(inventories)
+    for inv in inventories_list:
+        inv.pending_adjustments = pending_adjustments.get(inv.pk, [])
     
     context = {
-        'inventories': inventories,
+        'page_obj': page_obj,  # 分页的记录
+        'inventories': inventories_list,
         'inventory_type': inventory_type,
-        'warnings': warnings,
+        'can_approve': can_approve,
     }
     return render(request, 'inventory/inventory_list.html', context)
 
@@ -78,9 +176,20 @@ def customer_list(request):
             Q(phone__icontains=search)
         )
     
+    # 分页处理
+    paginator = Paginator(customers, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if search:
+        extra_params = f'search={search}'
+    
     context = {
-        'customers': customers,
+        'customers': page_obj,
         'search': search,
+        'extra_params': extra_params,
     }
     return render(request, 'inventory/customer_list.html', context)
 
@@ -165,9 +274,20 @@ def product_list(request):
             Q(name__icontains=search)
         )
     
+    # 分页处理
+    paginator = Paginator(products, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if search:
+        extra_params = f'search={search}'
+    
     context = {
-        'products': products,
+        'products': page_obj,
         'search': search,
+        'extra_params': extra_params,
         'can_manage': request.user.profile.has_permission('inventory.product.manage'),
     }
     return render(request, 'inventory/product_list.html', context)
@@ -240,9 +360,31 @@ def inventory_adjustment_create(request, inventory_pk):
             adjustment = form.save(commit=False)
             adjustment.inventory = inventory
             adjustment.current_quantity = inventory.quantity
+            adjustment.current_unit_price = inventory.get_unit_price()
             adjustment.applicant = request.user
             adjustment.request_no = f"IAR{timezone.now().strftime('%Y%m%d%H%M%S')}"
-            adjustment.new_quantity = adjustment.current_quantity + adjustment.adjust_quantity
+            
+            # 根据调整类型处理数量和单价
+            adjustment_type = form.cleaned_data.get('adjustment_type')
+            adjust_quantity = form.cleaned_data.get('adjust_quantity') or 0
+            adjust_unit_price = form.cleaned_data.get('adjust_unit_price')
+            
+            if adjustment_type == 'quantity' or adjustment_type == 'both':
+                adjustment.adjust_quantity = adjust_quantity
+                adjustment.new_quantity = adjustment.current_quantity + adjust_quantity
+            else:
+                adjustment.adjust_quantity = 0
+                adjustment.new_quantity = adjustment.current_quantity
+            
+            if adjustment_type == 'price' or adjustment_type == 'both':
+                if adjust_unit_price is not None:
+                    adjustment.adjust_unit_price = adjust_unit_price
+                    adjustment.new_unit_price = adjust_unit_price
+                else:
+                    adjustment.new_unit_price = adjustment.current_unit_price
+            else:
+                adjustment.adjust_unit_price = None
+                adjustment.new_unit_price = adjustment.current_unit_price
             
             if adjustment.new_quantity < 0:
                 messages.error(request, '调整后数量不能为负数')
@@ -271,9 +413,20 @@ def adjustment_list(request):
     if status_filter:
         adjustments = adjustments.filter(status=status_filter)
     
+    # 分页处理
+    paginator = Paginator(adjustments, 20)  # 每页20条
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 构建额外参数用于分页链接
+    extra_params = ''
+    if status_filter:
+        extra_params = f'status={status_filter}'
+    
     context = {
-        'adjustments': adjustments,
+        'adjustments': page_obj,
         'status_filter': status_filter,
+        'extra_params': extra_params,
         'can_approve': request.user.profile.has_permission('inventory.adjustment.approve'),
     }
     return render(request, 'inventory/adjustment_list.html', context)
@@ -307,21 +460,39 @@ def adjustment_approve(request, pk):
                 inventory.quantity = adjustment.new_quantity
                 inventory.save()
                 
+                # 执行单价调整（如果调整了单价）
+                price_adjusted = False
+                if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price:
+                    item = inventory.get_item()
+                    if item:
+                        item.unit_price = adjustment.new_unit_price
+                        item.save()
+                        price_adjusted = True
+                
                 # 创建库存变动记录
+                remark_parts = [f"库存调整：{adjustment.reason}"]
+                if price_adjusted:
+                    remark_parts.append(f"单价从¥{adjustment.current_unit_price}调整为¥{adjustment.new_unit_price}")
+                
                 StockTransaction.objects.create(
                     transaction_type='adjustment',
                     inventory=inventory,
                     quantity=adjustment.adjust_quantity,
                     unit=inventory.unit,
+                    old_unit_price=adjustment.current_unit_price if price_adjusted else None,
+                    new_unit_price=adjustment.new_unit_price if price_adjusted else None,
                     reference_no=adjustment.request_no,
-                    remark=f"库存调整：{adjustment.reason}",
+                    remark="；".join(remark_parts),
                     operator=request.user,
                 )
                 
                 adjustment.status = 'completed'
                 adjustment.save()
                 
-                messages.success(request, f'库存调整申请 {adjustment.request_no} 已审批通过，库存已更新')
+                success_msg = f'库存调整申请 {adjustment.request_no} 已审批通过，库存已更新'
+                if price_adjusted:
+                    success_msg += f'，单价已从¥{adjustment.current_unit_price}更新为¥{adjustment.new_unit_price}'
+                messages.success(request, success_msg)
         elif action == 'reject':
             reject_reason = request.POST.get('reject_reason', '').strip()
             if not reject_reason:
@@ -375,266 +546,3 @@ def bom_list(request):
     return render(request, 'inventory/bom_list.html', context)
 
 
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='production.requisition.approve')
-def requisition_list(request):
-    """领料单列表"""
-    requisitions = MaterialRequisition.objects.select_related('task', 'requested_by').all()
-    
-    status_filter = request.GET.get('status', '')
-    if status_filter:
-        requisitions = requisitions.filter(status=status_filter)
-    
-    context = {
-        'requisitions': requisitions,
-        'status_filter': status_filter,
-    }
-    return render(request, 'inventory/requisition_list.html', context)
-
-
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='production.requisition.approve')
-def requisition_approve(request, pk):
-    """审核领料单"""
-    requisition = get_object_or_404(MaterialRequisition.objects.prefetch_related('items__material'), pk=pk)
-    
-    if requisition.status != 'pending':
-        messages.error(request, '领料单状态不正确')
-        return redirect('inventory:requisition_list')
-    
-    # 检查库存是否充足
-    insufficient_items = []
-    for item in requisition.items.all():
-        try:
-            inventory = Inventory.objects.get(inventory_type='material', material=item.material)
-            if inventory.quantity < item.required_quantity:
-                shortage = item.required_quantity - inventory.quantity
-                insufficient_items.append({
-                    'material': item.material,
-                    'material_name': item.material.name,
-                    'required': item.required_quantity,
-                    'available': inventory.quantity,
-                    'shortage': shortage,
-                    'unit': item.unit,
-                })
-        except Inventory.DoesNotExist:
-            insufficient_items.append({
-                'material': item.material,
-                'material_name': item.material.name,
-                'required': item.required_quantity,
-                'available': Decimal('0'),
-                'shortage': item.required_quantity,
-                'unit': item.unit,
-            })
-    
-    if request.method == 'POST':
-        if insufficient_items:
-            messages.error(request, '部分原料库存不足，无法批准')
-            return redirect('inventory:requisition_approve', pk=pk)
-        
-        with transaction.atomic():
-            requisition.status = 'approved'
-            requisition.approved_by = request.user
-            requisition.approved_at = timezone.now()
-            requisition.save()
-            
-            # 扣减库存
-            for item in requisition.items.all():
-                inventory = Inventory.objects.get(inventory_type='material', material=item.material)
-                inventory.quantity -= item.required_quantity
-                inventory.save()
-                
-                # 记录库存变动
-                StockTransaction.objects.create(
-                    transaction_type='production_out',
-                    inventory=inventory,
-                    quantity=item.required_quantity,
-                    unit=item.unit,
-                    reference_no=requisition.requisition_no,
-                    operator=request.user,
-                )
-            
-            requisition.task.status = 'material_preparing'
-            requisition.task.save()
-            
-            messages.success(request, f'领料单 {requisition.requisition_no} 已批准，库存已扣减')
-            return redirect('inventory:requisition_list')
-    
-    context = {
-        'requisition': requisition,
-        'insufficient_items': insufficient_items,
-    }
-    return render(request, 'inventory/requisition_approve.html', context)
-
-
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.purchase.create')
-def purchase_order_create(request):
-    """创建采购单"""
-    # 从URL参数获取预填充的原料信息（从领料单审核页面跳转）
-    material_id = request.GET.get('material_id')
-    quantity = request.GET.get('quantity')
-    
-    if request.method == 'POST':
-        supplier = request.POST.get('supplier', '').strip()
-        contact_person = request.POST.get('contact_person', '').strip()
-        contact_phone = request.POST.get('contact_phone', '').strip()
-        remark = request.POST.get('remark', '').strip()
-        
-        # 获取采购明细
-        material_ids = request.POST.getlist('material_id')
-        quantities = request.POST.getlist('quantity')
-        unit_prices = request.POST.getlist('unit_price')
-        
-        if not supplier:
-            messages.error(request, '请输入供应商名称')
-            return redirect('inventory:purchase_order_create')
-        
-        if not material_ids or not all(material_ids):
-            messages.error(request, '请至少添加一个采购明细')
-            return redirect('inventory:purchase_order_create')
-        
-        with transaction.atomic():
-            purchase_order = PurchaseOrder.objects.create(
-                order_no=f"PO{timezone.now().strftime('%Y%m%d%H%M%S')}",
-                supplier=supplier,
-                contact_person=contact_person,
-                contact_phone=contact_phone,
-                status='pending',
-                created_by=request.user,
-                remark=remark,
-            )
-            
-            total_amount = Decimal('0')
-            for material_id, quantity_str, unit_price_str in zip(material_ids, quantities, unit_prices):
-                if not material_id or not quantity_str or not unit_price_str:
-                    continue
-                
-                material = Material.objects.get(pk=material_id)
-                quantity = Decimal(quantity_str)
-                unit_price = Decimal(unit_price_str)
-                subtotal = quantity * unit_price
-                
-                PurchaseOrderItem.objects.create(
-                    order=purchase_order,
-                    material=material,
-                    quantity=quantity,
-                    unit_price=unit_price,
-                    subtotal=subtotal,
-                )
-                total_amount += subtotal
-            
-            purchase_order.total_amount = total_amount
-            purchase_order.save()
-            
-            messages.success(request, f'采购单 {purchase_order.order_no} 创建成功')
-            return redirect('inventory:purchase_order_list')
-    
-    # GET 请求：显示创建表单
-    materials = Material.objects.all().order_by('sku')
-    prefill_material = None
-    prefill_quantity = None
-    if material_id:
-        try:
-            prefill_material = Material.objects.get(pk=material_id)
-            if quantity:
-                prefill_quantity = Decimal(quantity)
-        except Material.DoesNotExist:
-            pass
-    
-    context = {
-        'materials': materials,
-        'prefill_material': prefill_material,
-        'prefill_quantity': prefill_quantity,
-    }
-    return render(request, 'inventory/purchase_order_form.html', context)
-
-
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.purchase.view')
-def purchase_order_list(request):
-    """采购单列表"""
-    purchase_orders = PurchaseOrder.objects.select_related('created_by', 'received_by').all()
-    
-    status_filter = request.GET.get('status', '')
-    if status_filter:
-        purchase_orders = purchase_orders.filter(status=status_filter)
-    
-    context = {
-        'purchase_orders': purchase_orders,
-        'status_filter': status_filter,
-    }
-    return render(request, 'inventory/purchase_order_list.html', context)
-
-
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.purchase.view')
-def purchase_order_detail(request, pk):
-    """采购单详情"""
-    purchase_order = get_object_or_404(PurchaseOrder.objects.prefetch_related('items__material'), pk=pk)
-    
-    context = {
-        'purchase_order': purchase_order,
-    }
-    return render(request, 'inventory/purchase_order_detail.html', context)
-
-
-@login_required
-@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.purchase.receive')
-def purchase_order_receive(request, pk):
-    """采购单收货"""
-    purchase_order = get_object_or_404(PurchaseOrder.objects.prefetch_related('items__material'), pk=pk)
-    
-    if purchase_order.status not in ['pending', 'ordered']:
-        messages.error(request, '只能对待采购或已下单的采购单进行收货')
-        return redirect('inventory:purchase_order_detail', pk=pk)
-    
-    if request.method == 'POST':
-        with transaction.atomic():
-            # 更新收货数量并增加库存
-            for item in purchase_order.items.all():
-                received_qty_str = request.POST.get(f'received_quantity_{item.id}', '0')
-                if received_qty_str:
-                    received_qty = Decimal(received_qty_str)
-                    if received_qty > 0:
-                        item.received_quantity = received_qty
-                        item.save()
-                        
-                        # 增加原料库存
-                        inventory, created = Inventory.objects.get_or_create(
-                            inventory_type='material',
-                            material=item.material,
-                            defaults={'quantity': 0, 'unit': item.material.unit}
-                        )
-                        inventory.quantity += received_qty
-                        inventory.save()
-                        
-                        # 记录库存变动
-                        StockTransaction.objects.create(
-                            transaction_type='purchase_in',
-                            inventory=inventory,
-                            quantity=received_qty,
-                            unit=item.material.unit,
-                            reference_no=purchase_order.order_no,
-                            operator=request.user,
-                        )
-            
-            # 检查是否全部收货
-            all_received = all(
-                item.received_quantity >= item.quantity 
-                for item in purchase_order.items.all()
-            )
-            
-            if all_received:
-                purchase_order.status = 'completed'
-            else:
-                purchase_order.status = 'received'
-            
-            purchase_order.received_by = request.user
-            purchase_order.received_at = timezone.now()
-            purchase_order.save()
-            
-            messages.success(request, f'采购单 {purchase_order.order_no} 收货成功，库存已更新')
-            return redirect('inventory:purchase_order_detail', pk=pk)
-    
-    return render(request, 'inventory/purchase_order_receive.html', {'purchase_order': purchase_order})

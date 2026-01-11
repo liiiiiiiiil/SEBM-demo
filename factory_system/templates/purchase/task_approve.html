@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}审批采购任务 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h4>审批采购任务 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>采购任务信息</h5>
+            <p><strong>供应商：</strong>{{ task.supplier }}</p>
+            <p><strong>采购总额：</strong>¥{{ task.total_amount }}</p>
+        </div>
+        
+        <h5>采购明细</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>物料</th>
+                    <th>类型</th>
+                    <th>采购数量</th>
+                    <th>单价</th>
+                    <th>小计</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in task.items.all %}
+                <tr>
+                    <td>{{ item.material.name }}</td>
+                    <td>{{ item.material.get_material_type_display }}</td>
+                    <td>{{ item.quantity }}{{ item.material.unit }}</td>
+                    <td>¥{{ item.unit_price }}</td>
+                    <td>¥{{ item.subtotal }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th colspan="4">合计</th>
+                    <th>¥{{ task.total_amount }}</th>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <div class="alert alert-warning">
+                审批通过后，采购任务将进入"采购中"状态，可以开始采购并完成入库。
+            </div>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 确认审批
+            </button>
+            <a href="{% url 'purchase:task_detail' task.pk %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

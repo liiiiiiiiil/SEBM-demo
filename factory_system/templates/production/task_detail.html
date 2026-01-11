@@ -7,7 +7,7 @@
     <div class="card-header d-flex justify-content-between">
         <h4>生产任务详情 - {{ task.task_no }}</h4>
         <div>
-            {% if task.status == 'received' or task.status == 'material_preparing' or task.status == 'in_production' or task.status == 'qc_checking' %}
+            {% if task.status == 'received' or task.status == 'material_preparing' or task.status == 'in_production' or task.status == 'qc_checking' or task.status == 'material_insufficient' %}
                 {% if user.profile.role == 'ceo' %}
                 <a href="{% url 'production:task_terminate' task.pk %}" class="btn btn-danger">
                     <i class="bi bi-x-octagon"></i> 终结流程
@@ -40,13 +40,23 @@
                     </tr>
                     <tr>
                         <th>完成数量</th>
-                        <td>{{ task.completed_quantity }}{{ task.product.unit }}</td>
+                        <td id="completed-quantity">{{ task.completed_quantity }}{{ task.product.unit }}</td>
+                    </tr>
+                    <tr>
+                        <th>缺口数量</th>
+                        <td>
+                            <span id="shortage-quantity" class="badge {% if shortage_quantity > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ shortage_quantity }}{{ task.product.unit }}
+                            </span>
+                        </td>
                     </tr>
                     <tr>
                         <th>状态</th>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-secondary">待接收</span>
+                            {% elif task.status == 'material_insufficient' %}
+                            <span class="badge bg-danger">原料不足</span>
                             {% elif task.status == 'received' %}
                             <span class="badge bg-info">已接收</span>
                             {% elif task.status == 'material_preparing' %}
@@ -85,7 +95,7 @@
                 </table>
             </div>
             <div class="col-md-6">
-                <h5>BOM配方</h5>
+                <h5>BOM配方（单位产品）</h5>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
@@ -111,13 +121,114 @@
             </div>
         </div>
         
+        <!-- 原料需求详情 -->
+        {% if material_requirements %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h5>产品所需原料明细</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>原料名称</th>
+                                    <th>原料SKU</th>
+                                    <th>单位产品用量</th>
+                                    <th>需求数量</th>
+                                    <th>总需求量</th>
+                                    <th>当前库存</th>
+                                    <th>缺口数量</th>
+                                    <th>单位</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in material_requirements %}
+                                <tr data-material-id="{{ req.material_id }}">
+                                    <td>{{ req.material.name }}</td>
+                                    <td><small class="text-muted">{{ req.material.sku }}</small></td>
+                                    <td>{{ req.bom_quantity }}</td>
+                                    <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
+                                    <td><strong>{{ req.total_required }}</strong></td>
+                                    <td id="material-available-{{ req.material_id }}">{{ req.available_quantity }}</td>
+                                    <td>
+                                        <span id="material-shortage-{{ req.material_id }}" class="badge {% if req.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {{ req.shortage }}
+                                        </span>
+                                    </td>
+                                    <td>{{ req.unit }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 全部所需原料汇总 -->
+        {% if total_materials_summary %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h5>全部所需原料汇总</h5>
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>原料名称</th>
+                                    <th>原料SKU</th>
+                                    <th>总需求量</th>
+                                    <th>当前库存</th>
+                                    <th>缺口数量</th>
+                                    <th>单位</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for summary in total_materials_summary %}
+                                <tr data-material-id="{{ summary.material_id }}">
+                                    <td><strong>{{ summary.material.name }}</strong></td>
+                                    <td><small class="text-muted">{{ summary.material.sku }}</small></td>
+                                    <td><strong class="text-primary">{{ summary.total_quantity }}</strong></td>
+                                    <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity }}</td>
+                                    <td>
+                                        <span id="material-shortage-{{ summary.material_id }}" class="badge {% if summary.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                            {{ summary.shortage }}
+                                        </span>
+                                    </td>
+                                    <td>{{ summary.unit }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="2"><strong>合计原料种类</strong></td>
+                                    <td><strong>{{ total_materials_summary|length }} 种</strong></td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
         <div class="mt-4">
-            {% if task.status == 'in_production' or task.status == 'material_preparing' %}
-            <a href="{% url 'production:qc_create' task.pk %}" class="btn btn-primary">
-                <i class="bi bi-clipboard-check"></i> 录入质检记录
+            {% if task.status == 'pending' or task.status == 'material_insufficient' %}
+            <a href="{% url 'production:task_receive' task.pk %}" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 接收任务
+            </a>
+            {% endif %}
+            {% if task.status == 'in_production' %}
+            <a href="{% url 'production:task_complete' task.pk %}" class="btn btn-primary">
+                <i class="bi bi-check2-circle"></i> 完成生产
             </a>
             {% endif %}
             {% if task.status == 'qc_checking' %}
+            <a href="{% url 'production:qc_create' task.pk %}" class="btn btn-primary">
+                <i class="bi bi-clipboard-check"></i> 录入质检记录
+            </a>
             <a href="{% url 'production:inbound_create' task.pk %}" class="btn btn-success">
                 <i class="bi bi-box-arrow-in"></i> 成品入库
             </a>
@@ -127,3 +238,68 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+    function updateTaskStatus() {
+        fetch('{% url "production:task_status_api" task.pk %}')
+            .then(response => response.json())
+            .then(data => {
+                // 更新完成数量
+                const completedQty = parseFloat(data.completed_quantity);
+                const requiredQty = parseFloat(data.required_quantity);
+                document.getElementById('completed-quantity').textContent = completedQty + '{{ task.product.unit }}';
+                
+                // 更新产品缺口数量
+                const shortageQty = parseFloat(data.shortage_quantity);
+                const shortageElement = document.getElementById('shortage-quantity');
+                shortageElement.textContent = shortageQty + '{{ task.product.unit }}';
+                if (shortageQty > 0) {
+                    shortageElement.className = 'badge bg-warning';
+                } else {
+                    shortageElement.className = 'badge bg-success';
+                }
+                
+                // 更新每种原料的库存和缺口数量
+                const materialShortages = data.material_shortages;
+                for (const materialId in materialShortages) {
+                    const info = materialShortages[materialId];
+                    const availableElement = document.getElementById('material-available-' + materialId);
+                    const shortageElement = document.getElementById('material-shortage-' + materialId);
+                    
+                    if (availableElement) {
+                        availableElement.textContent = parseFloat(info.available_quantity).toFixed(2);
+                    }
+                    
+                    if (shortageElement) {
+                        const shortage = parseFloat(info.shortage);
+                        shortageElement.textContent = shortage.toFixed(2);
+                        if (shortage > 0) {
+                            shortageElement.className = 'badge bg-warning';
+                        } else {
+                            shortageElement.className = 'badge bg-success';
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('更新任务状态失败:', error);
+            });
+    }
+    
+    // 页面加载后开始定期更新
+    document.addEventListener('DOMContentLoaded', function() {
+        // 立即更新一次
+        updateTaskStatus();
+        
+        // 每5秒更新一次
+        setInterval(updateTaskStatus, 5000);
+        
+        // 监听页面可见性变化，当页面重新可见时立即更新
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                updateTaskStatus();
+            }
+        });
+    });
+</script>
+{% endblock %}

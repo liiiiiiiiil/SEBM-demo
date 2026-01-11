@@ -1,6 +1,6 @@
 from django import forms
 from .models import SalesOrder, SalesOrderItem
-from inventory.models import Customer, Product
+from inventory.models import Customer, Product, Inventory
 
 
 class SalesOrderItemForm(forms.ModelForm):
@@ -12,6 +12,34 @@ class SalesOrderItemForm(forms.ModelForm):
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 自定义产品选择框，在下拉选项中显示库存数量和基础单价
+        products = Product.objects.all()
+        choices = [('', '---------')]
+        
+        for product in products:
+            try:
+                inventory = Inventory.objects.get(inventory_type='product', product=product)
+                quantity = float(inventory.quantity)
+                unit = inventory.unit
+            except Inventory.DoesNotExist:
+                quantity = 0.0
+                unit = product.unit
+            
+            # 获取基础单价
+            unit_price = float(product.unit_price) if product.unit_price else 0.0
+            
+            # 在选项文本中显示库存数量和基础单价，便于销售预判
+            if quantity <= 0:
+                display_text = f"{product.name} (库存: {quantity}{unit} - 缺货 | 基础单价: ¥{unit_price:.2f})"
+            else:
+                display_text = f"{product.name} (库存: {quantity}{unit} | 基础单价: ¥{unit_price:.2f})"
+            
+            choices.append((product.id, display_text))
+        
+        self.fields['product'].widget.choices = choices
 
 
 # 默认formset（用于新建订单，extra=1显示一个空行）

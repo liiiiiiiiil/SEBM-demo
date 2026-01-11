@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}完成生产 - {{ task.task_no }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>完成生产 - {{ task.task_no }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5><i class="bi bi-info-circle"></i> 确认完成生产</h5>
+            <p>任务单号：<strong>{{ task.task_no }}</strong></p>
+            <p>产品：<strong>{{ task.product.name }}</strong></p>
+            <p>需求数量：<strong>{{ task.required_quantity }}{{ task.product.unit }}</strong></p>
+            <p>完成数量：<strong>{{ task.completed_quantity }}{{ task.product.unit }}</strong></p>
+            <p class="mb-0">完成生产后，任务将进入<strong>质检环节</strong>。</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check2-circle"></i> 确认完成生产
+                </button>
+                <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
