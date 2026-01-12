@@ -503,13 +503,16 @@ def inbound_create(request, task_pk):
                 
                 # 更新任务完成数量
                 task.completed_quantity += quantity
-                if task.completed_quantity >= task.required_quantity:
+                task_was_completed = False
+                if task.completed_quantity >= task.required_quantity and task.status != 'completed':
                     task.status = 'completed'
                     task.completed_at = timezone.now()
+                    task_was_completed = True
                 task.save()
                 
-                # 检查订单是否可以发货
-                check_order_ready_to_ship(task.order)
+                # 如果任务刚完成，或者任务已完成，检查订单是否可以发货
+                if task_was_completed or task.status == 'completed':
+                    check_order_ready_to_ship(task.order)
                 
                 messages.success(request, f'入库单 {inbound.inbound_no} 创建成功')
                 return redirect('production:task_detail', pk=task_pk)
@@ -529,20 +532,63 @@ def inbound_create(request, task_pk):
 
 
 def check_order_ready_to_ship(order):
-    """检查订单是否可以发货"""
+    """检查订单是否可以发货
+    
+    逻辑说明：
+    1. 如果商品在审核时库存充足，已经锁定了库存（扣减了），那么即使当前库存 < 订单数量，也可以发货
+    2. 如果商品有生产任务，需要检查：
+       - 所有生产任务是否都已完成
+       - 当前库存 + 已完成的生产数量是否 >= 订单数量
+    """
     from sales.models import ShippingNotice
     
     # 检查所有订单项是否都有足够库存
     all_ready = True
     for item in order.items.all():
-        try:
-            inventory = Inventory.objects.get(inventory_type='product', product=item.product)
-            if inventory.quantity < item.quantity:
-                all_ready = False
-                break
-        except Inventory.DoesNotExist:
+        # 检查该商品是否有生产任务（未完成的）
+        production_tasks = ProductionTask.objects.filter(
+            order=order,
+            product=item.product
+        ).exclude(status__in=['completed', 'cancelled', 'terminated'])
+        
+        if production_tasks.exists():
+            # 有未完成的生产任务，不能发货
             all_ready = False
             break
+        
+        # 检查已完成的生产任务
+        completed_tasks = ProductionTask.objects.filter(
+            order=order,
+            product=item.product,
+            status='completed'
+        )
+        
+        # 计算已完成的生产数量
+        total_produced = sum(task.completed_quantity for task in completed_tasks)
+        
+        # 获取当前库存
+        try:
+            inventory = Inventory.objects.get(inventory_type='product', product=item.product)
+            current_inventory = inventory.quantity
+        except Inventory.DoesNotExist:
+            current_inventory = 0
+        
+        # 如果该商品有生产任务，说明审核时库存不足
+        # 需要检查：当前库存（包括生产完成的）是否 >= 订单数量
+        if completed_tasks.exists():
+            # 有生产任务，需要当前库存 >= 订单数量
+            # 注意：审核时如果库存不足，会创建生产任务，但不会扣减库存
+            # 所以当前库存应该包括生产完成的数量
+            if current_inventory < item.quantity:
+                all_ready = False
+                break
+        else:
+            # 没有生产任务，说明审核时库存充足，已经锁定了库存（扣减了）
+            # 这种情况下，即使当前库存 < 订单数量，也可以发货（因为已经锁定了）
+            # 但为了安全，我们检查当前库存是否 >= 0（不应该为负数）
+            if current_inventory < 0:
+                all_ready = False
+                break
     
     if all_ready and order.status == 'in_production':
         # 创建发货通知单

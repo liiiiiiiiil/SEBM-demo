@@ -349,15 +349,120 @@ def ceo_reject(request, pk):
 
 def terminate_order_chain(order, terminated_by, terminate_reason):
     """终结订单及其所有关联流程的完整链路"""
+    from logistics.models import Shipment
+    from inventory.models import Inventory, StockTransaction
+    
     with transaction.atomic():
-        # 1. 终结销售订单
+        # 1. 检查订单是否已出库，如果已出库，需要重新入库
+        if order.status == 'shipped':
+            # 查找该订单的所有已发货的发货单
+            shipped_shipments = Shipment.objects.filter(
+                order=order,
+                status__in=['shipped', 'delivered']
+            )
+            
+            if shipped_shipments.exists():
+                # 对于已发货的商品，需要重新入库
+                for item in order.items.all():
+                    try:
+                        inventory = Inventory.objects.get(
+                            inventory_type='product',
+                            product=item.product
+                        )
+                        # 重新入库：增加库存
+                        inventory.quantity += item.quantity
+                        inventory.save()
+                        
+                        # 记录库存变动（使用adjustment类型，备注说明是终结退回）
+                        StockTransaction.objects.create(
+                            transaction_type='adjustment',
+                            inventory=inventory,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                            reference_no=f"TERMINATE-{order.order_no}",
+                            remark=f"订单终结退回：{terminate_reason}",
+                            operator=terminated_by,
+                        )
+                    except Inventory.DoesNotExist:
+                        # 如果库存不存在，创建新的库存记录
+                        inventory = Inventory.objects.create(
+                            inventory_type='product',
+                            product=item.product,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                        )
+                        # 记录库存变动
+                        StockTransaction.objects.create(
+                            transaction_type='adjustment',
+                            inventory=inventory,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                            reference_no=f"TERMINATE-{order.order_no}",
+                            remark=f"订单终结退回：{terminate_reason}",
+                            operator=terminated_by,
+                        )
+        
+        # 2. 检查订单是否在审核时锁定了库存（ready_to_ship状态但未发货）
+        # 如果订单状态是ready_to_ship，说明审核时库存充足，已经锁定了库存
+        # 需要退回锁定的库存
+        if order.status == 'ready_to_ship':
+            # 对于审核时锁定库存的商品，需要退回库存
+            for item in order.items.all():
+                # 检查该商品是否有生产任务
+                from production.models import ProductionTask
+                has_production_task = ProductionTask.objects.filter(
+                    order=order,
+                    product=item.product
+                ).exists()
+                
+                # 如果没有生产任务，说明审核时库存充足，已经锁定了库存
+                if not has_production_task:
+                    try:
+                        inventory = Inventory.objects.get(
+                            inventory_type='product',
+                            product=item.product
+                        )
+                        # 退回锁定的库存：增加库存
+                        inventory.quantity += item.quantity
+                        inventory.save()
+                        
+                        # 记录库存变动
+                        StockTransaction.objects.create(
+                            transaction_type='adjustment',
+                            inventory=inventory,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                            reference_no=f"TERMINATE-{order.order_no}",
+                            remark=f"订单终结退回锁定库存：{terminate_reason}",
+                            operator=terminated_by,
+                        )
+                    except Inventory.DoesNotExist:
+                        # 如果库存不存在，创建新的库存记录
+                        inventory = Inventory.objects.create(
+                            inventory_type='product',
+                            product=item.product,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                        )
+                        # 记录库存变动
+                        StockTransaction.objects.create(
+                            transaction_type='adjustment',
+                            inventory=inventory,
+                            quantity=item.quantity,
+                            unit=item.product.unit,
+                            reference_no=f"TERMINATE-{order.order_no}",
+                            remark=f"订单终结退回锁定库存：{terminate_reason}",
+                            operator=terminated_by,
+                        )
+        
+        # 2. 终结销售订单
         order.status = 'terminated'
         order.terminated_by = terminated_by
         order.terminated_at = timezone.now()
         order.terminate_reason = terminate_reason
         order.save()
         
-        # 2. 终结所有关联的生产任务
+        # 3. 终结所有关联的生产任务
         production_tasks = ProductionTask.objects.filter(order=order)
         for task in production_tasks:
             if task.status not in ['completed', 'cancelled', 'terminated']:
@@ -367,7 +472,7 @@ def terminate_order_chain(order, terminated_by, terminate_reason):
                 task.terminate_reason = f"关联订单 {order.order_no} 已终结：{terminate_reason}"
                 task.save()
                 
-                # 3. 终结所有关联的领料单
+                # 4. 终结所有关联的领料单
                 requisitions = MaterialRequisition.objects.filter(task=task)
                 for requisition in requisitions:
                     if requisition.status not in ['cancelled', 'terminated']:

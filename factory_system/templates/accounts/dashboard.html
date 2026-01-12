@@ -4,12 +4,12 @@
 {% block title %}仪表板 - 工厂管理系统{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-speedometer2"></i> 仪表板</h2>
+<h2 class="mb-3"><i class="bi bi-speedometer2"></i> 仪表板</h2>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h5 class="card-title">欢迎，{{ user.username }}！</h5>
-        <p class="card-text mb-0">
+<div class="card mb-2">
+    <div class="card-body py-2">
+        <h5 class="card-title mb-1" style="font-size: 1rem;">欢迎，{{ user.username }}！</h5>
+        <p class="card-text mb-0" style="font-size: 0.875rem;">
             {% if role %}
             您的角色：<span class="badge bg-primary">{{ user.profile.get_role_display }}</span>
             {% else %}
@@ -21,11 +21,11 @@
 
 {% if alerts %}
 <!-- 五、异常预警 -->
-<div class="card mb-4">
-    <div class="card-header bg-danger text-white">
-        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> 异常预警</h5>
+<div class="card mb-3">
+    <div class="card-header bg-danger text-white py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-exclamation-triangle"></i> 异常预警</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body py-2">
         {% for alert in alerts %}
         <div class="alert alert-{{ alert.level }} alert-dismissible fade show" role="alert">
             <strong>
@@ -65,63 +65,63 @@
 
 {% if order_status %}
 <!-- 一、订单态势 -->
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="bi bi-cart"></i> 订单态势</h5>
+<div class="card mb-3">
+    <div class="card-header bg-primary text-white py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-cart"></i> 订单态势</h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h6 class="text-muted">订单总数</h6>
-                        <h3 class="mb-0">{{ order_status.total_orders }}</h3>
-                        <small class="text-muted">当前筛选条件下的订单数量</small>
+    <div class="card-body py-2">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <div class="card border-primary h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">订单总数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ order_status.total_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">当前筛选条件下的订单数量</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-success">
-                    <div class="card-body">
-                        <h6 class="text-muted">订单总金额</h6>
-                        <h3 class="mb-0">¥{{ order_status.total_order_amount|floatformat:2 }}</h3>
-                        <small class="text-muted">累计订单金额</small>
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">订单总金额</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ order_status.total_order_amount|floatformat:2 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">累计订单金额</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">待审批订单数</h6>
-                        <h3 class="mb-0">{{ order_status.pending_approval_orders }}</h3>
-                        <small class="text-muted">状态为"待审批"的订单</small>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">待审批订单数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ order_status.pending_approval_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">状态为"待审批"的订单</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-info">
-                    <div class="card-body">
-                        <h6 class="text-muted">本期新增订单数</h6>
-                        <h3 class="mb-0">{{ order_status.new_orders }}</h3>
-                        <small class="text-muted">本月新创建的订单</small>
+            <div class="col-md-4">
+                <div class="card border-info h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">本期新增订单数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ order_status.new_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">本月新创建的订单</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">临近交期订单数</h6>
-                        <h3 class="mb-0 text-warning">{{ order_status.near_delivery_orders }}</h3>
-                        <small class="text-muted">未来7天内需交付的订单</small>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">临近交期订单数</h6>
+                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">{{ order_status.near_delivery_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">未来7天内需交付的订单</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">已逾期未交付订单数</h6>
-                        <h3 class="mb-0 text-danger">{{ order_status.overdue_orders }}</h3>
-                        <small class="text-muted">超过交付日期未完成的订单</small>
+            <div class="col-md-4">
+                <div class="card border-danger h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">已逾期未交付订单数</h6>
+                        <h4 class="mb-0 text-danger" style="font-size: 1.5rem;">{{ order_status.overdue_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">超过交付日期未完成的订单</small>
                     </div>
                 </div>
             </div>
@@ -132,36 +132,36 @@
 
 {% if production_status %}
 <!-- 二、生产态势 -->
-<div class="card mb-4">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="bi bi-gear"></i> 生产态势</h5>
+<div class="card mb-3">
+    <div class="card-header bg-success text-white py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-gear"></i> 生产态势</h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h6 class="text-muted">生产任务总数</h6>
-                        <h3 class="mb-0">{{ production_status.total_tasks }}</h3>
-                        <small class="text-muted">系统中所有生产任务</small>
+    <div class="card-body py-2">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <div class="card border-primary h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">生产任务总数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ production_status.total_tasks }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">系统中所有生产任务</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-info">
-                    <div class="card-body">
-                        <h6 class="text-muted">进行中生产任务数</h6>
-                        <h3 class="mb-0">{{ production_status.active_tasks }}</h3>
-                        <small class="text-muted">状态为"生产中"的任务</small>
+            <div class="col-md-4">
+                <div class="card border-info h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">进行中生产任务数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ production_status.active_tasks }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">状态为"生产中"的任务</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">已延期生产任务数</h6>
-                        <h3 class="mb-0 text-danger">{{ production_status.overdue_tasks }}</h3>
-                        <small class="text-muted">超过计划完成时间的任务</small>
+            <div class="col-md-4">
+                <div class="card border-danger h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">已延期生产任务数</h6>
+                        <h4 class="mb-0 text-danger" style="font-size: 1.5rem;">{{ production_status.overdue_tasks }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">超过计划完成时间的任务</small>
                     </div>
                 </div>
             </div>
@@ -172,72 +172,72 @@
 
 {% if inventory_status %}
 <!-- 三、库存态势 -->
-<div class="card mb-4">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0"><i class="bi bi-box-seam"></i> 库存态势</h5>
+<div class="card mb-3">
+    <div class="card-header bg-info text-white py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-box-seam"></i> 库存态势</h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3 mb-3">
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h6 class="text-muted">库存物料总数</h6>
-                        <h3 class="mb-0">{{ inventory_status.total_materials }}</h3>
-                        <small class="text-muted">所有物料SKU数量</small>
+    <div class="card-body py-2">
+        <div class="row g-2">
+            <div class="col-md-3">
+                <div class="card border-primary h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">库存物料总数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ inventory_status.total_materials }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">所有物料SKU数量</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-success">
-                    <div class="card-body">
-                        <h6 class="text-muted">库存总数量</h6>
-                        <h3 class="mb-0">{{ inventory_status.total_quantity|floatformat:0 }}</h3>
-                        <small class="text-muted">所有物料数量之和</small>
+            <div class="col-md-3">
+                <div class="card border-success h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">库存总数量</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ inventory_status.total_quantity|floatformat:0 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">所有物料数量之和</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">库存总金额</h6>
-                        <h3 class="mb-0">¥{{ inventory_status.total_inventory_value|floatformat:2 }}</h3>
-                        <small class="text-muted">按成本价计算的总金额</small>
+            <div class="col-md-3">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">库存总金额</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ inventory_status.total_inventory_value|floatformat:2 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">按成本价计算的总金额</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">低于安全库存物料数</h6>
-                        <h3 class="mb-0 text-danger">{{ inventory_status.low_stock_materials }}</h3>
-                        <small class="text-muted">库存低于安全库存阈值</small>
+            <div class="col-md-3">
+                <div class="card border-danger h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">低于安全库存物料数</h6>
+                        <h4 class="mb-0 text-danger" style="font-size: 1.5rem;">{{ inventory_status.low_stock_materials }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">库存低于安全库存阈值</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">缺料物料数</h6>
-                        <h3 class="mb-0 text-danger">{{ inventory_status.shortage_materials }}</h3>
-                        <small class="text-muted">不足以满足已排产需求</small>
+            <div class="col-md-4">
+                <div class="card border-danger h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">缺料物料数</h6>
+                        <h4 class="mb-0 text-danger" style="font-size: 1.5rem;">{{ inventory_status.shortage_materials }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">不足以满足已排产需求</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">呆滞库存物料数</h6>
-                        <h3 class="mb-0 text-warning">{{ inventory_status.idle_materials }}</h3>
-                        <small class="text-muted">90天无出入库记录</small>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">呆滞库存物料数</h6>
+                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">{{ inventory_status.idle_materials }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">90天无出入库记录</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">呆滞库存金额</h6>
-                        <h3 class="mb-0 text-warning">¥{{ inventory_status.idle_value|floatformat:2 }}</h3>
-                        <small class="text-muted">呆滞物料对应的金额</small>
+            <div class="col-md-4">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">呆滞库存金额</h6>
+                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">¥{{ inventory_status.idle_value|floatformat:2 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">呆滞物料对应的金额</small>
                     </div>
                 </div>
             </div>
@@ -248,36 +248,36 @@
 
 {% if purchase_status %}
 <!-- 四、采购态势 -->
-<div class="card mb-4">
-    <div class="card-header bg-secondary text-white">
-        <h5 class="mb-0"><i class="bi bi-cart"></i> 采购态势</h5>
+<div class="card mb-3">
+    <div class="card-header bg-secondary text-white py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-cart"></i> 采购态势</h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h6 class="text-muted">采购任务数量</h6>
-                        <h3 class="mb-0">{{ purchase_status.total_tasks }}</h3>
-                        <small class="text-muted">所有采购任务总数</small>
+    <div class="card-body py-2">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <div class="card border-primary h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">采购任务数量</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ purchase_status.total_tasks }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">所有采购任务总数</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-success">
-                    <div class="card-body">
-                        <h6 class="text-muted">采购总金额</h6>
-                        <h3 class="mb-0">¥{{ purchase_status.total_amount|floatformat:2 }}</h3>
-                        <small class="text-muted">累计采购金额</small>
+            <div class="col-md-4">
+                <div class="card border-success h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">采购总金额</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.total_amount|floatformat:2 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">累计采购金额</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card border-info">
-                    <div class="card-body">
-                        <h6 class="text-muted">本期采购金额</h6>
-                        <h3 class="mb-0">¥{{ purchase_status.current_month_amount|floatformat:2 }}</h3>
-                        <small class="text-muted">本月采购金额</small>
+            <div class="col-md-4">
+                <div class="card border-info h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">本期采购金额</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.current_month_amount|floatformat:2 }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">本月采购金额</small>
                     </div>
                 </div>
             </div>
@@ -288,45 +288,45 @@
 
 {% if logistics_status %}
 <!-- 五、物流态势 -->
-<div class="card mb-4">
-    <div class="card-header bg-warning text-dark">
-        <h5 class="mb-0"><i class="bi bi-truck"></i> 物流态势</h5>
+<div class="card mb-3">
+    <div class="card-header bg-warning text-dark py-2">
+        <h5 class="mb-0" style="font-size: 1rem;"><i class="bi bi-truck"></i> 物流态势</h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3 mb-3">
-                <div class="card border-primary">
-                    <div class="card-body">
-                        <h6 class="text-muted">待发货订单数</h6>
-                        <h3 class="mb-0">{{ logistics_status.pending_ship_orders }}</h3>
-                        <small class="text-muted">已完成生产但未发货</small>
+    <div class="card-body py-2">
+        <div class="row g-2">
+            <div class="col-md-3">
+                <div class="card border-primary h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">待发货订单数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ logistics_status.pending_ship_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">已完成生产但未发货</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-info">
-                    <div class="card-body">
-                        <h6 class="text-muted">今日待发货订单数</h6>
-                        <h3 class="mb-0">{{ logistics_status.today_pending_ship }}</h3>
-                        <small class="text-muted">计划今日发货的订单</small>
+            <div class="col-md-3">
+                <div class="card border-info h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">今日待发货订单数</h6>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ logistics_status.today_pending_ship }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">计划今日发货的订单</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-warning">
-                    <div class="card-body">
-                        <h6 class="text-muted">已发货未签收订单数</h6>
-                        <h3 class="mb-0 text-warning">{{ logistics_status.shipped_not_delivered }}</h3>
-                        <small class="text-muted">在途中的订单</small>
+            <div class="col-md-3">
+                <div class="card border-warning h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">已发货未签收订单数</h6>
+                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">{{ logistics_status.shipped_not_delivered }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">在途中的订单</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 mb-3">
-                <div class="card border-danger">
-                    <div class="card-body">
-                        <h6 class="text-muted">逾期未发货订单数</h6>
-                        <h3 class="mb-0 text-danger">{{ logistics_status.overdue_ship_orders }}</h3>
-                        <small class="text-muted">超过计划发货日期</small>
+            <div class="col-md-3">
+                <div class="card border-danger h-100">
+                    <div class="card-body py-2">
+                        <h6 class="text-muted mb-1" style="font-size: 0.75rem;">逾期未发货订单数</h6>
+                        <h4 class="mb-0 text-danger" style="font-size: 1.5rem;">{{ logistics_status.overdue_ship_orders }}</h4>
+                        <small class="text-muted" style="font-size: 0.7rem;">超过计划发货日期</small>
                     </div>
                 </div>
             </div>

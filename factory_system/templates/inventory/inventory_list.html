@@ -6,14 +6,18 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-box-seam"></i> 库存管理</h2>
+    <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="false" aria-controls="inventoryRecords">
+        <i class="bi bi-list-ul"></i> 库存记录
+    </button>
 </div>
 
-<!-- 出入库记录和库存调整记录 -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-list-ul"></i> 出入库记录 & 库存修改记录</h5>
-    </div>
-    <div class="card-body">
+<!-- 库存记录 -->
+<div class="collapse mb-4" id="inventoryRecords">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-list-ul"></i> 库存记录</h5>
+        </div>
+        <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover table-sm">
                 <thead>
@@ -132,6 +136,7 @@
             </ul>
         </nav>
         {% endif %}
+        </div>
     </div>
 </div>
 
