@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}库存详情{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box-seam"></i> 库存详情</h2>
+    <a href="{% url 'inventory:inventory_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> 返回库存列表
+    </a>
+</div>
+
+<!-- 库存基本信息 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h4>
+            {% if inventory.inventory_type == 'product' %}
+                <i class="bi bi-box"></i> {{ inventory.product.name }}
+            {% else %}
+                <i class="bi bi-box"></i> {{ inventory.material.name }}
+            {% endif %}
+        </h4>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <strong>类型：</strong>
+                <p>{{ inventory.get_inventory_type_display }}</p>
+            </div>
+            <div class="col-md-3">
+                <strong>总数量：</strong>
+                <p><span class="badge bg-primary fs-6">{{ inventory.quantity }}</span> {{ inventory.unit }}</p>
+            </div>
+            <div class="col-md-3">
+                <strong>基础单价：</strong>
+                <p>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
+            </div>
+            <div class="col-md-3">
+                <strong>总价值：</strong>
+                <p><strong class="text-success">¥{{ inventory.get_total_value|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+        {% if inventory.batches.exists %}
+        <div class="row mt-3">
+            <div class="col-12">
+                <strong>批次数量：</strong>
+                <p>{{ batches|length }} 个批次</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 批次信息 -->
+{% if batches %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="bi bi-list-ul"></i> 批次信息</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>批次号</th>
+                        <th>批次日期</th>
+                        <th>数量</th>
+                        <th>单价</th>
+                        <th>过期日期</th>
+                        <th>供应商</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for batch in batches %}
+                    <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
+                        <td>{{ batch.batch_no }}</td>
+                        <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
+                        <td><strong>{{ batch.quantity }}{{ inventory.unit }}</strong></td>
+                        <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td>
+                            {% if batch.expiry_date %}
+                                {{ batch.expiry_date|date:"Y-m-d" }}
+                                {% if batch.is_expired %}
+                                <span class="badge bg-danger">已过期</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td><small>{{ batch.supplier|default:"-" }}</small></td>
+                        <td><small class="text-muted">{{ batch.remark|default:"-"|truncatewords:10 }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 进出记录 -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="bi bi-arrow-left-right"></i> 进出记录</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>变动类型</th>
+                        <th>数量</th>
+                        <th>单位</th>
+                        <th>批次</th>
+                        <th>单价变动</th>
+                        <th>关联单号</th>
+                        <th>操作人</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td>{{ transaction.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if transaction.transaction_type == 'purchase_in' or transaction.transaction_type == 'production_in' %}bg-success
+                                {% elif transaction.transaction_type == 'sale_out' or transaction.transaction_type == 'production_out' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ transaction.get_transaction_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if transaction.transaction_type == 'sale_out' or transaction.transaction_type == 'production_out' %}
+                                <span class="text-danger">-{{ transaction.quantity }}</span>
+                            {% else %}
+                                <span class="text-success">+{{ transaction.quantity }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ transaction.unit }}</td>
+                        <td>
+                            {% if transaction.batch %}
+                                <small class="text-muted">{{ transaction.batch.batch_no }}</small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if transaction.old_unit_price is not None and transaction.new_unit_price is not None %}
+                                <small class="text-info">
+                                    ¥{{ transaction.old_unit_price|floatformat:2 }} → ¥{{ transaction.new_unit_price|floatformat:2 }}
+                                </small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="text-muted">{{ transaction.reference_no|default:"-" }}</small></td>
+                        <td>{{ transaction.operator.username }}</td>
+                        <td>
+                            {% if transaction.remark %}
+                                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ transaction.remark }}">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">暂无进出记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% if transactions.has_other_pages %}
+        <nav aria-label="记录分页" class="mt-3">
+            <ul class="pagination justify-content-center mb-0">
+                {% if transactions.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">首页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ transactions.previous_page_number }}">上一页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">首页</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">上一页</span>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">
+                        第 {{ transactions.number }} 页，共 {{ transactions.paginator.num_pages }} 页
+                    </span>
+                </li>
+                
+                {% if transactions.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ transactions.next_page_number }}">下一页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ transactions.paginator.num_pages }}">末页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">下一页</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">末页</span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// 初始化工具提示
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+</script>
+{% endblock %}

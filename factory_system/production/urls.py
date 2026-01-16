@@ -5,6 +5,7 @@ app_name = 'production'
 
 urlpatterns = [
     path('tasks/', views.task_list, name='task_list'),
+    path('tasks/stock/create/', views.stock_task_create, name='stock_task_create'),
     path('tasks/<int:pk>/', views.task_detail, name='task_detail'),
     path('tasks/<int:pk>/status-api/', views.task_status_api, name='task_status_api'),
     path('tasks/<int:pk>/receive/', views.task_receive, name='task_receive'),

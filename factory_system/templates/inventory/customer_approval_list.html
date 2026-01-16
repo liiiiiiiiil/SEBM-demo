@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}客户操作记录{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-clock-history"></i> 客户操作记录</h2>
+    <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> 返回客户列表
+    </a>
+</div>
+
+<!-- 标签页导航 -->
+<ul class="nav nav-tabs mb-4" id="approvalTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="edit-tab" data-bs-toggle="tab" data-bs-target="#edit-requests" type="button" role="tab">
+            编辑记录
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="delete-tab" data-bs-toggle="tab" data-bs-target="#delete-requests" type="button" role="tab">
+            删除记录
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer-requests" type="button" role="tab">
+            转移记录
+        </button>
+    </li>
+</ul>
+
+<!-- 标签页内容 -->
+<div class="tab-content" id="approvalTabsContent">
+    <!-- 编辑申请 -->
+    <div class="tab-pane fade show active" id="edit-requests" role="tabpanel">
+        {% if edit_requests %}
+        <div class="card">
+            <div class="card-header">
+                <h4>编辑操作记录</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>客户名称</th>
+                                <th>申请人</th>
+                                <th>申请时间</th>
+                                <th>编辑原因</th>
+                                <th>审批状态</th>
+                                <th>审批人</th>
+                                <th>审批时间</th>
+                                <th>拒绝原因</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in edit_requests %}
+                            <tr>
+                                <td>{{ customer.name }}</td>
+                                <td>{{ customer.edit_requested_by.username }}</td>
+                                <td>{{ customer.edit_requested_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ customer.edit_reason|truncatewords:10 }}</td>
+                                <td>
+                                    {% if customer.edit_status == 'approved' %}
+                                    <span class="badge bg-success">已通过</span>
+                                    {% elif customer.edit_status == 'rejected' %}
+                                    <span class="badge bg-danger">已拒绝</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ customer.edit_approved_by.username|default:"-" }}</td>
+                                <td>{{ customer.edit_approved_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                                <td>{{ customer.edit_reject_reason|default:"-"|truncatewords:10 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5>暂无编辑操作记录</h5>
+            <p class="mb-0">当前没有客户编辑操作记录。</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 删除申请 -->
+    <div class="tab-pane fade" id="delete-requests" role="tabpanel">
+        {% if delete_requests %}
+        <div class="card">
+            <div class="card-header">
+                <h4>删除操作记录</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>客户名称</th>
+                                <th>联系人</th>
+                                <th>联系电话</th>
+                                <th>申请人</th>
+                                <th>申请时间</th>
+                                <th>删除原因</th>
+                                <th>审批状态</th>
+                                <th>审批人</th>
+                                <th>审批时间</th>
+                                <th>拒绝原因</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in delete_requests %}
+                            <tr>
+                                <td>{{ customer.name }}</td>
+                                <td>{{ customer.contact_person }}</td>
+                                <td>{{ customer.phone }}</td>
+                                <td>{{ customer.delete_requested_by.username }}</td>
+                                <td>{{ customer.delete_requested_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ customer.delete_reason|truncatewords:10 }}</td>
+                                <td>
+                                    {% if customer.delete_status == 'approved' %}
+                                    <span class="badge bg-success">已通过（已删除）</span>
+                                    {% elif customer.delete_status == 'rejected' %}
+                                    <span class="badge bg-danger">已拒绝</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ customer.delete_approved_by.username|default:"-" }}</td>
+                                <td>{{ customer.delete_approved_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                                <td>{{ customer.delete_reject_reason|default:"-"|truncatewords:10 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5>暂无删除操作记录</h5>
+            <p class="mb-0">当前没有客户删除操作记录。</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 转移记录 -->
+    <div class="tab-pane fade" id="transfer-requests" role="tabpanel">
+        {% if transfer_records %}
+        <div class="card">
+            <div class="card-header">
+                <h4>客户转移记录</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>客户名称</th>
+                                <th>原负责人</th>
+                                <th>新负责人</th>
+                                <th>操作人</th>
+                                <th>转移时间</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transfer in transfer_records %}
+                            <tr>
+                                <td>{{ transfer.customer.name }}</td>
+                                <td>{{ transfer.from_user.username|default:"未分配" }}</td>
+                                <td>{{ transfer.to_user.username|default:"未分配" }}</td>
+                                <td>{{ transfer.transferred_by.username }}</td>
+                                <td>{{ transfer.transferred_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ transfer.remark|default:"-"|truncatewords:10 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5>暂无客户转移记录</h5>
+            <p class="mb-0">当前没有客户转移操作记录。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

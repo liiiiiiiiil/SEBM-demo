@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}创建备货生产任务{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-plus-circle"></i> 创建备货生产任务</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="product" class="form-label">产品 <span class="text-danger">*</span></label>
+                    <select name="product" id="product" class="form-select" required>
+                        <option value="">请选择产品</option>
+                        {% for product in products %}
+                        <option value="{{ product.pk }}">{{ product.sku }} - {{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="required_quantity" class="form-label">需求数量 <span class="text-danger">*</span></label>
+                    <input type="number" name="required_quantity" id="required_quantity" class="form-control" step="0.01" min="0.01" required>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="planned_completion_date" class="form-label">计划完成日期</label>
+                    <input type="date" name="planned_completion_date" id="planned_completion_date" class="form-control">
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <label for="remark" class="form-label">备注</label>
+                    <textarea name="remark" id="remark" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'production:task_list' %}" class="btn btn-secondary">取消</a>
+                <button type="submit" class="btn btn-primary">创建备货生产任务</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -15,7 +15,7 @@ class Command(BaseCommand):
                 'code': 'sales.order.create',
                 'name': '创建订单',
                 'category': 'sales',
-                'description': '创建销售订单的权限',
+                'description': '创建产品订单的权限',
             },
             {
                 'code': 'sales.order.view',
@@ -39,7 +39,7 @@ class Command(BaseCommand):
                 'code': 'sales.order.approve',
                 'name': '审批订单',
                 'category': 'sales',
-                'description': '审批销售订单',
+                'description': '审批产品订单',
             },
             {
                 'code': 'sales.order.delete',

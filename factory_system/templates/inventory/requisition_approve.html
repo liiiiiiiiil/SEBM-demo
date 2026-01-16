@@ -29,15 +29,15 @@
                         <td>{{ item.available }}{{ item.unit }}</td>
                         <td><span class="text-danger">{{ item.shortage }}{{ item.unit }}</span></td>
                         <td>
-                            <a href="{% url 'inventory:purchase_order_create' %}?material_id={{ item.material.id }}&quantity={{ item.shortage }}" class="btn btn-sm btn-primary">
-                                <i class="bi bi-cart-plus"></i> 创建采购单
+                            <a href="{% url 'purchase:task_create' %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-cart-plus"></i> 发起采购任务
                             </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <p class="mt-3">无法批准此领料单，请先补充库存。您可以点击"创建采购单"为缺口的原料创建采购单。</p>
+            <p class="mt-3">无法批准此领料单，请先补充库存。您可以点击"发起采购任务"为缺口的原料创建采购任务。</p>
         </div>
         {% else %}
         <div class="alert alert-info">

@@ -11,7 +11,16 @@
         <div class="alert alert-warning">
             <h5>任务信息</h5>
             <p><strong>任务单号：</strong>{{ task.task_no }}</p>
+            <p><strong>生产类型：</strong>
+                {% if task.production_type == 'order' %}
+                    <span class="badge bg-primary">订单生产</span>
+                {% else %}
+                    <span class="badge bg-info">备货生产</span>
+                {% endif %}
+            </p>
+            {% if task.order %}
             <p><strong>关联订单：</strong>{{ task.order.order_no }}</p>
+            {% endif %}
             <p><strong>产品：</strong>{{ task.product.name }}</p>
             <p><strong>需求数量：</strong>{{ task.required_quantity }}{{ task.product.unit }}</p>
             <p><strong>完成数量：</strong>{{ task.completed_quantity }}{{ task.product.unit }}</p>
@@ -23,13 +32,17 @@
                 {% elif task.status == 'in_production' %}
                 <span class="badge bg-primary">生产中</span>
                 {% elif task.status == 'qc_checking' %}
-                <span class="badge bg-info">质检中</span>
+                <span class="badge" style="background-color: #6f42c1;">质检中</span>
                 {% endif %}
             </p>
         </div>
         
         <div class="alert alert-danger">
-            <strong>警告：</strong>终结生产任务将同时终结关联的销售订单（{{ task.order.order_no }}）及其所有关联流程（领料单等），这是不可逆的操作，请谨慎操作。
+            {% if task.production_type == 'order' and task.order %}
+            <strong>警告：</strong>终结生产任务将同时终结关联的产品订单（{{ task.order.order_no }}）及其所有关联流程（领料单等），这是不可逆的操作，请谨慎操作。
+            {% else %}
+            <strong>警告：</strong>终结备货生产任务将同时终结所有关联流程（领料单等），这是不可逆的操作，请谨慎操作。
+            {% endif %}
         </div>
         
         {% if requisitions %}

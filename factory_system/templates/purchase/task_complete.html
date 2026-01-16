@@ -23,15 +23,31 @@
                         <th>采购数量</th>
                         <th>已收货数量</th>
                         <th>本次收货数量</th>
+                        <th>批次号</th>
+                        <th>批次日期</th>
+                        <th>批次单价</th>
+                        <th>过期日期</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in task.items.all %}
                     <tr>
-                        <td>{{ item.material.name }}</td>
-                        <td>{{ item.material.get_material_type_display }}</td>
-                        <td>{{ item.quantity }}{{ item.material.unit }}</td>
-                        <td>{{ item.received_quantity }}{{ item.material.unit }}</td>
+                        <td>
+                            {% if item.material %}
+                                {{ item.material.name }}
+                            {% else %}
+                                {{ item.item_name|default:"-" }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.material %}
+                                {{ item.material.get_material_type_display }}
+                            {% else %}
+                                {{ item.get_item_type_display }}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</td>
+                        <td>{{ item.received_quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</td>
                         <td>
                             <input type="number" 
                                    name="received_quantity_{{ item.id }}" 
@@ -39,11 +55,45 @@
                                    step="0.01" 
                                    min="0" 
                                    max="{{ item.quantity }}"
-                                   value="0">
-                            <small class="text-muted">{{ item.material.unit }}</small>
+                                   value="0"
+                                   onchange="toggleBatchFields({{ item.id }})">
+                            <small class="text-muted">{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</small>
                             {% if item.received_quantity > 0 %}
-                            <br><small class="text-info">已收货：{{ item.received_quantity }}{{ item.material.unit }}</small>
+                            <br><small class="text-info">已收货：{{ item.received_quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</small>
                             {% endif %}
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="batch_no_{{ item.id }}" 
+                                   id="batch_no_{{ item.id }}"
+                                   class="form-control batch-field" 
+                                   placeholder="自动生成"
+                                   disabled>
+                        </td>
+                        <td>
+                            <input type="date" 
+                                   name="batch_date_{{ item.id }}" 
+                                   id="batch_date_{{ item.id }}"
+                                   class="form-control batch-field" 
+                                   value="{% now 'Y-m-d' %}"
+                                   disabled>
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   name="batch_unit_price_{{ item.id }}" 
+                                   id="batch_unit_price_{{ item.id }}"
+                                   class="form-control batch-field" 
+                                   step="0.01" 
+                                   min="0"
+                                   value="{{ item.unit_price }}"
+                                   disabled>
+                        </td>
+                        <td>
+                            <input type="date" 
+                                   name="expiry_date_{{ item.id }}" 
+                                   id="expiry_date_{{ item.id }}"
+                                   class="form-control batch-field" 
+                                   disabled>
                         </td>
                     </tr>
                     {% endfor %}
@@ -51,7 +101,7 @@
             </table>
             
             <div class="alert alert-warning">
-                <strong>注意：</strong>收货后，系统将自动增加物料库存，并记录库存变动。
+                <strong>注意：</strong>收货后，系统将自动增加物料库存，并创建批次记录。批次号如不填写将自动生成。
             </div>
             
             <div class="d-flex justify-content-between">
@@ -63,4 +113,36 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleBatchFields(itemId) {
+        const quantityInput = document.querySelector(`input[name="received_quantity_${itemId}"]`);
+        const batchFields = document.querySelectorAll(`.batch-field`);
+        
+        if (parseFloat(quantityInput.value) > 0) {
+            batchFields.forEach(field => {
+                if (field.name.includes(`_${itemId}`)) {
+                    field.disabled = false;
+                    if (field.name.includes('batch_no') && !field.value) {
+                        // 自动生成批次号
+                        const date = document.querySelector(`input[name="batch_date_${itemId}"]`).value.replace(/-/g, '');
+                        const time = new Date().toTimeString().substring(0, 8).replace(/:/g, '');
+                        field.value = `BATCH-${date}-${time}`;
+                    }
+                }
+            });
+        } else {
+            batchFields.forEach(field => {
+                if (field.name.includes(`_${itemId}`)) {
+                    field.disabled = true;
+                    if (field.name.includes('batch_no')) {
+                        field.value = '';
+                    }
+                }
+            });
+        }
+    }
+</script>
 {% endblock %}

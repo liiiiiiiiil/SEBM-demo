@@ -36,11 +36,8 @@
                 <div class="form-check">
                     {{ form.reserve_inventory }}
                     <label class="form-check-label">预占库存</label>
+                    <small class="form-text text-muted d-block">选择后，分配的批次将被锁定，其他订单无法选择已分配的批次</small>
                 </div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">备注</label>
-                {{ form.remark }}
             </div>
             
             <h5 class="mt-4">订单明细</h5>
@@ -52,8 +49,10 @@
             {% endif %}
             <div id="items-container">
                 {% for item_form in formset %}
-                <div class="row mb-3 item-row" data-form-index="{{ forloop.counter0 }}">
-                    <div class="col-md-4">
+                <div class="row mb-3 item-row border rounded p-3" data-form-index="{{ forloop.counter0 }}">
+                    <div class="col-12">
+                        <div class="row">
+                            <div class="col-md-3">
                         <label class="form-label">产品</label>
                         {{ item_form.product }}
                         {% if item_form.product.errors %}
@@ -85,6 +84,12 @@
                         <input type="text" class="form-control subtotal" readonly>
                     </div>
                     <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block" data-form-index="{{ forloop.counter0 }}">
+                                    <i class="bi bi-list-ul"></i> 批次分配
+                                </button>
+                            </div>
+                            <div class="col-md-1">
                         {% if not forloop.first %}
                         <label class="form-label">&nbsp;</label>
                         {% if item_form.DELETE %}
@@ -94,10 +99,43 @@
                         </div>
                         {% else %}
                         <button type="button" class="btn btn-sm btn-outline-danger remove-row d-block">
-                            <i class="bi bi-trash"></i> 删除
+                                    <i class="bi bi-trash"></i>
                         </button>
                         {% endif %}
                         {% endif %}
+                            </div>
+                        </div>
+                        <div class="row mt-2 batch-selection-row" data-form-index="{{ forloop.counter0 }}" style="display: none;">
+                            <div class="col-12">
+                                <div class="card card-body bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0">批次选择（可选，如不选择将按FIFO自动分配）</label>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary batch-close-btn" data-form-index="{{ forloop.counter0 }}">
+                                            <i class="bi bi-x"></i> 关闭
+                                        </button>
+                                    </div>
+                                    <div class="batch-selection-container" data-form-index="{{ forloop.counter0 }}">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered batch-table" style="display: none;">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>批次号</th>
+                                                        <th>批次日期</th>
+                                                        <th>可用数量</th>
+                                                        <th>分配数量</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="batch-tbody">
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="batch-summary mt-2">
+                                            <small>已分配: <span class="batch-allocated-qty">0</span> <span class="batch-unit"></span></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -106,6 +144,11 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="add-item-btn" onclick="addItemRow()">
                     <i class="bi bi-plus-circle"></i> 添加产品
                 </button>
+            </div>
+            
+            <div class="mb-3 mt-4">
+                <label class="form-label">备注</label>
+                {{ form.remark }}
             </div>
             
             <div class="mt-4">
@@ -185,7 +228,9 @@
         newRow.setAttribute('data-form-index', newFormIndex);
         
         newRow.innerHTML = `
-            <div class="col-md-4">
+            <div class="col-12">
+                <div class="row">
+                    <div class="col-md-3">
                 <label class="form-label">产品</label>
                 <select name="items-${newFormIndex}-product" class="form-control" id="id_items-${newFormIndex}-product" required>
                     ${productOptions}
@@ -207,10 +252,49 @@
                 <input type="text" class="form-control subtotal" readonly>
             </div>
             <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block" data-form-index="${newFormIndex}">
+                            <i class="bi bi-list-ul"></i> 批次分配
+                        </button>
+                    </div>
+                    <div class="col-md-1">
                 <label class="form-label">&nbsp;</label>
                 <button type="button" class="btn btn-sm btn-outline-danger remove-row d-block">
-                    <i class="bi bi-trash"></i> 删除
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-2 batch-selection-row" data-form-index="${newFormIndex}" style="display: none;">
+                    <div class="col-12">
+                        <div class="card card-body bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">批次选择（可选，如不选择将按FIFO自动分配）</label>
+                                <button type="button" class="btn btn-sm btn-outline-secondary batch-close-btn" data-form-index="${newFormIndex}">
+                                    <i class="bi bi-x"></i> 关闭
                 </button>
+                            </div>
+                            <div class="batch-selection-container" data-form-index="${newFormIndex}">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered batch-table" style="display: none;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>批次号</th>
+                                                <th>批次日期</th>
+                                                <th>可用数量</th>
+                                                <th>分配数量</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="batch-tbody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="batch-summary mt-2">
+                                    <small>已分配: <span class="batch-allocated-qty">0</span> <span class="batch-unit"></span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -225,10 +309,28 @@
         if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
         if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
         
-        // 产品选择变化时更新库存信息
+        // 产品选择变化时更新库存信息和批次选择
         if (productSelect) {
             productSelect.addEventListener('change', function() {
                 updateInventoryInfo(this, newRow);
+            });
+        }
+        
+        // 批次分配按钮事件
+        const batchToggleBtn = newRow.querySelector('.batch-toggle-btn');
+        if (batchToggleBtn) {
+            batchToggleBtn.addEventListener('click', function() {
+                const formIndex = this.getAttribute('data-form-index');
+                toggleBatchSelection(formIndex);
+            });
+        }
+        
+        // 批次关闭按钮事件
+        const batchCloseBtn = newRow.querySelector('.batch-close-btn');
+        if (batchCloseBtn) {
+            batchCloseBtn.addEventListener('click', function() {
+                const formIndex = this.getAttribute('data-form-index');
+                toggleBatchSelection(formIndex);
             });
         }
         
@@ -246,6 +348,114 @@
     
     // 产品库存数据
     const productInventoryData = {{ product_inventory_data_json|safe }};
+    // 产品批次数据
+    const productBatchesData = {{ product_batches_data_json|safe }};
+    
+    // 更新批次选择界面
+    function updateBatchSelection(productSelect, row) {
+        const batchContainer = row.querySelector('.batch-selection-container');
+        const batchTable = row.querySelector('.batch-table');
+        const batchTbody = row.querySelector('.batch-tbody');
+        const batchAllocatedQty = row.querySelector('.batch-allocated-qty');
+        const batchUnit = row.querySelector('.batch-unit');
+        
+        if (!productSelect || !batchContainer) return;
+        
+        const productId = productSelect.value;
+        const formIndex = row.getAttribute('data-form-index');
+        
+        if (productId && productBatchesData[productId]) {
+            const batches = productBatchesData[productId];
+            const inventory = productInventoryData[productId];
+            
+            if (batchUnit) {
+                batchUnit.textContent = inventory.unit;
+            }
+            
+            if (batches.length > 0) {
+                batchTable.style.display = 'table';
+                batchTbody.innerHTML = '';
+                
+                batches.forEach(batch => {
+                    const availableQty = batch.available_quantity || 0;
+                    const reservedQty = batch.reserved_quantity || 0;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <small>${batch.batch_no || '批次-' + batch.id}</small>
+                            ${batch.is_expired ? '<span class="badge bg-danger ms-1">已过期</span>' : ''}
+                        </td>
+                        <td><small>${batch.batch_date}</small></td>
+                        <td>
+                            <small>
+                                <span class="text-primary">可用: ${availableQty}${inventory.unit}</span>
+                                ${reservedQty > 0 ? `<br><span class="text-muted" style="font-size: 0.85em;">已预占: ${reservedQty}${inventory.unit}</span>` : ''}
+                            </small>
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   name="items-${formIndex}-batch_${batch.id}" 
+                                   class="form-control form-control-sm batch-qty-input" 
+                                   data-batch-id="${batch.id}"
+                                   data-batch-qty="${availableQty}"
+                                   step="0.01" 
+                                   min="0" 
+                                   max="${availableQty}"
+                                   value="0"
+                                   onchange="updateBatchAllocatedQty(${formIndex})"
+                                   ${availableQty <= 0 ? 'disabled title="该批次已被预占，无法选择"' : ''}>
+                        </td>
+                    `;
+                    batchTbody.appendChild(tr);
+                });
+            } else {
+                batchTable.style.display = 'none';
+            }
+        } else {
+            batchTable.style.display = 'none';
+        }
+        
+        updateBatchAllocatedQty(formIndex);
+    }
+    
+    // 更新批次已分配数量
+    function updateBatchAllocatedQty(formIndex) {
+        const row = document.querySelector(`.item-row[data-form-index="${formIndex}"]`);
+        if (!row) return;
+        
+        const batchInputs = row.querySelectorAll('.batch-qty-input');
+        const batchAllocatedQty = row.querySelector('.batch-allocated-qty');
+        const batchUnit = row.querySelector('.batch-unit');
+        
+        let total = 0;
+        batchInputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        
+        if (batchAllocatedQty) {
+            batchAllocatedQty.textContent = total.toFixed(2);
+        }
+    }
+    
+    // 切换批次选择界面显示/隐藏
+    function toggleBatchSelection(formIndex) {
+        const batchRow = document.querySelector(`.batch-selection-row[data-form-index="${formIndex}"]`);
+        if (batchRow) {
+            if (batchRow.style.display === 'none') {
+                batchRow.style.display = 'block';
+                // 如果产品已选择，更新批次信息
+                const itemRow = document.querySelector(`.item-row[data-form-index="${formIndex}"]`);
+                if (itemRow) {
+                    const productSelect = itemRow.querySelector('select[name$="-product"]');
+                    if (productSelect && productSelect.value) {
+                        updateBatchSelection(productSelect, itemRow);
+                    }
+                }
+            } else {
+                batchRow.style.display = 'none';
+            }
+        }
+    }
     
     // 更新产品库存显示
     function updateInventoryInfo(productSelect, row) {
@@ -275,6 +485,9 @@
                 inventoryText.className = 'text-primary';
                 inventoryText.innerHTML = `当前库存: <span class="inventory-quantity">${inventory.quantity}</span> <span class="inventory-unit">${inventory.unit}</span> | 基础单价: ¥<span class="inventory-unit-price">${inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00'}</span>`;
             }
+            
+            // 更新批次选择
+            updateBatchSelection(productSelect, row);
         } else {
             inventoryInfo.style.display = 'none';
         }
@@ -296,16 +509,34 @@
             if (quantityInput) quantityInput.addEventListener('input', updateAllSubtotals);
             if (priceInput) priceInput.addEventListener('input', updateAllSubtotals);
             
-            // 产品选择变化时更新库存信息
+        // 产品选择变化时更新库存信息和批次选择
             if (productSelect) {
                 productSelect.addEventListener('change', function() {
                     updateInventoryInfo(this, row);
                 });
-                // 初始化显示当前选择的产品的库存
+            // 初始化显示当前选择的产品的库存和批次
                 if (productSelect.value) {
                     updateInventoryInfo(productSelect, row);
                 }
             }
+        
+        // 批次分配按钮事件
+        const batchToggleBtn = row.querySelector('.batch-toggle-btn');
+        if (batchToggleBtn) {
+            batchToggleBtn.addEventListener('click', function() {
+                const formIndex = this.getAttribute('data-form-index');
+                toggleBatchSelection(formIndex);
+            });
+        }
+        
+        // 批次关闭按钮事件
+        const batchCloseBtn = row.querySelector('.batch-close-btn');
+        if (batchCloseBtn) {
+            batchCloseBtn.addEventListener('click', function() {
+                const formIndex = this.getAttribute('data-form-index');
+                toggleBatchSelection(formIndex);
+            });
+        }
         });
         
         // 删除按钮事件（对于没有DELETE checkbox的行）

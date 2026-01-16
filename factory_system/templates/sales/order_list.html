@@ -19,8 +19,8 @@
                 <div class="col-md-3">
                     <select name="status" class="form-select">
                         <option value="">全部状态</option>
-                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待销售审批</option>
-                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>销售已审批</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待审批</option>
+                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>已审批</option>
                         <option value="ceo_pending" {% if status_filter == 'ceo_pending' %}selected{% endif %}>待总经理审批</option>
                         <option value="ceo_approved" {% if status_filter == 'ceo_approved' %}selected{% endif %}>总经理已审批</option>
                         <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>已退回</option>
@@ -58,9 +58,9 @@
                         <td>{{ order.salesperson.username }}</td>
                         <td>
                             {% if order.status == 'pending' %}
-                            <span class="badge bg-warning">待销售审批</span>
+                            <span class="badge bg-warning">待审批</span>
                             {% elif order.status == 'approved' %}
-                            <span class="badge bg-info">销售已审批</span>
+                            <span class="badge bg-info">已审批</span>
                             {% elif order.status == 'ceo_pending' %}
                             <span class="badge bg-warning">待总经理审批</span>
                             {% elif order.status == 'ceo_approved' %}
@@ -70,7 +70,7 @@
                             {% elif order.status == 'in_production' %}
                             <span class="badge bg-primary">生产中</span>
                             {% elif order.status == 'ready_to_ship' %}
-                            <span class="badge bg-success">待发货</span>
+                            <span class="badge" style="background-color: #fd7e14;">待发货</span>
                             {% elif order.status == 'shipped' %}
                             <span class="badge bg-secondary">已发货</span>
                             {% elif order.status == 'completed' %}
@@ -90,7 +90,7 @@
                             {% if order.status == 'pending' %}
                                 {% if user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' %}
                                 <a href="{% url 'sales:order_approve' order.pk %}" class="btn btn-sm btn-success">
-                                    <i class="bi bi-check-circle"></i> 销售审批
+                                    <i class="bi bi-check-circle"></i> 审批
                                 </a>
                                 <a href="{% url 'sales:order_reject' order.pk %}" class="btn btn-sm btn-warning">
                                     <i class="bi bi-arrow-return-left"></i> 退回

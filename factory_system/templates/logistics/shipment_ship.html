@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}确认发货 - {{ shipment.shipment_no }}{% endblock %}
 
@@ -22,9 +23,103 @@
         
         <form method="post">
             {% csrf_token %}
-            <div class="alert alert-warning">
-                确认发货后将自动扣减成品库存，订单状态将更新为"已发货"。待客户收货后，请补充发货回执以完成订单流程。
+            <h5 class="mt-4">订单明细及批次选择</h5>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>产品</th>
+                        <th>需求数量</th>
+                        <th>批次选择</th>
+                        <th>已分配数量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item_data in order_items_with_batches %}
+                    {% with item=item_data.item batches=item_data.batches order_batch_allocations=item_data.order_batch_allocations %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.product.name }}</strong><br>
+                            <small class="text-muted">{{ item.product.sku }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ item.quantity }}{{ item.product.unit }}</strong>
+                        </td>
+                        <td>
+                            {% if batches %}
+                            {% if order_batch_allocations %}
+                            <div class="alert alert-info alert-sm mb-2 py-1 px-2">
+                                <small><i class="bi bi-info-circle"></i> 以下批次分配来自销售订单，可根据实际情况调整</small>
+                            </div>
+                            {% endif %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>批次号</th>
+                                            <th>批次日期</th>
+                                            <th>可用数量</th>
+                                            <th>订单分配</th>
+                                            <th>实际分配</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for batch in batches %}
+                                        <tr {% if batch.id in order_batch_allocations %}class="table-info"{% endif %}>
+                                            <td>
+                                                <small>{{ batch.batch_no }}</small>
+                                                {% if batch.is_expired %}
+                                                <span class="badge bg-danger">已过期</span>
+                                                {% endif %}
+                                            </td>
+                                            <td><small>{{ batch.batch_date|date:"Y-m-d" }}</small></td>
+                                            <td><small>{{ batch.quantity }}{{ item.product.unit }}</small></td>
+                                            <td>
+                                                {% if batch.id in order_batch_allocations %}
+                                                <small class="text-primary fw-bold">{{ order_batch_allocations|get_item:batch.id }}{{ item.product.unit }}</small>
+                                                {% else %}
+                                                <small class="text-muted">-</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <input type="number" 
+                                                       name="batch_quantity_{{ item.product.id }}_{{ batch.id }}" 
+                                                       class="form-control form-control-sm batch-qty-input {% if batch.id in order_batch_allocations %}border-primary{% endif %}" 
+                                                       data-product-id="{{ item.product.id }}"
+                                                       data-required-qty="{{ item.quantity }}"
+                                                       data-unit="{{ item.product.unit }}"
+                                                       step="0.01" 
+                                                       min="0" 
+                                                       max="{{ batch.quantity }}"
+                                                       value="{% if batch.id in order_batch_allocations %}{{ order_batch_allocations|get_item:batch.id }}{% else %}0{% endif %}"
+                                                       onchange="updateAllocatedQty({{ item.product.id }})">
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <span class="text-danger">无可用批次</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span id="allocated_qty_{{ item.product.id }}" class="badge bg-info">0{{ item.product.unit }}</span>
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="alert alert-warning mt-3">
+                <strong>说明：</strong>
+                <ul class="mb-0">
+                    <li>请为每个产品选择批次和分配数量</li>
+                    <li>如果未选择或选择不足，系统将按FIFO（先进先出）原则自动分配</li>
+                    <li>确认发货后将自动扣减成品库存，订单状态将更新为"已发货"</li>
+                </ul>
             </div>
+            
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-check-circle"></i> 确认发货
             </button>
@@ -34,3 +129,41 @@
 </div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+    function updateAllocatedQty(productId) {
+        const inputs = document.querySelectorAll(`input.batch-qty-input[data-product-id="${productId}"]`);
+        let total = 0;
+        let unit = '';
+        if (inputs.length > 0) {
+            unit = inputs[0].getAttribute('data-unit') || '';
+        }
+        inputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        const allocatedElement = document.getElementById(`allocated_qty_${productId}`);
+        if (allocatedElement) {
+            allocatedElement.textContent = total.toFixed(2) + unit;
+            const requiredQty = parseFloat(inputs[0].getAttribute('data-required-qty'));
+            if (total >= requiredQty) {
+                allocatedElement.className = 'badge bg-success';
+            } else if (total > 0) {
+                allocatedElement.className = 'badge bg-warning';
+            } else {
+                allocatedElement.className = 'badge bg-info';
+            }
+        }
+    }
+    
+    // 初始化所有产品的已分配数量显示
+    document.addEventListener('DOMContentLoaded', function() {
+        const productIds = new Set();
+        document.querySelectorAll('.batch-qty-input').forEach(input => {
+            productIds.add(input.getAttribute('data-product-id'));
+        });
+        productIds.forEach(productId => {
+            updateAllocatedQty(productId);
+        });
+    });
+</script>
+{% endblock %}

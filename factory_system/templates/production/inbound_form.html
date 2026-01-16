@@ -11,8 +11,34 @@
         <form method="post">
             {% csrf_token %}
             <div class="mb-3">
-                <label class="form-label">入库数量</label>
-                <input type="number" class="form-control" name="quantity" step="0.01" required>
+                <label class="form-label">入库数量 <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" name="quantity" step="0.01" value="{{ remaining_quantity }}" required>
+                <small class="text-muted">
+                    需求数量：{{ task.required_quantity }}{{ task.product.unit }} | 
+                    已完成：{{ task.completed_quantity }}{{ task.product.unit }} | 
+                    剩余：{{ remaining_quantity }}{{ task.product.unit }}
+                </small>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">批次号</label>
+                    <input type="text" class="form-control" name="batch_no" placeholder="自动生成">
+                    <small class="text-muted">如不填写将自动生成</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">批次日期</label>
+                    <input type="date" class="form-control" name="batch_date" value="{% now 'Y-m-d' %}">
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">批次单价</label>
+                    <input type="number" class="form-control" name="batch_unit_price" step="0.01" min="0" value="{{ task.product.unit_price }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">过期日期（可选）</label>
+                    <input type="date" class="form-control" name="expiry_date">
+                </div>
             </div>
             {% if qc_records %}
             <div class="mb-3">

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - 供应商管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>{{ title }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">供应商名称 <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control" value="{% if supplier %}{{ supplier.name }}{% elif name %}{{ name }}{% endif %}" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">联系人</label>
+                    <input type="text" name="contact_person" class="form-control" value="{% if supplier %}{{ supplier.contact_person }}{% elif contact_person %}{{ contact_person }}{% endif %}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">联系电话</label>
+                    <input type="text" name="contact_phone" class="form-control" value="{% if supplier %}{{ supplier.contact_phone }}{% elif contact_phone %}{{ contact_phone }}{% endif %}">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">地址</label>
+                <input type="text" name="address" class="form-control" value="{% if supplier %}{{ supplier.address }}{% elif address %}{{ address }}{% endif %}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">邮箱</label>
+                <input type="email" name="email" class="form-control" value="{% if supplier %}{{ supplier.email }}{% elif email %}{{ email }}{% endif %}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">备注</label>
+                <textarea name="remark" class="form-control" rows="3">{% if supplier %}{{ supplier.remark }}{% elif remark %}{{ remark }}{% endif %}</textarea>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存
+                </button>
+                <a href="{% url 'purchase:supplier_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

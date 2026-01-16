@@ -18,8 +18,14 @@ class ProductionTask(models.Model):
         ('terminated', '已终结'),
     ]
     
+    PRODUCTION_TYPE_CHOICES = [
+        ('order', '订单生产'),
+        ('stock', '备货生产'),
+    ]
+    
     task_no = models.CharField(max_length=50, unique=True, verbose_name='任务单号')
-    order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name='production_tasks', verbose_name='关联订单')
+    production_type = models.CharField(max_length=10, choices=PRODUCTION_TYPE_CHOICES, default='order', verbose_name='生产类型')
+    order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, null=True, blank=True, related_name='production_tasks', verbose_name='关联订单')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='产品')
     required_quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='需求数量')
     completed_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='完成数量')

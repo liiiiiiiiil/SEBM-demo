@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Customer, MaterialCategory, Material, Product, BOM, Inventory, StockTransaction, PurchaseOrder, PurchaseOrderItem
+from .models import Customer, MaterialCategory, Material, Product, BOM, Inventory, StockTransaction
+# PurchaseOrder, PurchaseOrderItem 已废弃，使用 purchase.PurchaseTask 替代
 
 
 @admin.register(Customer)
@@ -50,16 +51,18 @@ class StockTransactionAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at']
 
 
-@admin.register(PurchaseOrder)
-class PurchaseOrderAdmin(admin.ModelAdmin):
-    list_display = ['order_no', 'supplier', 'total_amount', 'status', 'created_by', 'created_at']
-    list_filter = ['status', 'created_at']
-    search_fields = ['order_no', 'supplier']
-    readonly_fields = ['created_at', 'updated_at']
-
-
-@admin.register(PurchaseOrderItem)
-class PurchaseOrderItemAdmin(admin.ModelAdmin):
-    list_display = ['order', 'material', 'quantity', 'unit_price', 'subtotal', 'received_quantity']
-    list_filter = ['order__status']
-    search_fields = ['order__order_no', 'material__name']
+# ⚠️ 已废弃/冻结：PurchaseOrder 和 PurchaseOrderItem 已被 purchase.PurchaseTask 替代
+# 保留以下代码仅用于历史数据兼容，不再使用
+# @admin.register(PurchaseOrder)
+# class PurchaseOrderAdmin(admin.ModelAdmin):
+#     list_display = ['order_no', 'supplier', 'total_amount', 'status', 'created_by', 'created_at']
+#     list_filter = ['status', 'created_at']
+#     search_fields = ['order_no', 'supplier']
+#     readonly_fields = ['created_at', 'updated_at']
+#
+#
+# @admin.register(PurchaseOrderItem)
+# class PurchaseOrderItemAdmin(admin.ModelAdmin):
+#     list_display = ['order', 'material', 'quantity', 'unit_price', 'subtotal', 'received_quantity']
+#     list_filter = ['order__status']
+#     search_fields = ['order__order_no', 'material__name']

@@ -34,33 +34,40 @@
         {% if bom_by_product %}
         {% for product_id, bom_data in bom_by_product.items %}
         <div class="card mb-3">
-            <div class="card-header bg-light">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="bi bi-box"></i> {{ bom_data.product.sku }} - {{ bom_data.product.name }}
                 </h5>
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                        data-bs-target="#bom-detail-{{ product_id }}" aria-expanded="false" 
+                        aria-controls="bom-detail-{{ product_id }}">
+                    <i class="bi bi-chevron-down"></i> 详情
+                </button>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm">
-                        <thead>
-                            <tr>
-                                <th>原料SKU</th>
-                                <th>原料名称</th>
-                                <th>用量</th>
-                                <th>单位</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for bom_item in bom_data.items %}
-                            <tr>
-                                <td>{{ bom_item.material.sku }}</td>
-                                <td>{{ bom_item.material.name }}</td>
-                                <td>{{ bom_item.quantity }}</td>
-                                <td>{{ bom_item.unit }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="collapse" id="bom-detail-{{ product_id }}">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead>
+                                <tr>
+                                    <th>原料SKU</th>
+                                    <th>原料名称</th>
+                                    <th>用量</th>
+                                    <th>单位</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bom_item in bom_data.items %}
+                                <tr>
+                                    <td>{{ bom_item.material.sku }}</td>
+                                    <td>{{ bom_item.material.name }}</td>
+                                    <td>{{ bom_item.quantity }}</td>
+                                    <td>{{ bom_item.unit }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -72,4 +79,29 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+// 处理BOM详情展开/折叠时的图标切换
+document.addEventListener('DOMContentLoaded', function() {
+    const collapseElements = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    
+    collapseElements.forEach(function(button) {
+        const targetId = button.getAttribute('data-bs-target');
+        const collapseElement = document.querySelector(targetId);
+        const icon = button.querySelector('i');
+        
+        if (collapseElement) {
+            collapseElement.addEventListener('show.bs.collapse', function() {
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-up');
+            });
+            
+            collapseElement.addEventListener('hide.bs.collapse', function() {
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-chevron-down');
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

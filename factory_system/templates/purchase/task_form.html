@@ -11,27 +11,61 @@
         <form method="post" id="purchaseForm">
             {% csrf_token %}
             <div class="mb-3">
-                <label class="form-label">供应商 <span class="text-danger">*</span></label>
-                <input type="text" name="supplier" class="form-control" required>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0">供应商 <span class="text-danger">*</span></label>
+                    <a href="{% url 'purchase:supplier_list' %}" target="_blank" class="btn btn-sm btn-info">
+                        <i class="bi bi-building"></i> 供应商信息
+                    </a>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <select id="supplierSelect" class="form-select">
+                            <option value="">请选择供应商（或手动输入）</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}" 
+                                    data-name="{{ supplier.name }}"
+                                    data-contact-person="{{ supplier.contact_person }}"
+                                    data-contact-phone="{{ supplier.contact_phone }}">
+                                {{ supplier.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" name="supplier" id="supplierInput" class="form-control" placeholder="或手动输入供应商名称" required>
+                    </div>
+                </div>
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label class="form-label">联系人</label>
-                    <input type="text" name="contact_person" class="form-control">
+                    <input type="text" name="contact_person" id="contactPersonInput" class="form-control">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">联系电话</label>
-                    <input type="text" name="contact_phone" class="form-control">
+                    <input type="text" name="contact_phone" id="contactPhoneInput" class="form-control">
                 </div>
             </div>
             
             <h5 class="mt-4">采购明细</h5>
             <div id="itemsContainer">
                 <div class="item-row mb-3 border p-3">
+                    <div class="row mb-2">
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input item-source-radio" type="radio" name="item_source_0" id="item_source_material_0" value="material" checked>
+                                <label class="form-check-label" for="item_source_material_0">从已有物料选择</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input item-source-radio" type="radio" name="item_source_0" id="item_source_custom_0" value="custom">
+                                <label class="form-check-label" for="item_source_custom_0">自行填写</label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-3 material-select-group">
                             <label class="form-label">物料 <span class="text-danger">*</span></label>
-                            <select name="material_id" class="form-select material-select" required>
+                            <select name="material_id" class="form-select material-select">
                                 <option value="">请选择物料</option>
                                 {% for material in materials %}
                                 <option value="{{ material.id }}">
@@ -40,27 +74,45 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="col-md-3 custom-input-group" style="display: none;">
+                            <label class="form-label">物品名称 <span class="text-danger">*</span></label>
+                            <input type="text" name="item_name" class="form-control custom-item-name" placeholder="请输入物品名称">
+                        </div>
+                        <div class="col-md-2 custom-input-group" style="display: none;">
+                            <label class="form-label">物品类型 <span class="text-danger">*</span></label>
+                            <select name="item_type" class="form-select custom-item-type">
+                                <option value="material">原料</option>
+                                <option value="office">办公用品</option>
+                                <option value="other">其它</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 custom-input-group" style="display: none;">
+                            <label class="form-label">单位 <span class="text-danger">*</span></label>
+                            <input type="text" name="unit" class="form-control custom-unit" placeholder="如：个、件、箱">
+                        </div>
                         <div class="col-md-2">
                             <label class="form-label">数量 <span class="text-danger">*</span></label>
-                            <input type="number" name="quantity" class="form-control quantity-input" step="0.01" min="0.01" required>
+                            <input type="number" name="quantity" class="form-control quantity-input" step="0.01" min="0.01">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">单价 <span class="text-danger">*</span></label>
-                            <input type="number" name="unit_price" class="form-control unit-price-input" step="0.01" min="0" required>
+                            <input type="number" name="unit_price" class="form-control unit-price-input" step="0.01" min="0">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">小计</label>
                             <input type="text" class="form-control subtotal-display" readonly>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn btn-danger w-100 remove-item">删除</button>
+                            <button type="button" class="btn btn-danger w-100 remove-item">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
             <button type="button" class="btn btn-secondary" id="addItemBtn">
-                <i class="bi bi-plus-circle"></i> 添加明细
+                <i class="bi bi-plus-circle"></i> 添加物料
             </button>
             
             <div class="mb-3 mt-3">
@@ -80,8 +132,62 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 供应商选择功能
+    const supplierSelect = document.getElementById('supplierSelect');
+    const supplierInput = document.getElementById('supplierInput');
+    const contactPersonInput = document.getElementById('contactPersonInput');
+    const contactPhoneInput = document.getElementById('contactPhoneInput');
+    
+    // 当选择供应商时，自动填充信息
+    if (supplierSelect) {
+        supplierSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                supplierInput.value = selectedOption.getAttribute('data-name');
+                contactPersonInput.value = selectedOption.getAttribute('data-contact-person') || '';
+                contactPhoneInput.value = selectedOption.getAttribute('data-contact-phone') || '';
+            }
+        });
+    }
+    
+    // 当手动输入供应商时，清空选择
+    if (supplierInput) {
+        supplierInput.addEventListener('input', function() {
+            if (this.value && supplierSelect) {
+                supplierSelect.value = '';
+            }
+        });
+    }
+    
     const itemsContainer = document.getElementById('itemsContainer');
     const addItemBtn = document.getElementById('addItemBtn');
+    let itemIndex = 0;
+    
+    // 切换物料选择/自行填写
+    function toggleItemSource(row, source) {
+        const materialGroup = row.querySelector('.material-select-group');
+        const customGroup = row.querySelectorAll('.custom-input-group');
+        const materialSelect = row.querySelector('.material-select');
+        const customName = row.querySelector('.custom-item-name');
+        const customType = row.querySelector('.custom-item-type');
+        const customUnit = row.querySelector('.custom-unit');
+        
+        if (source === 'material') {
+            materialGroup.style.display = 'block';
+            customGroup.forEach(g => g.style.display = 'none');
+            materialSelect.required = true;
+            customName.required = false;
+            customType.required = false;
+            customUnit.required = false;
+        } else {
+            materialGroup.style.display = 'none';
+            customGroup.forEach(g => g.style.display = 'block');
+            materialSelect.required = false;
+            customName.required = true;
+            customType.required = true;
+            customUnit.required = true;
+        }
+    }
     
     // 计算小计
     function calculateSubtotal(row) {
@@ -95,18 +201,36 @@ document.addEventListener('DOMContentLoaded', function() {
     addItemBtn.addEventListener('click', function() {
         const firstRow = itemsContainer.querySelector('.item-row');
         const newRow = firstRow.cloneNode(true);
+        itemIndex++;
+        
+        // 更新radio按钮的name和id
+        newRow.querySelectorAll('.item-source-radio').forEach(radio => {
+            const oldName = radio.name;
+            const newName = oldName.replace(/\d+$/, itemIndex);
+            radio.name = newName;
+            radio.id = radio.id.replace(/\d+$/, itemIndex);
+            radio.checked = false;
+        });
+        newRow.querySelector('#item_source_material_' + itemIndex).checked = true;
+        
+        // 清空所有输入
         newRow.querySelectorAll('input, select').forEach(input => {
-            if (input.type !== 'hidden') {
+            if (input.type !== 'radio' && input.type !== 'hidden' && !input.classList.contains('subtotal-display')) {
                 input.value = '';
             }
         });
         newRow.querySelector('.subtotal-display').value = '';
+        
+        // 重置显示状态
+        toggleItemSource(newRow, 'material');
+        
         itemsContainer.appendChild(newRow);
         attachEventListeners(newRow);
     });
     
     // 删除明细行
     function attachEventListeners(row) {
+        // 删除按钮
         row.querySelector('.remove-item').addEventListener('click', function() {
             if (itemsContainer.querySelectorAll('.item-row').length > 1) {
                 row.remove();
@@ -115,6 +239,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // 切换物料选择/自行填写
+        row.querySelectorAll('.item-source-radio').forEach(radio => {
+            radio.addEventListener('change', function() {
+                toggleItemSource(row, this.value);
+            });
+        });
+        
+        // 计算小计
         row.querySelector('.quantity-input').addEventListener('input', function() {
             calculateSubtotal(row);
         });
@@ -122,11 +254,79 @@ document.addEventListener('DOMContentLoaded', function() {
         row.querySelector('.unit-price-input').addEventListener('input', function() {
             calculateSubtotal(row);
         });
+        
+        // 选择物料时，自动填充单位（如果有）
+        row.querySelector('.material-select').addEventListener('change', function() {
+            if (this.value) {
+                // 可以通过AJAX获取物料信息，这里简化处理
+                calculateSubtotal(row);
+            }
+        });
     }
     
     // 为所有现有行附加事件监听器
     itemsContainer.querySelectorAll('.item-row').forEach(row => {
         attachEventListeners(row);
+    });
+    
+    // 表单提交验证
+    document.getElementById('purchaseForm').addEventListener('submit', function(e) {
+        let hasError = false;
+        itemsContainer.querySelectorAll('.item-row').forEach((row, index) => {
+            const materialSelect = row.querySelector('.material-select');
+            const customName = row.querySelector('.custom-item-name');
+            const customType = row.querySelector('.custom-item-type');
+            const customUnit = row.querySelector('.custom-unit');
+            const quantity = row.querySelector('.quantity-input').value;
+            const unitPrice = row.querySelector('.unit-price-input').value;
+            const sourceRadio = row.querySelector('.item-source-radio:checked');
+            
+            if (!sourceRadio) {
+                alert(`第 ${index + 1} 行：请选择物料来源`);
+                hasError = true;
+                return;
+            }
+            
+            if (sourceRadio.value === 'material') {
+                if (!materialSelect.value) {
+                    alert(`第 ${index + 1} 行：请选择物料`);
+                    hasError = true;
+                    return;
+                }
+            } else {
+                if (!customName.value.trim()) {
+                    alert(`第 ${index + 1} 行：请输入物品名称`);
+                    hasError = true;
+                    return;
+                }
+                if (!customType.value) {
+                    alert(`第 ${index + 1} 行：请选择物品类型`);
+                    hasError = true;
+                    return;
+                }
+                if (!customUnit.value.trim()) {
+                    alert(`第 ${index + 1} 行：请输入单位`);
+                    hasError = true;
+                    return;
+                }
+            }
+            
+            if (!quantity || parseFloat(quantity) <= 0) {
+                alert(`第 ${index + 1} 行：请输入有效的数量`);
+                hasError = true;
+                return;
+            }
+            
+            if (!unitPrice || parseFloat(unitPrice) < 0) {
+                alert(`第 ${index + 1} 行：请输入有效的单价`);
+                hasError = true;
+                return;
+            }
+        });
+        
+        if (hasError) {
+            e.preventDefault();
+        }
     });
 });
 </script>

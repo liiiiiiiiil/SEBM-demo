@@ -25,14 +25,14 @@
         </div>
         
         <div class="alert alert-danger">
-            <strong>警告：</strong>终结领料单将同时终结关联的销售订单（{{ order.order_no }}）及其所有关联流程（生产任务等），这是不可逆的操作，请谨慎操作。
+            <strong>警告：</strong>终结领料单将同时终结关联的产品订单（{{ order.order_no }}）及其所有关联流程（生产任务等），这是不可逆的操作，请谨慎操作。
         </div>
         
         <div class="mt-3">
             <h6>关联信息：</h6>
             <ul>
                 <li>生产任务：{{ task.task_no }}</li>
-                <li>销售订单：{{ order.order_no }}</li>
+                <li>产品订单：{{ order.order_no }}</li>
             </ul>
         </div>
         

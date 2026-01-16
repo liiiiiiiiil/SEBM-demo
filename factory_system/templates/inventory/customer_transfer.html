@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}客户转移{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-arrow-left-right"></i> 客户转移</h2>
+    <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> 返回客户列表
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4>批量转移客户</h4>
+    </div>
+    <div class="card-body">
+        <form method="post" id="transferForm">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label class="form-label">选择新负责人 <span class="text-danger">*</span></label>
+                <select class="form-select" name="to_user" required>
+                    <option value="">请选择销售人员</option>
+                    {% for user in sales_users %}
+                    <option value="{{ user.pk }}">{{ user.username }} ({{ user.get_full_name|default:user.username }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">备注（可选）</label>
+                <textarea class="form-control" name="remark" rows="3" placeholder="填写转移原因或备注信息"></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0">选择要转移的客户 <span class="text-danger">*</span></label>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">全选</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">取消全选</button>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover table-sm">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleAll(this)">
+                                </th>
+                                <th>客户名称</th>
+                                <th>联系人</th>
+                                <th>联系电话</th>
+                                <th>当前负责人</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in customers %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" name="customer_ids" value="{{ customer.pk }}" class="customer-checkbox">
+                                </td>
+                                <td>{{ customer.name }}</td>
+                                <td>{{ customer.contact_person }}</td>
+                                <td>{{ customer.phone }}</td>
+                                <td>{{ customer.created_by.username|default:"未分配" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">暂无客户数据</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> 提示：请先选择新负责人，然后勾选要转移的客户，最后点击"确认转移"按钮。
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                    <i class="bi bi-check-circle"></i> 确认转移
+                </button>
+                <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.customer-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateSubmitButton();
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.customer-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+    document.getElementById('selectAllCheckbox').checked = true;
+    updateSubmitButton();
+}
+
+function deselectAll() {
+    const checkboxes = document.querySelectorAll('.customer-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    document.getElementById('selectAllCheckbox').checked = false;
+    updateSubmitButton();
+}
+
+function updateSubmitButton() {
+    const selectedCustomers = document.querySelectorAll('.customer-checkbox:checked').length;
+    const selectedUser = document.querySelector('select[name="to_user"]').value;
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (selectedCustomers > 0 && selectedUser) {
+        submitBtn.disabled = false;
+    } else {
+        submitBtn.disabled = true;
+    }
+}
+
+// 监听复选框变化
+document.querySelectorAll('.customer-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateSubmitButton);
+});
+
+// 监听负责人选择变化
+document.querySelector('select[name="to_user"]').addEventListener('change', updateSubmitButton);
+
+// 表单提交前验证
+document.getElementById('transferForm').addEventListener('submit', function(e) {
+    const selectedCustomers = document.querySelectorAll('.customer-checkbox:checked').length;
+    const selectedUser = document.querySelector('select[name="to_user"]').value;
+    
+    if (selectedCustomers === 0) {
+        e.preventDefault();
+        alert('请至少选择一个客户');
+        return false;
+    }
+    
+    if (!selectedUser) {
+        e.preventDefault();
+        alert('请选择新负责人');
+        return false;
+    }
+    
+    return confirm(`确定要将 ${selectedCustomers} 个客户转移给选定的销售人员吗？`);
+});
+</script>
+{% endblock %}

@@ -45,9 +45,16 @@
                 <div class="text-danger">{{ form.credit_level.errors }}</div>
                 {% endif %}
             </div>
+            {% if is_edit_request %}
+            <div class="mb-3">
+                <label class="form-label">编辑原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" name="edit_reason" rows="3" required placeholder="请填写编辑原因，以便总经理审批"></textarea>
+                <small class="text-muted">客户信息编辑需要总经理审批，请详细说明编辑原因</small>
+            </div>
+            {% endif %}
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-save"></i> 保存
+                    <i class="bi bi-save"></i> {% if is_edit_request %}提交审批申请{% else %}保存{% endif %}
                 </button>
                 <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
             </div>

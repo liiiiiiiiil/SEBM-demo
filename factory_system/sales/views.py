@@ -5,9 +5,10 @@ from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
 import json
+from decimal import Decimal, InvalidOperation
 from accounts.decorators import role_required
-from .models import SalesOrder, SalesOrderItem, ShippingNotice
-from inventory.models import Customer, Product, Inventory
+from .models import SalesOrder, SalesOrderItem, SalesOrderItemBatch, ShippingNotice
+from inventory.models import Customer, Product, Inventory, Batch
 from production.models import ProductionTask, MaterialRequisition
 
 
@@ -103,13 +104,39 @@ def order_create(request, order_pk=None):
                 
                 # 计算总额并保存明细
                 total = 0
-                for item in instances:
+                # 创建formset实例的映射，用于匹配批次数据
+                formset_forms = list(formset.forms)
+                for idx, item in enumerate(instances):
                     item.order = order  # 确保订单关联正确
                     item.subtotal = item.quantity * item.unit_price
                     item.save()
                     total += item.subtotal
                 
-                # 删除标记为删除的明细
+                    # 保存批次分配信息
+                    # 删除该订单项的所有旧批次分配
+                    SalesOrderItemBatch.objects.filter(order_item=item).delete()
+                    
+                    # 获取该form在formset中的实际索引（通过prefix匹配）
+                    if idx < len(formset_forms):
+                        form_prefix = formset_forms[idx].prefix
+                        # 获取批次分配数据（格式：items-{form_index}-batch_{batch_id}）
+                        batch_keys = [key for key in request.POST.keys() if key.startswith(f'{form_prefix}-batch_')]
+                        for batch_key in batch_keys:
+                            batch_id = batch_key.replace(f'{form_prefix}-batch_', '')
+                            batch_qty_str = request.POST.get(batch_key, '0')
+                            try:
+                                batch_qty = Decimal(batch_qty_str)
+                                if batch_qty > 0:
+                                    batch = Batch.objects.get(pk=batch_id, inventory__inventory_type='product', inventory__product=item.product)
+                                    SalesOrderItemBatch.objects.create(
+                                        order_item=item,
+                                        batch=batch,
+                                        quantity=batch_qty,
+                                    )
+                            except (ValueError, Batch.DoesNotExist, InvalidOperation):
+                                pass
+                
+                # 删除标记为删除的明细（会自动删除关联的批次分配）
                 for item in formset.deleted_objects:
                     item.delete()
                 
@@ -148,33 +175,82 @@ def order_create(request, order_pk=None):
     
     title = '编辑订单' if order_pk else '创建订单'
     
-    # 获取产品库存数据用于前端显示
+    # 获取产品库存数据和批次数据用于前端显示
     import json
+    from django.db.models import Sum, Q
     products = Product.objects.all()
     product_inventory_data = {}
+    product_batches_data = {}
+    
+    # 计算每个批次已被预占的数量（只统计选择了"预占库存"且订单状态有效的订单）
+    # 有效状态：pending, approved, ceo_pending, ceo_approved, in_production, ready_to_ship
+    # 排除当前正在编辑的订单（如果存在）
+    valid_statuses = ['pending', 'approved', 'ceo_pending', 'ceo_approved', 'in_production', 'ready_to_ship']
+    batch_reserved_qty = {}
+    
+    # 获取所有选择了"预占库存"且状态有效的订单的批次分配
+    reserved_batch_allocations = SalesOrderItemBatch.objects.filter(
+        order_item__order__reserve_inventory=True,
+        order_item__order__status__in=valid_statuses
+    )
+    
+    # 如果正在编辑订单，排除当前订单的预占
+    if order_pk:
+        reserved_batch_allocations = reserved_batch_allocations.exclude(order_item__order__pk=order_pk)
+    
+    # 按批次汇总已预占的数量
+    for allocation in reserved_batch_allocations:
+        batch_id = allocation.batch.id
+        if batch_id not in batch_reserved_qty:
+            batch_reserved_qty[batch_id] = Decimal('0')
+        batch_reserved_qty[batch_id] += allocation.quantity
+    
     for product in products:
         try:
             inventory = Inventory.objects.get(inventory_type='product', product=product)
+            batches = inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at')
             product_inventory_data[str(product.pk)] = {
                 'quantity': float(inventory.quantity),
                 'unit': inventory.unit,
                 'unit_price': float(product.unit_price) if product.unit_price else 0.0
             }
+            product_batches_data[str(product.pk)] = []
+            
+            for batch in batches:
+                # 计算该批次已被预占的数量
+                reserved_qty = float(batch_reserved_qty.get(batch.id, Decimal('0')))
+                # 可用数量 = 批次数量 - 已预占数量
+                available_qty = float(batch.quantity) - reserved_qty
+                
+                product_batches_data[str(product.pk)].append({
+                    'id': batch.id,
+                    'batch_no': batch.batch_no,
+                    'batch_date': batch.batch_date.strftime('%Y-%m-%d'),
+                    'quantity': float(batch.quantity),  # 总数量
+                    'available_quantity': max(0, available_qty),  # 可用数量（排除已预占）
+                    'reserved_quantity': reserved_qty,  # 已预占数量
+                    'unit_price': float(batch.unit_price) if batch.unit_price else None,
+                    'expiry_date': batch.expiry_date.strftime('%Y-%m-%d') if batch.expiry_date else None,
+                    'is_expired': batch.is_expired(),
+                })
         except Inventory.DoesNotExist:
             product_inventory_data[str(product.pk)] = {
                 'quantity': 0,
                 'unit': product.unit,
                 'unit_price': float(product.unit_price) if product.unit_price else 0.0
             }
+            product_batches_data[str(product.pk)] = []
     
     product_inventory_data_json = json.dumps(product_inventory_data)
+    product_batches_data_json = json.dumps(product_batches_data)
     
     return render(request, 'sales/order_form.html', {
         'form': form, 
         'formset': formset, 
         'title': title, 
         'order': order,
-        'product_inventory_data_json': product_inventory_data_json
+        'product_inventory_data_json': product_inventory_data_json,
+        'product_batches_data_json': product_batches_data_json
     })
 
 
@@ -189,8 +265,35 @@ def order_detail(request, pk):
         messages.error(request, '您没有权限查看此订单')
         return redirect('sales:order_list')
     
+    # 准备批次分配和缺口信息
+    items_with_batch_info = []
+    for item in order.items.all():
+        # 计算已分配的批次数量总和
+        batch_allocated_qty = Decimal('0')
+        batch_allocations = []
+        order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item).select_related('batch')
+        for order_batch in order_batch_allocations:
+            batch_allocated_qty += order_batch.quantity
+            batch_allocations.append({
+                'batch_no': order_batch.batch.batch_no or f'批次-{order_batch.batch.id}',
+                'batch_date': order_batch.batch.batch_date,
+                'quantity': order_batch.quantity,
+                'unit': item.product.unit,
+            })
+        
+        # 计算缺口（需要生产的数量）
+        shortage = max(Decimal('0'), item.quantity - batch_allocated_qty)
+        
+        items_with_batch_info.append({
+            'item': item,
+            'batch_allocated_qty': batch_allocated_qty,
+            'batch_allocations': batch_allocations,
+            'shortage': shortage,
+        })
+    
     context = {
         'order': order,
+        'items_with_batch_info': items_with_batch_info,
     }
     return render(request, 'sales/order_detail.html', context)
 
@@ -229,7 +332,7 @@ def order_cancel(request, pk):
 @login_required
 @role_required('sales_mgr', 'ceo')
 def order_approve(request, pk):
-    """销售审批订单"""
+    """审批订单"""
     order = get_object_or_404(SalesOrder, pk=pk)
     
     if order.status != 'pending':
@@ -238,7 +341,7 @@ def order_approve(request, pk):
     
     if request.method == 'POST':
         with transaction.atomic():
-            order.status = 'ceo_pending'  # 销售审批后进入总经理审批
+            order.status = 'ceo_pending'  # 审批后进入总经理审批
             order.approved_by = request.user
             order.approved_at = timezone.now()
             # 清除退回信息（如果之前被退回过）
@@ -247,10 +350,40 @@ def order_approve(request, pk):
             order.reject_reason = ''
             order.save()
             
-            messages.success(request, f'订单 {order.order_no} 销售审批通过，已提交至总经理审批')
+            messages.success(request, f'订单 {order.order_no} 审批通过，已提交至总经理审批')
             return redirect('sales:order_detail', pk=pk)
     
-    return render(request, 'sales/order_approve.html', {'order': order})
+    # 准备批次分配和缺口信息
+    items_with_batch_info = []
+    for item in order.items.all():
+        # 计算已分配的批次数量总和
+        batch_allocated_qty = Decimal('0')
+        batch_allocations = []
+        order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item).select_related('batch')
+        for order_batch in order_batch_allocations:
+            batch_allocated_qty += order_batch.quantity
+            batch_allocations.append({
+                'batch_no': order_batch.batch.batch_no or f'批次-{order_batch.batch.id}',
+                'batch_date': order_batch.batch.batch_date,
+                'quantity': order_batch.quantity,
+                'unit': item.product.unit,
+            })
+        
+        # 计算缺口（需要生产的数量）
+        shortage = max(Decimal('0'), item.quantity - batch_allocated_qty)
+        
+        items_with_batch_info.append({
+            'item': item,
+            'batch_allocated_qty': batch_allocated_qty,
+            'batch_allocations': batch_allocations,
+            'shortage': shortage,
+        })
+    
+    context = {
+        'order': order,
+        'items_with_batch_info': items_with_batch_info,
+    }
+    return render(request, 'sales/order_approve.html', context)
 
 
 @login_required
@@ -409,7 +542,6 @@ def terminate_order_chain(order, terminated_by, terminate_reason):
             # 对于审核时锁定库存的商品，需要退回库存
             for item in order.items.all():
                 # 检查该商品是否有生产任务
-                from production.models import ProductionTask
                 has_production_task = ProductionTask.objects.filter(
                     order=order,
                     product=item.product
@@ -455,7 +587,7 @@ def terminate_order_chain(order, terminated_by, terminate_reason):
                             operator=terminated_by,
                         )
         
-        # 2. 终结销售订单
+        # 2. 终结产品订单
         order.status = 'terminated'
         order.terminated_by = terminated_by
         order.terminated_at = timezone.now()
@@ -525,9 +657,12 @@ def order_terminate(request, pk):
 
 
 def check_inventory_status(order):
-    """检查库存状态（不实际创建任务，仅用于显示判断结果）"""
+    """检查库存状态（不实际创建任务，仅用于显示判断结果）
+    支持部分批次分配：如果批次分配总和小于订单数量，不足部分需要生产
+    """
     from inventory.models import BOM
     from decimal import Decimal
+    from sales.models import SalesOrderItemBatch
     
     result = {
         'all_sufficient': True,
@@ -538,24 +673,33 @@ def check_inventory_status(order):
     }
     
     for item in order.items.all():
-        # 获取成品库存
+        # 计算该订单项已分配的批次数量总和
+        batch_allocated_qty = Decimal('0')
+        order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item)
+        for order_batch in order_batch_allocations:
+            batch_allocated_qty += order_batch.quantity
+        
+        # 计算需要生产的数量（订单数量 - 批次分配总和）
+        shortage = max(Decimal('0'), item.quantity - batch_allocated_qty)
+        
+        # 获取成品库存（用于显示）
         try:
             inventory = Inventory.objects.get(inventory_type='product', product=item.product)
             available_qty = inventory.quantity
         except Inventory.DoesNotExist:
             available_qty = 0
         
-        shortage = max(Decimal('0'), item.quantity - available_qty)
         item_result = {
             'product': item.product,
             'required_quantity': item.quantity,
-            'available_quantity': available_qty,
-            'sufficient': available_qty >= item.quantity,
-            'shortage': shortage,
+            'batch_allocated_quantity': batch_allocated_qty,  # 批次分配的总和
+            'available_quantity': available_qty,  # 总库存（用于显示）
+            'sufficient': batch_allocated_qty >= item.quantity,  # 批次分配是否充足
+            'shortage': shortage,  # 需要生产的数量
             'material_needs': [],  # 该产品缺口所需的原料列表
         }
         
-        # 如果有缺口，计算生产缺口产品所需的原料
+        # 如果有缺口（批次分配不足），计算生产缺口产品所需的原料
         if shortage > 0:
             bom_items = BOM.objects.filter(product=item.product)
             for bom_item in bom_items:
@@ -617,28 +761,28 @@ def check_inventory_status(order):
 
 
 def check_inventory_and_create_tasks(order):
-    """智能库存研判 - 检查库存并创建生产任务或发货通知"""
+    """智能库存研判 - 检查库存并创建生产任务或发货通知
+    支持部分批次分配：如果批次分配总和小于订单数量，不足部分创建生产任务
+    """
     from django.db import transaction
+    from sales.models import SalesOrderItemBatch
     
     with transaction.atomic():
         all_sufficient = True
         
         for item in order.items.all():
-            # 获取成品库存
-            try:
-                inventory = Inventory.objects.get(inventory_type='product', product=item.product)
-                available_qty = inventory.quantity
-            except Inventory.DoesNotExist:
-                available_qty = 0
+            # 计算该订单项已分配的批次数量总和
+            batch_allocated_qty = Decimal('0')
+            order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item)
+            for order_batch in order_batch_allocations:
+                batch_allocated_qty += order_batch.quantity
             
-            if available_qty >= item.quantity:
-                # 库存充足 - 锁定库存
-                inventory.quantity -= item.quantity
-                inventory.save()
-            else:
-                # 库存不足 - 需要生产
+            # 计算需要生产的数量（订单数量 - 批次分配总和）
+            shortage = item.quantity - batch_allocated_qty
+            
+            if shortage > 0:
+                # 批次分配不足，需要生产不足的部分
                 all_sufficient = False
-                shortage = item.quantity - available_qty
                 
                 # 检查原材料是否充足
                 from inventory.models import BOM
@@ -662,14 +806,17 @@ def check_inventory_and_create_tasks(order):
                 task_status = 'pending' if material_sufficient else 'material_insufficient'
                 task = ProductionTask.objects.create(
                     task_no=f"PT{timezone.now().strftime('%Y%m%d%H%M%S')}{order.pk}",
+                    production_type='order',
                     order=order,
                     product=item.product,
                     required_quantity=shortage,
                     status=task_status,
                 )
+            # 如果 shortage <= 0，说明批次分配已足够，不需要生产
+            # 注意：不再直接锁定库存，因为批次分配已经指定了具体批次，库存扣减在发货时进行
         
         if all_sufficient:
-            # 所有产品库存充足，创建发货通知单
+            # 所有产品批次分配充足，创建发货通知单
             ShippingNotice.objects.create(
                 notice_no=f"SN{timezone.now().strftime('%Y%m%d%H%M%S')}",
                 order=order,

@@ -5,17 +5,19 @@ from sales.models import SalesOrder, ShippingNotice
 class Driver(models.Model):
     """司机信息"""
     name = models.CharField(max_length=100, verbose_name='姓名')
-    phone = models.CharField(max_length=20, verbose_name='联系电话')
-    license_no = models.CharField(max_length=50, unique=True, verbose_name='驾照号码')
-    license_type = models.CharField(max_length=20, verbose_name='驾照类型')
+    phone = models.CharField(max_length=20, verbose_name='联系方式')
+    license_no = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name='驾照号码')
+    license_type = models.CharField(max_length=20, blank=True, verbose_name='驾照类型')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
     class Meta:
         verbose_name = '司机'
         verbose_name_plural = '司机'
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.name} - {self.license_no}"
+        return f"{self.name} - {self.phone}"
 
 
 class Vehicle(models.Model):
@@ -26,8 +28,9 @@ class Vehicle(models.Model):
         ('pickup', '皮卡'),
     ]
     
-    plate_no = models.CharField(max_length=20, unique=True, verbose_name='车牌号')
-    vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPE_CHOICES, verbose_name='车辆类型')
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='vehicles', null=True, blank=True, verbose_name='司机')
+    plate_no = models.CharField(max_length=20, verbose_name='车牌号')
+    vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPE_CHOICES, verbose_name='车辆款式')
     model = models.CharField(max_length=100, verbose_name='车型')
     capacity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='载重(吨)')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
@@ -35,6 +38,7 @@ class Vehicle(models.Model):
     class Meta:
         verbose_name = '车辆'
         verbose_name_plural = '车辆'
+        unique_together = ['driver', 'plate_no']  # 同一司机的车牌号不能重复
     
     def __str__(self):
         return f"{self.plate_no} - {self.get_vehicle_type_display()}"
@@ -75,3 +79,20 @@ class Shipment(models.Model):
     
     def __str__(self):
         return f"{self.shipment_no} - {self.order.order_no} - {self.get_status_display()}"
+
+
+class ShipmentImage(models.Model):
+    """发货回执图片"""
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='images', verbose_name='发货单')
+    image = models.ImageField(upload_to='shipment_images/%Y/%m/%d/', verbose_name='图片')
+    uploaded_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='uploaded_shipment_images', verbose_name='上传人')
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
+    remark = models.CharField(max_length=200, blank=True, verbose_name='图片说明')
+    
+    class Meta:
+        verbose_name = '发货回执图片'
+        verbose_name_plural = '发货回执图片'
+        ordering = ['-uploaded_at']
+    
+    def __str__(self):
+        return f"{self.shipment.shipment_no} - {self.uploaded_at.strftime('%Y-%m-%d %H:%M')}"

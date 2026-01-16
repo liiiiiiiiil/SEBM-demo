@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>{{ title }}</h4>
+    </div>
+    <div class="card-body">
+        <form method="post" id="driverForm">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">司机姓名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="name" value="{% if driver %}{{ driver.name }}{% endif %}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">联系方式 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="phone" value="{% if driver %}{{ driver.phone }}{% endif %}" required>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">驾照号码</label>
+                    <input type="text" class="form-control" name="license_no" value="{% if driver %}{{ driver.license_no|default:'' }}{% endif %}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">驾照类型</label>
+                    <input type="text" class="form-control" name="license_type" value="{% if driver %}{{ driver.license_type|default:'' }}{% endif %}" placeholder="如：A1、B2等">
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0">相关车辆</label>
+                    <button type="button" class="btn btn-sm btn-success" onclick="addVehicle()">
+                        <i class="bi bi-plus-circle"></i> 添加车辆
+                    </button>
+                </div>
+                <div id="vehiclesContainer">
+                    {% if vehicles %}
+                        {% for vehicle in vehicles %}
+                        <div class="card mb-2 vehicle-item">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">车辆 {{ forloop.counter }}</h6>
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeVehicle(this)">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label small">车牌号 <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="vehicle_plate_no_{{ forloop.counter0 }}" value="{{ vehicle.plate_no }}" required>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label small">车辆款式 <span class="text-danger">*</span></label>
+                                        <select class="form-select form-select-sm" name="vehicle_type_{{ forloop.counter0 }}" required>
+                                            <option value="">请选择</option>
+                                            <option value="truck" {% if vehicle.vehicle_type == 'truck' %}selected{% endif %}>货车</option>
+                                            <option value="van" {% if vehicle.vehicle_type == 'van' %}selected{% endif %}>面包车</option>
+                                            <option value="pickup" {% if vehicle.vehicle_type == 'pickup' %}selected{% endif %}>皮卡</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label small">车型</label>
+                                        <input type="text" class="form-control form-control-sm" name="vehicle_model_{{ forloop.counter0 }}" value="{{ vehicle.model }}" placeholder="如：解放J6P">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label small">载重(吨)</label>
+                                        <input type="number" class="form-control form-control-sm" name="vehicle_capacity_{{ forloop.counter0 }}" value="{{ vehicle.capacity|default:'' }}" step="0.01" placeholder="如：20.0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <small class="text-muted">可以为该司机添加多辆车，每辆车需要填写车牌号和车辆款式</small>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存
+                </button>
+                <a href="{% url 'logistics:driver_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let vehicleIndex = {% if vehicles %}{{ vehicles|length }}{% else %}0{% endif %};
+
+function addVehicle() {
+    const container = document.getElementById('vehiclesContainer');
+    const vehicleHtml = `
+        <div class="card mb-2 vehicle-item">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">车辆 ${vehicleIndex + 1}</h6>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeVehicle(this)">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small">车牌号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="vehicle_plate_no_${vehicleIndex}" required>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small">车辆款式 <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" name="vehicle_type_${vehicleIndex}" required>
+                            <option value="">请选择</option>
+                            <option value="truck">货车</option>
+                            <option value="van">面包车</option>
+                            <option value="pickup">皮卡</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small">车型</label>
+                        <input type="text" class="form-control form-control-sm" name="vehicle_model_${vehicleIndex}" placeholder="如：解放J6P">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label small">载重(吨)</label>
+                        <input type="number" class="form-control form-control-sm" name="vehicle_capacity_${vehicleIndex}" step="0.01" placeholder="如：20.0">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', vehicleHtml);
+    vehicleIndex++;
+    updateVehicleNumbers();
+}
+
+function removeVehicle(button) {
+    if (confirm('确定要删除这辆车吗？')) {
+        button.closest('.vehicle-item').remove();
+        updateVehicleNumbers();
+    }
+}
+
+function updateVehicleNumbers() {
+    const items = document.querySelectorAll('.vehicle-item');
+    items.forEach((item, index) => {
+        const title = item.querySelector('h6');
+        if (title) {
+            title.textContent = `车辆 ${index + 1}`;
+        }
+    });
+}
+</script>
+{% endblock %}

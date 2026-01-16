@@ -6,11 +6,23 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-people"></i> 客户信息</h2>
+    <div>
+        {% if user.profile.role == 'ceo' or user.profile.role == 'sales_mgr' %}
+        <a href="{% url 'inventory:customer_transfer' %}" class="btn btn-info me-2">
+            <i class="bi bi-arrow-left-right"></i> 客户转移
+        </a>
+        {% endif %}
+        {% if user.profile.role == 'ceo' %}
+        <a href="{% url 'inventory:customer_approval_list' %}" class="btn btn-warning me-2">
+            <i class="bi bi-clock-history"></i> 操作记录
+        </a>
+        {% endif %}
     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.create' %}
     <a href="{% url 'inventory:customer_create' %}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> 新增客户
     </a>
     {% endif %}
+    </div>
 </div>
 
 <div class="card">
@@ -35,7 +47,7 @@
                         <th>联系电话</th>
                         <th>地址</th>
                         <th>信用等级</th>
-                        <th>创建人</th>
+                        <th>负责人</th>
                         <th>创建时间</th>
                         <th>操作</th>
                     </tr>
@@ -61,6 +73,19 @@
                         <td>{{ customer.created_by.username|default:"系统" }}</td>
                         <td>{{ customer.created_at|date:"Y-m-d H:i" }}</td>
                         <td>
+                            {% if user.profile.role == 'ceo' %}
+                                {% if customer.edit_status == 'pending' %}
+                                <a href="{% url 'inventory:customer_edit_approve' customer.pk %}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle"></i> 审批编辑
+                                </a>
+                                {% endif %}
+                                {% if customer.delete_status == 'pending' %}
+                                <a href="{% url 'inventory:customer_delete_approve' customer.pk %}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check-circle"></i> 审批删除
+                                </a>
+                                {% endif %}
+                            {% endif %}
+                            {% if customer.edit_status != 'pending' and customer.delete_status != 'pending' %}
                             {% if user.profile.role == 'sales' %}
                                 {% if customer.created_by == user or user|has_permission:'inventory.customer.manage' %}
                                 <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
@@ -82,6 +107,7 @@
                                 <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
                                     <i class="bi bi-pencil"></i> 编辑
                                 </a>
+                                    {% endif %}
                                 {% endif %}
                             {% endif %}
                         </td>

@@ -87,7 +87,7 @@
                     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'sales.order.view' %}
                     <li class="nav-item mb-2">
                         <a class="nav-link {% if request.resolver_match.app_name == 'sales' %}active{% endif %}" href="{% url 'sales:order_list' %}">
-                            <i class="bi bi-cart"></i> 销售订单
+                            <i class="bi bi-cart"></i> 产品订单
                         </a>
                     </li>
                     {% endif %}

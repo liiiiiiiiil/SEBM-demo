@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}司机信息{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-person-badge"></i> 司机信息</h2>
+    <a href="{% url 'logistics:driver_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> 新增司机
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>姓名</th>
+                        <th>联系方式</th>
+                        <th>相关车辆</th>
+                        <th>驾照号码</th>
+                        <th>驾照类型</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for driver in drivers %}
+                    <tr>
+                        <td>{{ driver.name }}</td>
+                        <td>{{ driver.phone }}</td>
+                        <td>
+                            {% if driver.vehicles.all %}
+                                {% for vehicle in driver.vehicles.all %}
+                                    <span class="badge bg-info">{{ vehicle.plate_no }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">未分配车辆</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ driver.license_no|default:"-" }}</td>
+                        <td>{{ driver.license_type|default:"-" }}</td>
+                        <td>{{ driver.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'logistics:driver_edit' driver.pk %}" class="btn btn-sm btn-info">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </a>
+                            <a href="{% url 'logistics:driver_delete' driver.pk %}" class="btn btn-sm btn-danger">
+                                <i class="bi bi-trash"></i> 删除
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">暂无司机数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% include 'includes/pagination.html' with page_obj=drivers extra_params=extra_params %}
+    </div>
+</div>
+{% endblock %}

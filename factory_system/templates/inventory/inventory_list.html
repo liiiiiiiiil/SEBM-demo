@@ -32,7 +32,7 @@
                         <th>价格变动</th>
                         <th>关联单号</th>
                         <th>操作人</th>
-                        <th>备注</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,7 +81,11 @@
                         </td>
                         <td><small class="text-muted">{{ record.reference_no|default:"-" }}</small></td>
                         <td>{{ record.operator }}</td>
-                        <td><small class="text-muted">{{ record.remark|default:"-"|truncatewords:5 }}</small></td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailModal{{ forloop.counter }}">
+                                <i class="bi bi-info-circle"></i> 详情
+                            </button>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -140,26 +144,151 @@
     </div>
 </div>
 
+<!-- 详情模态框 -->
+{% for record in page_obj %}
+<div class="modal fade" id="detailModal{{ forloop.counter }}" tabindex="-1" aria-labelledby="detailModalLabel{{ forloop.counter }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalLabel{{ forloop.counter }}">
+                    <i class="bi bi-info-circle"></i> 库存记录详情
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>时间：</strong>
+                        <p>{{ record.created_at|date:"Y-m-d H:i:s" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>记录类型：</strong>
+                        <p>
+                            {% if record.type == 'adjustment' %}
+                                <span class="badge bg-info">{{ record.record_type }}</span>
+                            {% else %}
+                                <span class="badge bg-primary">{{ record.record_type }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>变动类型：</strong>
+                        <p>{{ record.transaction_type }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>物品类型：</strong>
+                        <p>{{ record.item_type }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>物品名称：</strong>
+                        <p>{{ record.item_name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>单位：</strong>
+                        <p>{{ record.unit }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>变动数量：</strong>
+                        <p>
+                            {% if record.type == 'adjustment' %}
+                                <span class="text-info">
+                                    {{ record.current_quantity }} → {{ record.new_quantity }}
+                                    {% if record.adjust_quantity >= 0 %}
+                                        <span class="text-success">(+{{ record.adjust_quantity }})</span>
+                                    {% else %}
+                                        <span class="text-danger">({{ record.adjust_quantity }})</span>
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                {% if record.quantity > 0 %}
+                                    <span class="text-success">+{{ record.quantity }}</span>
+                                {% elif record.quantity < 0 %}
+                                    <span class="text-danger">{{ record.quantity }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>价格变动：</strong>
+                        <p>
+                            {% if record.old_unit_price is not None and record.new_unit_price is not None %}
+                                <span class="text-info">
+                                    ¥{{ record.old_unit_price|floatformat:2 }} → ¥{{ record.new_unit_price|floatformat:2 }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>关联单号：</strong>
+                        <p><small class="text-muted">{{ record.reference_no|default:"-" }}</small></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>操作人：</strong>
+                        <p>{{ record.operator }}</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <strong>备注：</strong>
+                        <div class="border rounded p-3 bg-light">
+                            <p class="mb-0">{{ record.remark|default:"无"|linebreaks }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 <!-- 库存情况 -->
 <div class="card">
     <div class="card-header">
         <h5 class="mb-0"><i class="bi bi-box"></i> 库存情况</h5>
     </div>
     <div class="card-body">
-        <form method="get" class="mb-3">
-            <div class="row">
-                <div class="col-md-3">
-                    <select name="type" class="form-select">
-                        <option value="">全部类型</option>
-                        <option value="product" {% if inventory_type == 'product' %}selected{% endif %}>成品</option>
-                        <option value="material" {% if inventory_type == 'material' %}selected{% endif %}>原料</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-secondary">筛选</button>
-                </div>
-            </div>
-        </form>
+        <!-- 分类标签页 -->
+        <ul class="nav nav-tabs mb-3" id="inventoryTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if not inventory_type or inventory_type == 'product' %}active{% endif %}" 
+                   href="?type=product" 
+                   id="product-tab" 
+                   role="tab">
+                    <i class="bi bi-box-seam"></i> 成品库存
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'material' %}active{% endif %}" 
+                   href="?type=material" 
+                   id="material-tab" 
+                   role="tab">
+                    <i class="bi bi-boxes"></i> 原料库存
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'other' %}active{% endif %}" 
+                   href="?type=other" 
+                   id="other-tab" 
+                   role="tab">
+                    <i class="bi bi-archive"></i> 其它库存
+                </a>
+            </li>
+        </ul>
 
         <div class="table-responsive">
             <table class="table table-hover table-sm">
@@ -167,14 +296,13 @@
                     <tr>
                         <th>类型</th>
                         <th>物品名称</th>
-                        <th>数量</th>
+                        <th>总数量</th>
                         <th>单位</th>
+                        <th>批次数量</th>
                         <th>基础单价</th>
                         <th>总价值</th>
                         <th>更新时间</th>
-                        {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
                         <th>操作</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -184,18 +312,34 @@
                         <td>
                             {% if inv.inventory_type == 'product' %}
                                 {{ inv.product.name|default:"-" }}
-                            {% else %}
+                            {% elif inv.inventory_type == 'material' %}
                                 {{ inv.material.name|default:"-" }}
+                            {% elif inv.inventory_type == 'other' %}
+                                {{ inv.other_name|default:"-" }}
+                            {% else %}
+                                -
                             {% endif %}
                         </td>
-                        <td>{{ inv.quantity }}</td>
+                        <td><strong>{{ inv.quantity }}</strong></td>
                         <td>{{ inv.unit }}</td>
+                        <td>
+                            {% if inv.batches_list %}
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#batchModal{{ inv.pk }}">
+                                <i class="bi bi-list-ul"></i> {{ inv.batches_list|length }} 个批次
+                            </button>
+                            {% else %}
+                            <span class="text-muted">无批次</span>
+                            {% endif %}
+                        </td>
                         <td>¥{{ inv.get_unit_price|floatformat:2 }}</td>
                         <td><strong>¥{{ inv.get_total_value|floatformat:2 }}</strong></td>
                         <td>{{ inv.updated_at|date:"Y-m-d H:i" }}</td>
-                        {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
                         <td>
                             <div class="btn-group" role="group">
+                                <a href="{% url 'inventory:inventory_detail' inv.pk %}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-info-circle"></i> 详情
+                                </a>
+                                {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
                                 {% if user|has_permission:'inventory.adjustment.create' %}
                                 <a href="{% url 'inventory:adjustment_create' inv.pk %}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-pencil"></i> 调整
@@ -207,19 +351,84 @@
                                         <i class="bi bi-check-circle"></i> 审批
                                     </a>
                                     {% endfor %}
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </td>
-                        {% endif %}
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}8{% else %}7{% endif %}" class="text-center text-muted">暂无库存数据</td>
+                        <td colspan="9" class="text-center text-muted">暂无库存数据</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        
+        <!-- 批次详情模态框 -->
+        {% for inv in inventories %}
+        {% if inv.batches_list %}
+        <div class="modal fade" id="batchModal{{ inv.pk }}" tabindex="-1" aria-labelledby="batchModalLabel{{ inv.pk }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="batchModalLabel{{ inv.pk }}">
+                            <i class="bi bi-list-ul"></i> 批次详情 - 
+                            {% if inv.inventory_type == 'product' %}
+                                {{ inv.product.name|default:"-" }}
+                            {% elif inv.inventory_type == 'material' %}
+                                {{ inv.material.name|default:"-" }}
+                            {% elif inv.inventory_type == 'other' %}
+                                {{ inv.other_name|default:"-" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>批次号</th>
+                                    <th>批次日期</th>
+                                    <th>数量</th>
+                                    <th>单价</th>
+                                    <th>过期日期</th>
+                                    <th>供应商</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for batch in inv.batches_list %}
+                                <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
+                                    <td>{{ batch.batch_no }}</td>
+                                    <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
+                                    <td><strong>{{ batch.quantity }}{{ inv.unit }}</strong></td>
+                                    <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
+                                    <td>
+                                        {% if batch.expiry_date %}
+                                            {{ batch.expiry_date|date:"Y-m-d" }}
+                                            {% if batch.is_expired %}
+                                            <span class="badge bg-danger">已过期</span>
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td><small>{{ batch.supplier|default:"-" }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

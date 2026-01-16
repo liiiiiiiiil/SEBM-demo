@@ -21,7 +21,7 @@
             {% endif %}
         </div>
         
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="mb-3">
                 <label for="receiver_name" class="form-label">收货人姓名 <span class="text-danger">*</span></label>
@@ -38,6 +38,28 @@
                 <textarea class="form-control" id="delivery_remark" name="delivery_remark" rows="4" placeholder="请输入收货情况、货物状态等信息"></textarea>
             </div>
             
+            <div class="mb-3">
+                <label class="form-label">上传图片（可选）</label>
+                <div id="imageUploadContainer">
+                    <div class="image-upload-item mb-2">
+                        <div class="input-group">
+                            <input type="file" class="form-control" name="images" accept="image/*" onchange="previewImage(this)">
+                            <input type="text" class="form-control" name="image_remark" placeholder="图片说明（可选）">
+                            <button type="button" class="btn btn-outline-danger" onclick="removeImageItem(this)" style="display: none;">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="image-preview mt-2" style="display: none;">
+                            <img src="" alt="预览" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addImageItem()">
+                    <i class="bi bi-plus-circle"></i> 添加更多图片
+                </button>
+                <small class="text-muted d-block mt-1">可以上传多张图片以补充更详细的收货信息</small>
+            </div>
+            
             <div class="alert alert-warning">
                 确认回执后，订单状态将更新为"已完成"，整个订单流程结束。
             </div>
@@ -47,6 +69,57 @@
             </button>
             <a href="{% url 'logistics:shipment_detail' shipment.pk %}" class="btn btn-secondary">取消</a>
         </form>
+
+<script>
+let imageItemCount = 1;
+
+function addImageItem() {
+    const container = document.getElementById('imageUploadContainer');
+    const newItem = document.createElement('div');
+    newItem.className = 'image-upload-item mb-2';
+    newItem.innerHTML = `
+        <div class="input-group">
+            <input type="file" class="form-control" name="images" accept="image/*" onchange="previewImage(this)">
+            <input type="text" class="form-control" name="image_remark" placeholder="图片说明（可选）">
+            <button type="button" class="btn btn-outline-danger" onclick="removeImageItem(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="image-preview mt-2" style="display: none;">
+            <img src="" alt="预览" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+        </div>
+    `;
+    container.appendChild(newItem);
+    imageItemCount++;
+}
+
+function removeImageItem(button) {
+    if (imageItemCount > 1) {
+        button.closest('.image-upload-item').remove();
+        imageItemCount--;
+    }
+}
+
+function previewImage(input) {
+    const file = input.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = input.closest('.image-upload-item').querySelector('.image-preview');
+            const img = preview.querySelector('img');
+            img.src = e.target.result;
+            preview.style.display = 'block';
+            
+            // 显示删除按钮
+            const removeBtn = input.closest('.input-group').querySelector('.btn-outline-danger');
+            if (removeBtn) {
+                removeBtn.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+}
+</script>
     </div>
 </div>
 {% endblock %}

@@ -6,6 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-gear"></i> 生产任务列表</h2>
     <div>
+        <a href="{% url 'production:stock_task_create' %}" class="btn btn-primary me-2">
+            <i class="bi bi-plus-circle"></i> 创建备货生产任务
+        </a>
         <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-primary">
             <i class="bi bi-list-check"></i> BOM配方
         </a>
@@ -16,6 +19,13 @@
     <div class="card-body">
         <form method="get" class="mb-3">
             <div class="row">
+                <div class="col-md-3">
+                    <select name="production_type" class="form-select">
+                        <option value="">全部类型</option>
+                        <option value="order" {% if production_type_filter == 'order' %}selected{% endif %}>订单生产</option>
+                        <option value="stock" {% if production_type_filter == 'stock' %}selected{% endif %}>备货生产</option>
+                    </select>
+                </div>
                 <div class="col-md-3">
                     <select name="status" class="form-select">
                         <option value="">全部状态</option>
@@ -39,6 +49,7 @@
                 <thead>
                     <tr>
                         <th>任务单号</th>
+                        <th>生产类型</th>
                         <th>关联订单</th>
                         <th>产品</th>
                         <th>需求数量</th>
@@ -52,7 +63,20 @@
                     {% for task in tasks %}
                     <tr>
                         <td>{{ task.task_no }}</td>
-                        <td>{{ task.order.order_no }}</td>
+                        <td>
+                            {% if task.production_type == 'order' %}
+                                <span class="badge bg-primary">订单生产</span>
+                            {% else %}
+                                <span class="badge bg-info">备货生产</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if task.order %}
+                                <a href="{% url 'sales:order_detail' task.order.pk %}">{{ task.order.order_no }}</a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>{{ task.product.name }}</td>
                         <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
                         <td>{{ task.completed_quantity }}{{ task.product.unit }}</td>
@@ -68,7 +92,7 @@
                             {% elif task.status == 'in_production' %}
                             <span class="badge bg-primary">生产中</span>
                             {% elif task.status == 'qc_checking' %}
-                            <span class="badge bg-info">质检中</span>
+                            <span class="badge" style="background-color: #6f42c1;">质检中</span>
                             {% elif task.status == 'completed' %}
                             <span class="badge bg-success">已完成</span>
                             {% elif task.status == 'cancelled' %}
@@ -91,7 +115,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted">暂无生产任务</td>
+                        <td colspan="9" class="text-center text-muted">暂无生产任务</td>
                     </tr>
                     {% endfor %}
                 </tbody>

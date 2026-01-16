@@ -300,8 +300,7 @@ def dashboard(request):
             
             # 3. 本期采购金额（默认本月）
             if not date_from:
-                from datetime import date
-                month_start = date.today().replace(day=1)
+                month_start = today.replace(day=1)
                 current_month_purchases = PurchaseTask.objects.filter(created_at__date__gte=month_start)
             else:
                 current_month_purchases = PurchaseTask.objects.filter(created_at__gte=date_from)
@@ -443,7 +442,12 @@ def dashboard(request):
         
         context['alerts'] = alerts
     
-    return render(request, 'accounts/dashboard.html', context)
+    # 添加缓存控制头，确保数据实时更新
+    response = render(request, 'accounts/dashboard.html', context)
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 def logout_view(request):

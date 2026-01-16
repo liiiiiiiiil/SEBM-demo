@@ -18,7 +18,7 @@
                 {% if order.status == 'in_production' %}
                 <span class="badge bg-primary">生产中</span>
                 {% elif order.status == 'ready_to_ship' %}
-                <span class="badge bg-success">待发货</span>
+                <span class="badge" style="background-color: #fd7e14;">待发货</span>
                 {% elif order.status == 'shipped' %}
                 <span class="badge bg-secondary">已发货</span>
                 {% endif %}

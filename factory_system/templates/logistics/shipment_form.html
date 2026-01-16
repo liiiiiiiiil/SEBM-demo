@@ -17,22 +17,22 @@
         <form method="post">
             {% csrf_token %}
             <div class="mb-3">
-                <label class="form-label">司机</label>
-                <select class="form-select" name="driver">
-                    <option value="">请选择司机</option>
+                <label class="form-label">司机 <span class="text-danger">*</span></label>
+                <select class="form-select" name="driver" id="driverSelect" required>
+                    <option value="">请先选择司机</option>
                     {% for driver in drivers %}
-                    <option value="{{ driver.pk }}">{{ driver.name }} - {{ driver.phone }}</option>
+                    <option value="{{ driver.pk }}" {% if selected_driver_id == driver.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ driver.name }} - {{ driver.phone }}
+                    </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="mb-3">
                 <label class="form-label">车辆</label>
-                <select class="form-select" name="vehicle">
-                    <option value="">请选择车辆</option>
-                    {% for vehicle in vehicles %}
-                    <option value="{{ vehicle.pk }}">{{ vehicle.plate_no }} - {{ vehicle.get_vehicle_type_display }}</option>
-                    {% endfor %}
+                <select class="form-select" name="vehicle" id="vehicleSelect">
+                    <option value="">请先选择司机</option>
                 </select>
+                <small class="text-muted">选择司机后，将显示该司机的相关车辆</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">运费</label>
@@ -45,5 +45,50 @@
         </form>
     </div>
 </div>
+
+<script>
+// 司机和车辆数据
+const driversData = {
+    {% for driver in drivers %}
+    {{ driver.pk }}: [
+        {% for vehicle in driver.vehicles.all %}
+        {id: {{ vehicle.pk }}, plate: "{{ vehicle.plate_no }}", type: "{{ vehicle.get_vehicle_type_display }}"}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
+// 监听司机选择变化
+document.getElementById('driverSelect').addEventListener('change', function() {
+    const driverId = this.value;
+    const vehicleSelect = document.getElementById('vehicleSelect');
+    
+    // 清空车辆选项
+    vehicleSelect.innerHTML = '<option value="">请选择车辆</option>';
+    
+    if (driverId && driversData[driverId]) {
+        const vehicles = driversData[driverId];
+        if (vehicles.length > 0) {
+            vehicles.forEach(function(vehicle) {
+                const option = document.createElement('option');
+                option.value = vehicle.id;
+                option.textContent = vehicle.plate + ' - ' + vehicle.type;
+                vehicleSelect.appendChild(option);
+            });
+        } else {
+            vehicleSelect.innerHTML = '<option value="">该司机暂无相关车辆，请先在司机管理中为该司机添加车辆</option>';
+        }
+    } else {
+        vehicleSelect.innerHTML = '<option value="">请先选择司机</option>';
+    }
+});
+
+// 页面加载时，如果已选择司机，触发一次change事件
+{% if selected_driver_id %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('driverSelect').dispatchEvent(new Event('change'));
+});
+{% endif %}
+</script>
 {% endblock %}
 

@@ -45,3 +45,10 @@ def has_any_permission(user, *permission_codes):
         return False
 
 
+@register.filter
+def get_item(dictionary, key):
+    """从字典中获取值"""
+    if dictionary is None:
+        return None
+    return dictionary.get(key)
+

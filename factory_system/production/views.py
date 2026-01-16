@@ -4,17 +4,23 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 from decimal import Decimal
 from accounts.decorators import role_required
 from .models import ProductionTask, MaterialRequisition, MaterialRequisitionItem, QCRecord, FinishedProductInbound
-from inventory.models import BOM, Inventory, StockTransaction
+from inventory.models import BOM, Inventory, StockTransaction, Product
 
 
 @login_required
 @role_required('production', 'ceo')
 def task_list(request):
     """生产任务列表"""
-    tasks = ProductionTask.objects.select_related('order', 'product').all()
+    tasks = ProductionTask.objects.select_related('order', 'product').all().order_by('-created_at')
+    
+    # 按生产类型筛选
+    production_type_filter = request.GET.get('production_type', '')
+    if production_type_filter:
+        tasks = tasks.filter(production_type=production_type_filter)
     
     status_filter = request.GET.get('status', '')
     if status_filter:
@@ -26,13 +32,17 @@ def task_list(request):
     page_obj = paginator.get_page(page_number)
     
     # 构建额外参数用于分页链接
-    extra_params = ''
+    extra_params = []
+    if production_type_filter:
+        extra_params.append(f'production_type={production_type_filter}')
     if status_filter:
-        extra_params = f'status={status_filter}'
+        extra_params.append(f'status={status_filter}')
+    extra_params = '&'.join(extra_params)
     
     context = {
         'tasks': page_obj,
         'status_filter': status_filter,
+        'production_type_filter': production_type_filter,
         'extra_params': extra_params,
     }
     return render(request, 'production/task_list.html', context)
@@ -350,21 +360,36 @@ def requisition_approve(request, pk):
             requisition.approved_at = timezone.now()
             requisition.save()
             
-            # 扣减库存
+            # 扣减库存（按批次FIFO）
+            from inventory.models import Batch
             for item in requisition.items.all():
                 inventory = Inventory.objects.get(inventory_type='material', material=item.material)
-                inventory.quantity -= item.required_quantity
-                inventory.save()
+                remaining_qty = item.required_quantity
                 
-                # 记录库存变动
-                StockTransaction.objects.create(
-                    transaction_type='production_out',
-                    inventory=inventory,
-                    quantity=item.required_quantity,
-                    unit=item.unit,
-                    reference_no=requisition.requisition_no,
-                    operator=request.user,
-                )
+                # 按FIFO原则从批次中扣减
+                for batch in inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at'):
+                    if remaining_qty <= 0:
+                        break
+                    
+                    allocate_qty = min(remaining_qty, batch.quantity)
+                    batch.quantity -= allocate_qty
+                    batch.save()
+                    
+                    # 记录库存变动
+                    StockTransaction.objects.create(
+                        transaction_type='production_out',
+                        inventory=inventory,
+                        batch=batch,
+                        quantity=allocate_qty,
+                        unit=item.unit,
+                        reference_no=requisition.requisition_no,
+                        operator=request.user,
+                    )
+                    
+                    remaining_qty -= allocate_qty
+                
+                # 更新库存总数量
+                inventory.update_quantity_from_batches()
             
             requisition.task.status = 'material_preparing'
             requisition.task.save()
@@ -488,13 +513,60 @@ def inbound_create(request, task_pk):
                     product=task.product,
                     defaults={'quantity': 0, 'unit': task.product.unit}
                 )
-                inventory.quantity += quantity
-                inventory.save()
+                
+                # 获取批次信息
+                batch_date_str = request.POST.get('batch_date', '')
+                batch_no = request.POST.get('batch_no', '')
+                batch_unit_price_str = request.POST.get('batch_unit_price', '')
+                expiry_date_str = request.POST.get('expiry_date', '')
+                
+                from datetime import datetime
+                
+                # 批次日期，默认为今天
+                if batch_date_str:
+                    batch_date = datetime.strptime(batch_date_str, '%Y-%m-%d').date()
+                else:
+                    batch_date = timezone.now().date()
+                
+                # 批次号，如果没有提供则自动生成
+                if not batch_no:
+                    batch_no = f"{task.product.sku}-{batch_date.strftime('%Y%m%d')}-{timezone.now().strftime('%H%M%S')}"
+                
+                # 批次单价
+                batch_unit_price = None
+                if batch_unit_price_str:
+                    try:
+                        batch_unit_price = Decimal(batch_unit_price_str)
+                    except:
+                        batch_unit_price = task.product.unit_price
+                else:
+                    batch_unit_price = task.product.unit_price
+                
+                # 过期日期
+                expiry_date = None
+                if expiry_date_str:
+                    expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%d').date()
+                
+                # 创建批次
+                from inventory.models import Batch
+                batch = Batch.objects.create(
+                    batch_no=batch_no,
+                    inventory=inventory,
+                    batch_date=batch_date,
+                    quantity=quantity,
+                    unit_price=batch_unit_price,
+                    expiry_date=expiry_date,
+                    remark=f"生产任务：{task.task_no}，入库单：{inbound.inbound_no}",
+                )
+                
+                # 更新库存总数量
+                inventory.update_quantity_from_batches()
                 
                 # 记录库存变动
                 StockTransaction.objects.create(
                     transaction_type='production_in',
                     inventory=inventory,
+                    batch=batch,
                     quantity=quantity,
                     unit=task.product.unit,
                     reference_no=inbound.inbound_no,
@@ -510,8 +582,8 @@ def inbound_create(request, task_pk):
                     task_was_completed = True
                 task.save()
                 
-                # 如果任务刚完成，或者任务已完成，检查订单是否可以发货
-                if task_was_completed or task.status == 'completed':
+                # 如果任务刚完成，或者任务已完成，且是订单生产，检查订单是否可以发货
+                if (task_was_completed or task.status == 'completed') and task.production_type == 'order' and task.order:
                     check_order_ready_to_ship(task.order)
                 
                 messages.success(request, f'入库单 {inbound.inbound_no} 创建成功')
@@ -524,9 +596,16 @@ def inbound_create(request, task_pk):
             return redirect('production:inbound_create', task_pk=task_pk)
     
     qc_records = QCRecord.objects.filter(task=task, result='qualified')
+    
+    # 计算剩余需要完成的数量（需求数量 - 已完成数量）
+    remaining_quantity = task.required_quantity - task.completed_quantity
+    if remaining_quantity < 0:
+        remaining_quantity = Decimal('0')
+    
     context = {
         'task': task,
         'qc_records': qc_records,
+        'remaining_quantity': remaining_quantity,
     }
     return render(request, 'production/inbound_form.html', context)
 
@@ -607,8 +686,6 @@ def check_order_ready_to_ship(order):
 @role_required('ceo')
 def task_terminate(request, pk):
     """总经理终结生产任务（终结整个链路）"""
-    from sales.views import terminate_order_chain
-    
     task = get_object_or_404(ProductionTask, pk=pk)
     
     # 只能终结进行中的任务
@@ -624,17 +701,24 @@ def task_terminate(request, pk):
             messages.error(request, '请输入终结原因')
             return render(request, 'production/task_terminate.html', {'task': task})
         
-        # 向上追溯到销售订单，终结整个链路
-        order = task.order
-        # 导入终结函数（避免循环导入）
-        from sales.views import terminate_order_chain
-        terminate_order_chain(order, request.user, f"通过生产任务 {task.task_no} 终结：{terminate_reason}")
+        # 如果是订单生产，向上追溯到产品订单，终结整个链路
+        if task.production_type == 'order' and task.order:
+            from sales.views import terminate_order_chain
+            terminate_order_chain(task.order, request.user, f"通过生产任务 {task.task_no} 终结：{terminate_reason}")
+            messages.success(request, f'生产任务 {task.task_no} 及其关联订单 {task.order.order_no} 的所有流程已终结')
+        else:
+            # 备货生产任务，直接终结任务
+            task.status = 'terminated'
+            task.terminated_by = request.user
+            task.terminated_at = timezone.now()
+            task.terminate_reason = terminate_reason
+            task.save()
+            messages.success(request, f'备货生产任务 {task.task_no} 已终结')
         
-        messages.success(request, f'生产任务 {task.task_no} 及其关联订单 {order.order_no} 的所有流程已终结')
         return redirect('production:task_detail', pk=pk)
     
     # 显示关联信息
-    order = task.order
+    order = task.order if task.production_type == 'order' else None
     requisitions = MaterialRequisition.objects.filter(task=task)
     
     context = {
@@ -664,19 +748,33 @@ def requisition_terminate(request, pk):
             messages.error(request, '请输入终结原因')
             return render(request, 'production/requisition_terminate.html', {'requisition': requisition})
         
-        # 向上追溯到销售订单，终结整个链路
+        # 如果是订单生产，向上追溯到产品订单，终结整个链路
         task = requisition.task
-        order = task.order
-        # 导入终结函数（避免循环导入）
-        from sales.views import terminate_order_chain
-        terminate_order_chain(order, request.user, f"通过领料单 {requisition.requisition_no} 终结：{terminate_reason}")
+        if task.production_type == 'order' and task.order:
+            from sales.views import terminate_order_chain
+            terminate_order_chain(task.order, request.user, f"通过领料单 {requisition.requisition_no} 终结：{terminate_reason}")
+            messages.success(request, f'领料单 {requisition.requisition_no} 及其关联订单 {task.order.order_no} 的所有流程已终结')
+        else:
+            # 备货生产任务，直接终结任务和领料单
+            task.status = 'terminated'
+            task.terminated_by = request.user
+            task.terminated_at = timezone.now()
+            task.terminate_reason = f"通过领料单 {requisition.requisition_no} 终结：{terminate_reason}"
+            task.save()
+            
+            requisition.status = 'terminated'
+            requisition.terminated_by = request.user
+            requisition.terminated_at = timezone.now()
+            requisition.terminate_reason = terminate_reason
+            requisition.save()
+            
+            messages.success(request, f'领料单 {requisition.requisition_no} 及备货生产任务 {task.task_no} 已终结')
         
-        messages.success(request, f'领料单 {requisition.requisition_no} 及其关联订单 {order.order_no} 的所有流程已终结')
         return redirect('production:requisition_list')
     
     # 显示关联信息
     task = requisition.task
-    order = task.order
+    order = task.order if task.production_type == 'order' else None
     
     context = {
         'requisition': requisition,
@@ -684,3 +782,99 @@ def requisition_terminate(request, pk):
         'order': order,
     }
     return render(request, 'production/requisition_terminate.html', context)
+
+
+@login_required
+@role_required('production', 'ceo')
+def stock_task_create(request):
+    """创建备货生产任务"""
+    if request.method == 'POST':
+        product_id = request.POST.get('product')
+        required_quantity = request.POST.get('required_quantity')
+        planned_completion_date = request.POST.get('planned_completion_date') or None
+        remark = request.POST.get('remark', '')
+        
+        if not product_id or not required_quantity:
+            messages.error(request, '请选择产品并填写需求数量')
+            return redirect('production:stock_task_create')
+        
+        try:
+            product = Product.objects.get(pk=product_id)
+            required_qty = Decimal(required_quantity)
+            
+            if required_qty <= 0:
+                messages.error(request, '需求数量必须大于0')
+                return redirect('production:stock_task_create')
+            
+            # 检查原材料是否充足
+            bom_items = BOM.objects.filter(product=product)
+            material_sufficient = True
+            insufficient_materials = []
+            
+            for bom_item in bom_items:
+                material_required = bom_item.quantity * required_qty
+                try:
+                    material_inventory = Inventory.objects.get(
+                        inventory_type='material',
+                        material=bom_item.material
+                    )
+                    if material_inventory.quantity < material_required:
+                        material_sufficient = False
+                        insufficient_materials.append({
+                            'material': bom_item.material,
+                            'required': material_required,
+                            'available': material_inventory.quantity,
+                            'shortage': material_required - material_inventory.quantity,
+                            'unit': bom_item.unit,
+                        })
+                except Inventory.DoesNotExist:
+                    material_sufficient = False
+                    insufficient_materials.append({
+                        'material': bom_item.material,
+                        'required': material_required,
+                        'available': Decimal('0'),
+                        'shortage': material_required,
+                        'unit': bom_item.unit,
+                    })
+            
+            # 生成任务单号
+            task_no = f"PT{timezone.now().strftime('%Y%m%d%H%M%S')}ST"
+            # 确保任务单号唯一
+            while ProductionTask.objects.filter(task_no=task_no).exists():
+                task_no = f"PT{timezone.now().strftime('%Y%m%d%H%M%S')}ST{timezone.now().microsecond}"
+            
+            # 创建备货生产任务
+            task_status = 'pending' if material_sufficient else 'material_insufficient'
+            task = ProductionTask.objects.create(
+                task_no=task_no,
+                production_type='stock',
+                product=product,
+                required_quantity=required_qty,
+                status=task_status,
+                planned_completion_date=planned_completion_date,
+                remark=remark,
+            )
+            
+            if material_sufficient:
+                messages.success(request, f'备货生产任务 {task.task_no} 创建成功')
+            else:
+                messages.warning(request, f'备货生产任务 {task.task_no} 创建成功，但原材料不足，请先采购补齐原材料')
+            
+            return redirect('production:task_detail', pk=task.pk)
+            
+        except Product.DoesNotExist:
+            messages.error(request, '产品不存在')
+            return redirect('production:stock_task_create')
+        except ValueError:
+            messages.error(request, '需求数量格式不正确')
+            return redirect('production:stock_task_create')
+        except Exception as e:
+            messages.error(request, f'创建备货生产任务失败：{str(e)}')
+            return redirect('production:stock_task_create')
+    
+    # GET请求：显示创建表单
+    products = Product.objects.all().order_by('sku')
+    context = {
+        'products': products,
+    }
+    return render(request, 'production/stock_task_form.html', context)

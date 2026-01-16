@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}审批客户{% if action == 'edit_approve' %}编辑{% elif action == 'delete_approve' %}删除{% endif %}申请{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h4><i class="bi bi-check-circle"></i> 审批客户{% if action == 'edit_approve' %}编辑{% elif action == 'delete_approve' %}删除{% endif %}申请</h4>
+    </div>
+    <div class="card-body">
+        {% if action == 'edit_approve' %}
+        <div class="alert alert-info">
+            <h5>客户编辑申请</h5>
+            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+            <p><strong>申请人：</strong>{{ customer.edit_requested_by.username }}</p>
+            <p><strong>申请时间：</strong>{{ customer.edit_requested_at|date:"Y-m-d H:i" }}</p>
+            <p><strong>编辑原因：</strong>{{ customer.edit_reason }}</p>
+        </div>
+        
+        <h5 class="mt-4">编辑内容对比</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>字段</th>
+                    <th>当前值</th>
+                    <th>修改后值</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>客户名称</td>
+                    <td>{{ customer.name }}</td>
+                    <td>{{ pending_data.name }}</td>
+                </tr>
+                <tr>
+                    <td>联系人</td>
+                    <td>{{ customer.contact_person }}</td>
+                    <td>{{ pending_data.contact_person }}</td>
+                </tr>
+                <tr>
+                    <td>联系电话</td>
+                    <td>{{ customer.phone }}</td>
+                    <td>{{ pending_data.phone }}</td>
+                </tr>
+                <tr>
+                    <td>地址</td>
+                    <td>{{ customer.address }}</td>
+                    <td>{{ pending_data.address }}</td>
+                </tr>
+                <tr>
+                    <td>信用等级</td>
+                    <td>{{ customer.get_credit_level_display }}</td>
+                    <td>
+                        {% if pending_data.credit_level == 'A' %}A级（优秀）
+                        {% elif pending_data.credit_level == 'B' %}B级（良好）
+                        {% elif pending_data.credit_level == 'C' %}C级（一般）
+                        {% else %}D级（较差）{% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 审批通过
+            </button>
+            <a href="{% url 'inventory:customer_edit_reject' customer.pk %}" class="btn btn-warning">
+                <i class="bi bi-x-circle"></i> 拒绝申请
+            </a>
+            <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+        </form>
+        
+        {% elif action == 'delete_approve' %}
+        <div class="alert alert-danger">
+            <h5>客户删除申请</h5>
+            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+            <p><strong>联系人：</strong>{{ customer.contact_person }}</p>
+            <p><strong>联系电话：</strong>{{ customer.phone }}</p>
+            <p><strong>申请人：</strong>{{ customer.delete_requested_by.username }}</p>
+            <p><strong>申请时间：</strong>{{ customer.delete_requested_at|date:"Y-m-d H:i" }}</p>
+            <p><strong>删除原因：</strong>{{ customer.delete_reason }}</p>
+            <p class="mb-0"><strong>警告：</strong>此操作不可恢复！</p>
+        </div>
+        
+        <form method="post" class="mt-4">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-check-circle"></i> 审批通过并删除
+            </button>
+            <a href="{% url 'inventory:customer_delete_reject' customer.pk %}" class="btn btn-warning">
+                <i class="bi bi-x-circle"></i> 拒绝申请
+            </a>
+            <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

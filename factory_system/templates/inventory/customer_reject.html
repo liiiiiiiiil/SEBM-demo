@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}拒绝客户{% if action == 'edit_reject' %}编辑{% elif action == 'delete_reject' %}删除{% endif %}申请{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-warning text-dark">
+        <h4><i class="bi bi-x-circle"></i> 拒绝客户{% if action == 'edit_reject' %}编辑{% elif action == 'delete_reject' %}删除{% endif %}申请</h4>
+    </div>
+    <div class="card-body">
+        {% if action == 'edit_reject' %}
+        <div class="alert alert-warning">
+            <h5>客户编辑申请</h5>
+            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+            <p><strong>申请人：</strong>{{ customer.edit_requested_by.username }}</p>
+            <p><strong>申请时间：</strong>{{ customer.edit_requested_at|date:"Y-m-d H:i" }}</p>
+            <p><strong>编辑原因：</strong>{{ customer.edit_reason }}</p>
+        </div>
+        {% elif action == 'delete_reject' %}
+        <div class="alert alert-warning">
+            <h5>客户删除申请</h5>
+            <p><strong>客户名称：</strong>{{ customer.name }}</p>
+            <p><strong>联系人：</strong>{{ customer.contact_person }}</p>
+            <p><strong>联系电话：</strong>{{ customer.phone }}</p>
+            <p><strong>申请人：</strong>{{ customer.delete_requested_by.username }}</p>
+            <p><strong>申请时间：</strong>{{ customer.delete_requested_at|date:"Y-m-d H:i" }}</p>
+            <p><strong>删除原因：</strong>{{ customer.delete_reason }}</p>
+        </div>
+        {% endif %}
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">拒绝原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" name="reject_reason" rows="4" required placeholder="请填写拒绝原因"></textarea>
+            </div>
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-x-circle"></i> 确认拒绝
+            </button>
+            {% if action == 'edit_reject' %}
+            <a href="{% url 'inventory:customer_edit_approve' customer.pk %}" class="btn btn-secondary">返回</a>
+            {% elif action == 'delete_reject' %}
+            <a href="{% url 'inventory:customer_delete_approve' customer.pk %}" class="btn btn-secondary">返回</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

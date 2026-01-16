@@ -13,13 +13,18 @@
             <p><strong>客户名称：</strong>{{ customer.name }}</p>
             <p><strong>联系人：</strong>{{ customer.contact_person }}</p>
             <p><strong>联系电话：</strong>{{ customer.phone }}</p>
-            <p class="mb-0"><strong>警告：</strong>此操作不可恢复！</p>
+            <p class="mb-0"><strong>警告：</strong>客户信息删除需要总经理审批，此操作不可恢复！</p>
         </div>
         
         <form method="post">
             {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">删除原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" name="delete_reason" rows="3" required placeholder="请填写删除原因，以便总经理审批"></textarea>
+                <small class="text-muted">客户信息删除需要总经理审批，请详细说明删除原因</small>
+            </div>
             <button type="submit" class="btn btn-danger">
-                <i class="bi bi-trash"></i> 确认删除
+                <i class="bi bi-trash"></i> 提交删除申请
             </button>
             <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
         </form>

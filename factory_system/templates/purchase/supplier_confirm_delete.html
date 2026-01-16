@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}删除供应商 - {{ supplier.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-danger text-white">
+        <h4><i class="bi bi-exclamation-triangle"></i> 确认删除供应商</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5>您确定要删除以下供应商吗？</h5>
+            <p><strong>供应商名称：</strong>{{ supplier.name }}</p>
+            <p><strong>联系人：</strong>{{ supplier.contact_person|default:"-" }}</p>
+            <p><strong>联系电话：</strong>{{ supplier.contact_phone|default:"-" }}</p>
+            <p class="mb-0"><strong>警告：</strong>此操作不可恢复！</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash"></i> 确认删除
+            </button>
+            <a href="{% url 'purchase:supplier_list' %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -12,18 +12,77 @@
             <h5>订单信息</h5>
             <p>客户：{{ order.customer.name }}</p>
             <p>订单总额：¥{{ order.total_amount }}</p>
-            <p>订单明细：</p>
-            <ul>
-                {% for item in order.items.all %}
-                <li>{{ item.product.name }} x {{ item.quantity }}{{ item.product.unit }} = ¥{{ item.subtotal }}</li>
+        </div>
+        
+        <h5 class="mt-4">订单明细及批次分配</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>产品</th>
+                        <th>需求数量</th>
+                        <th>已分配批次</th>
+                        <th>批次分配详情</th>
+                        <th>缺口数量</th>
+                        <th>小计</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item_info in items_with_batch_info %}
+                    <tr>
+                        <td>
+                            <strong>{{ item_info.item.product.name }}</strong><br>
+                            <small class="text-muted">{{ item_info.item.product.sku }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ item_info.item.quantity }}{{ item_info.item.product.unit }}</strong>
+                        </td>
+                        <td>
+                            {% if item_info.batch_allocated_qty > 0 %}
+                            <span class="badge bg-info">{{ item_info.batch_allocated_qty }}{{ item_info.item.product.unit }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">未分配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item_info.batch_allocations %}
+                            <ul class="mb-0" style="list-style: none; padding-left: 0;">
+                                {% for batch in item_info.batch_allocations %}
+                                <li>
+                                    <small>
+                                        {{ batch.batch_no }} ({{ batch.batch_date|date:"Y-m-d" }})：
+                                        <strong>{{ batch.quantity }}{{ batch.unit }}</strong>
+                                    </small>
+                                </li>
                 {% endfor %}
             </ul>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item_info.shortage > 0 %}
+                            <span class="badge bg-warning">{{ item_info.shortage }}{{ item_info.item.product.unit }}</span>
+                            <br><small class="text-muted">需生产</small>
+                            {% else %}
+                            <span class="badge bg-success">充足</span>
+                            {% endif %}
+                        </td>
+                        <td>¥{{ item_info.item.subtotal }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         
         <form method="post">
             {% csrf_token %}
-            <div class="alert alert-warning">
-                审批通过后，系统将自动检查库存并创建生产任务或发货通知单。
+            <div class="alert alert-warning mt-3">
+                <strong>说明：</strong>
+                <ul class="mb-0">
+                    <li>如果批次分配充足，审批后将直接进入物流发货环节</li>
+                    <li>如果存在缺口，审批后将自动创建生产任务来生产不足的部分</li>
+                </ul>
             </div>
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-check-circle"></i> 批准订单

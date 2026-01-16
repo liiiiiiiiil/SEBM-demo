@@ -51,24 +51,30 @@
                     <th>采购数量</th>
                     <th>单价</th>
                     <th>小计</th>
-                    <th>已收货数量</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in task.items.all %}
                 <tr>
-                    <td>{{ item.material.name }}</td>
-                    <td>{{ item.material.get_material_type_display }}</td>
-                    <td>{{ item.quantity }}{{ item.material.unit }}</td>
-                    <td>¥{{ item.unit_price }}</td>
-                    <td>¥{{ item.subtotal }}</td>
                     <td>
-                        {% if item.received_quantity > 0 %}
-                        {{ item.received_quantity }}{{ item.material.unit }}
+                        {% if item.material %}
+                            {{ item.material.name }}
                         {% else %}
-                        -
+                            {{ item.item_name|default:"-" }}
                         {% endif %}
                     </td>
+                    <td>
+                        {% if item.material %}
+                            {{ item.material.get_material_type_display }}
+                        {% else %}
+                            {{ item.get_item_type_display }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ item.quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}
+                    </td>
+                    <td>¥{{ item.unit_price }}</td>
+                    <td>¥{{ item.subtotal }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -76,7 +82,6 @@
                 <tr>
                     <th colspan="4">合计</th>
                     <th>¥{{ task.total_amount }}</th>
-                    <th></th>
                 </tr>
             </tfoot>
         </table>
