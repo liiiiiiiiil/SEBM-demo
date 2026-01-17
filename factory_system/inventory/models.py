@@ -52,11 +52,17 @@ class Customer(models.Model):
     delete_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_customer_deletes', verbose_name='删除审批人')
     delete_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='删除审批时间')
     delete_reject_reason = models.TextField(blank=True, verbose_name='删除拒绝原因')
+    is_deleted = models.BooleanField(default=False, verbose_name='是否已删除（软删除）')
     
     class Meta:
         verbose_name = '客户'
         verbose_name_plural = '客户'
         ordering = ['-created_at']
+    
+    def has_related_orders(self):
+        """检查是否有关联订单（包括所有状态的订单）"""
+        from sales.models import SalesOrder
+        return SalesOrder.objects.filter(customer=self).exists()
     
     def __str__(self):
         return self.name
@@ -268,6 +274,7 @@ class Batch(models.Model):
     inventory = models.ForeignKey(Inventory, on_delete=models.CASCADE, related_name='batches', verbose_name='库存')
     batch_date = models.DateField(verbose_name='批次日期')
     quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], verbose_name='数量')
+    locked_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)], verbose_name='锁定数量')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='批次单价')
     expiry_date = models.DateField(null=True, blank=True, verbose_name='过期日期')
     supplier = models.CharField(max_length=200, blank=True, verbose_name='供应商')
@@ -293,6 +300,11 @@ class Batch(models.Model):
             from django.utils import timezone
             return timezone.now().date() > self.expiry_date
         return False
+    
+    def get_available_quantity(self):
+        """获取可用数量（总数量 - 锁定数量）"""
+        from decimal import Decimal
+        return max(Decimal('0'), self.quantity - self.locked_quantity)
 
 
 class StockTransaction(models.Model):

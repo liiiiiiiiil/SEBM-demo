@@ -139,6 +139,35 @@ def shipment_ship(request, pk):
         return redirect('logistics:shipment_detail', pk=pk)
     
     if request.method == 'POST':
+        # 发货前检查批次库存是否充足
+        insufficient_items = []
+        for item in shipment.order.items.all():
+            try:
+                inventory = Inventory.objects.get(inventory_type='product', product=item.product)
+                # 计算所有批次的可用数量总和
+                total_available = Decimal('0')
+                for batch in inventory.get_batches():
+                    total_available += batch.get_available_quantity()
+                
+                if total_available < item.quantity:
+                    insufficient_items.append({
+                        'product': item.product.name,
+                        'required': item.quantity,
+                        'available': total_available,
+                    })
+            except Inventory.DoesNotExist:
+                insufficient_items.append({
+                    'product': item.product.name,
+                    'required': item.quantity,
+                    'available': Decimal('0'),
+                })
+        
+        if insufficient_items:
+            messages.error(request, '批次库存不足，无法发货。请检查以下产品：')
+            for insuf_item in insufficient_items:
+                messages.error(request, f"  - {insuf_item['product']}：需要 {insuf_item['required']}，可用 {insuf_item['available']}")
+            return redirect('logistics:shipment_detail', pk=pk)
+        
         with transaction.atomic():
             from inventory.models import Batch
             from sales.models import SalesOrderItemBatch
@@ -152,21 +181,23 @@ def shipment_ship(request, pk):
                 batch_allocations = {}
                 order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item)
                 for order_batch in order_batch_allocations:
-                    if order_batch.batch.quantity > 0:
-                        # 使用订单中保存的分配数量，但不超过当前可用数量
-                        allocate_qty = min(order_batch.quantity, order_batch.batch.quantity)
+                    # 使用订单中保存的分配数量，但不超过当前可用数量（考虑锁定数量）
+                    available_qty = order_batch.batch.get_available_quantity()
+                    if available_qty > 0:
+                        allocate_qty = min(order_batch.quantity, available_qty)
                         if allocate_qty > 0:
                             batch_allocations[order_batch.batch.id] = allocate_qty
                 
                 # 然后从表单获取用户调整后的数量（以订单分配为指导，但允许调整）
-                for batch in inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at'):
+                for batch in inventory.get_batches().order_by('batch_date', 'created_at'):
                     batch_qty_key = f'batch_quantity_{item.product.id}_{batch.id}'
                     batch_qty_str = request.POST.get(batch_qty_key, '')
                     if batch_qty_str:
                         try:
                             batch_qty = Decimal(batch_qty_str)
-                            if batch_qty > 0 and batch_qty <= batch.quantity:
-                                # 使用表单中提交的数量（用户可能调整了订单中的分配）
+                            available_qty = batch.get_available_quantity()
+                            if batch_qty > 0 and batch_qty <= available_qty:
+                                # 使用表单中提交的数量（用户可能调整了订单中的分配），但不超过可用数量
                                 batch_allocations[batch.id] = batch_qty
                         except:
                             pass
@@ -175,34 +206,43 @@ def shipment_ship(request, pk):
                 total_allocated = sum(batch_allocations.values())
                 remaining_qty = item.quantity - total_allocated
                 
-                # 如果仍然不足，使用FIFO自动分配
+                # 如果仍然不足，使用FIFO自动分配（从可用数量中分配）
                 if remaining_qty > 0:
-                    for batch in inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at'):
+                    for batch in inventory.get_batches().order_by('batch_date', 'created_at'):
                         if remaining_qty <= 0:
                             break
-                        available = batch.quantity - batch_allocations.get(batch.id, 0)
+                        # 获取可用数量（总数量 - 锁定数量 - 已分配数量）
+                        available = batch.get_available_quantity() - batch_allocations.get(batch.id, 0)
                         if available > 0:
                             allocate_qty = min(remaining_qty, available)
                             batch_allocations[batch.id] = batch_allocations.get(batch.id, 0) + allocate_qty
                             remaining_qty -= allocate_qty
                 
-                # 按批次扣减库存
+                # 按批次扣减库存（从锁定数量中扣减）
+                from decimal import Decimal
                 for batch_id, batch_qty in batch_allocations.items():
                     if batch_qty > 0:
                         batch = Batch.objects.get(pk=batch_id)
+                        # 从锁定数量中扣减
+                        if batch.locked_quantity >= batch_qty:
+                            batch.locked_quantity -= batch_qty
+                        else:
+                            # 如果锁定数量不足，从总数量中扣减（兼容处理）
+                            batch.locked_quantity = Decimal('0')
+                        # 从总数量中扣减
                         batch.quantity -= batch_qty
                         batch.save()
-                
-                # 记录库存变动
-                StockTransaction.objects.create(
-                    transaction_type='sale_out',
-                    inventory=inventory,
+                        
+                        # 记录库存变动
+                        StockTransaction.objects.create(
+                            transaction_type='sale_out',
+                            inventory=inventory,
                             batch=batch,
                             quantity=batch_qty,
-                    unit=item.product.unit,
-                    reference_no=shipment.shipment_no,
-                    operator=request.user,
-                )
+                            unit=item.product.unit,
+                            reference_no=shipment.shipment_no,
+                            operator=request.user,
+                        )
                 
                 # 更新库存总数量
                 inventory.update_quantity_from_batches()

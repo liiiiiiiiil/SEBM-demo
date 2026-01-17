@@ -227,33 +227,10 @@ def task_receive(request, pk):
         task.started_at = timezone.now()
         task.save()
         
-        # 自动创建领料单并扣减库存
+        # 自动创建领料单（不自动扣减库存，需要仓库管理员审批领料单后才扣减）
         requisition = create_material_requisition(task)
-        if requisition:
-            # 自动批准领料单并扣减库存
-            from inventory.models import StockTransaction
-            requisition.status = 'approved'
-            requisition.approved_by = request.user
-            requisition.approved_at = timezone.now()
-            requisition.save()
-            
-            # 扣减库存
-            for item in requisition.items.all():
-                inventory = Inventory.objects.get(inventory_type='material', material=item.material)
-                inventory.quantity -= item.required_quantity
-                inventory.save()
-                
-                # 记录库存变动
-                StockTransaction.objects.create(
-                    transaction_type='production_out',
-                    inventory=inventory,
-                    quantity=item.required_quantity,
-                    unit=item.unit,
-                    reference_no=requisition.requisition_no,
-                    operator=request.user,
-                )
         
-        messages.success(request, f'任务 {task.task_no} 已接收，已进入生产中状态')
+        messages.success(request, f'任务 {task.task_no} 已接收，已进入生产中状态。已自动创建领料单，请等待仓库管理员审批后扣减库存。')
         return redirect('production:task_detail', pk=pk)
     
     # GET请求：显示接收页面，包含原材料检查结果
@@ -331,16 +308,22 @@ def requisition_approve(request, pk):
         messages.error(request, '领料单状态不正确')
         return redirect('production:requisition_list')
     
-    # 检查库存是否充足
+    # 检查库存是否充足（考虑锁定数量）
     insufficient_items = []
     for item in requisition.items.all():
         try:
             inventory = Inventory.objects.get(inventory_type='material', material=item.material)
-            if inventory.quantity < item.required_quantity:
+            # 计算可用数量（所有批次的可用数量总和）
+            from inventory.models import Batch
+            available_quantity = Decimal('0')
+            for batch in inventory.get_batches():
+                available_quantity += batch.get_available_quantity()
+            
+            if available_quantity < item.required_quantity:
                 insufficient_items.append({
                     'material': item.material.name,
                     'required': item.required_quantity,
-                    'available': inventory.quantity,
+                    'available': available_quantity,
                 })
         except Inventory.DoesNotExist:
             insufficient_items.append({
@@ -360,18 +343,23 @@ def requisition_approve(request, pk):
             requisition.approved_at = timezone.now()
             requisition.save()
             
-            # 扣减库存（按批次FIFO）
+            # 扣减库存（按批次FIFO，从可用数量中扣减）
             from inventory.models import Batch
             for item in requisition.items.all():
                 inventory = Inventory.objects.get(inventory_type='material', material=item.material)
                 remaining_qty = item.required_quantity
                 
-                # 按FIFO原则从批次中扣减
-                for batch in inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at'):
+                # 按FIFO原则从批次中扣减（只从可用数量中扣减）
+                for batch in inventory.get_batches().order_by('batch_date', 'created_at'):
                     if remaining_qty <= 0:
                         break
                     
-                    allocate_qty = min(remaining_qty, batch.quantity)
+                    # 获取该批次的可用数量
+                    available_qty = batch.get_available_quantity()
+                    if available_qty <= 0:
+                        continue
+                    
+                    allocate_qty = min(remaining_qty, available_qty)
                     batch.quantity -= allocate_qty
                     batch.save()
                     

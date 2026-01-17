@@ -429,6 +429,17 @@ def ceo_approve(request, pk):
     
     if request.method == 'POST':
         with transaction.atomic():
+            # 锁定批次库存（在审批时锁定，防止其他订单使用）
+            from sales.models import SalesOrderItemBatch
+            from inventory.models import Batch
+            for item in order.items.all():
+                order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item)
+                for order_batch in order_batch_allocations:
+                    batch = order_batch.batch
+                    # 锁定该批次分配的数量
+                    batch.locked_quantity += order_batch.quantity
+                    batch.save()
+            
             order.status = 'ceo_approved'
             order.ceo_approved_by = request.user
             order.ceo_approved_at = timezone.now()
@@ -486,7 +497,11 @@ def terminate_order_chain(order, terminated_by, terminate_reason):
     from inventory.models import Inventory, StockTransaction
     
     with transaction.atomic():
-        # 1. 检查订单是否已出库，如果已出库，需要重新入库
+        # 获取所有关联的生产任务（用于后续处理）
+        from production.models import ProductionTask
+        all_production_tasks = ProductionTask.objects.filter(order=order)
+        
+        # 1. 检查订单是否已出库，如果已出库，需要重新入库（创建新批次）
         if order.status == 'shipped':
             # 查找该订单的所有已发货的发货单
             shipped_shipments = Shipment.objects.filter(
@@ -495,108 +510,188 @@ def terminate_order_chain(order, terminated_by, terminate_reason):
             )
             
             if shipped_shipments.exists():
-                # 对于已发货的商品，需要重新入库
+                from inventory.models import Batch
+                from datetime import datetime
+                # 对于已发货的商品，需要重新入库（创建新批次）
                 for item in order.items.all():
-                    try:
-                        inventory = Inventory.objects.get(
-                            inventory_type='product',
-                            product=item.product
-                        )
-                        # 重新入库：增加库存
-                        inventory.quantity += item.quantity
-                        inventory.save()
-                        
-                        # 记录库存变动（使用adjustment类型，备注说明是终结退回）
-                        StockTransaction.objects.create(
-                            transaction_type='adjustment',
-                            inventory=inventory,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                            reference_no=f"TERMINATE-{order.order_no}",
-                            remark=f"订单终结退回：{terminate_reason}",
-                            operator=terminated_by,
-                        )
-                    except Inventory.DoesNotExist:
-                        # 如果库存不存在，创建新的库存记录
-                        inventory = Inventory.objects.create(
-                            inventory_type='product',
-                            product=item.product,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                        )
-                        # 记录库存变动
-                        StockTransaction.objects.create(
-                            transaction_type='adjustment',
-                            inventory=inventory,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                            reference_no=f"TERMINATE-{order.order_no}",
-                            remark=f"订单终结退回：{terminate_reason}",
-                            operator=terminated_by,
-                        )
+                    inventory, created = Inventory.objects.get_or_create(
+                        inventory_type='product',
+                        product=item.product,
+                        defaults={'quantity': 0, 'unit': item.product.unit}
+                    )
+                    
+                    # 创建新批次（批次号格式：RETURN-{原订单号}-{日期}）
+                    batch_date = timezone.now().date()
+                    batch_no = f"RETURN-{order.order_no}-{batch_date.strftime('%Y%m%d')}"
+                    # 确保批次号唯一
+                    counter = 1
+                    original_batch_no = batch_no
+                    while Batch.objects.filter(batch_no=batch_no).exists():
+                        batch_no = f"{original_batch_no}-{counter}"
+                        counter += 1
+                    
+                    # 创建批次
+                    batch = Batch.objects.create(
+                        batch_no=batch_no,
+                        inventory=inventory,
+                        batch_date=batch_date,
+                        quantity=item.quantity,
+                        unit_price=item.product.unit_price,
+                        remark=f"订单终结退回：{order.order_no}，原因：{terminate_reason}",
+                    )
+                    
+                    # 更新库存总数量
+                    inventory.update_quantity_from_batches()
+                    
+                    # 记录库存变动
+                    StockTransaction.objects.create(
+                        transaction_type='adjustment',
+                        inventory=inventory,
+                        batch=batch,
+                        quantity=item.quantity,
+                        unit=item.product.unit,
+                        reference_no=f"TERMINATE-{order.order_no}",
+                        remark=f"订单终结退回：{terminate_reason}",
+                        operator=terminated_by,
+                    )
         
-        # 2. 检查订单是否在审核时锁定了库存（ready_to_ship状态但未发货）
-        # 如果订单状态是ready_to_ship，说明审核时库存充足，已经锁定了库存
-        # 需要退回锁定的库存
-        if order.status == 'ready_to_ship':
-            # 对于审核时锁定库存的商品，需要退回库存
-            for item in order.items.all():
-                # 检查该商品是否有生产任务
-                has_production_task = ProductionTask.objects.filter(
-                    order=order,
-                    product=item.product
-                ).exists()
+        # 2. 扣减已入库的成品库存（按批次FIFO，从最早入库的批次开始）
+        # 如果订单未发货但成品已入库，需要扣减这些已入库的成品
+        # 注意：已发货的订单在第1步已经重新入库，这里不需要再扣减
+        if order.status != 'shipped':
+            from production.models import FinishedProductInbound
+            completed_tasks = all_production_tasks.filter(status='completed')
+            
+            for task in completed_tasks:
+                # 查找该任务的所有入库单
+                inbounds = FinishedProductInbound.objects.filter(task=task)
+                total_inbound_qty = sum(inbound.quantity for inbound in inbounds)
                 
-                # 如果没有生产任务，说明审核时库存充足，已经锁定了库存
-                if not has_production_task:
+                if total_inbound_qty > 0:
                     try:
                         inventory = Inventory.objects.get(
                             inventory_type='product',
-                            product=item.product
+                            product=task.product
                         )
-                        # 退回锁定的库存：增加库存
-                        inventory.quantity += item.quantity
-                        inventory.save()
+                        remaining_qty = total_inbound_qty
                         
-                        # 记录库存变动
-                        StockTransaction.objects.create(
-                            transaction_type='adjustment',
-                            inventory=inventory,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                            reference_no=f"TERMINATE-{order.order_no}",
-                            remark=f"订单终结退回锁定库存：{terminate_reason}",
-                            operator=terminated_by,
-                        )
+                        # 按FIFO原则从批次中扣减（从最早入库的批次开始）
+                        from inventory.models import Batch
+                        # get_batches()已经按batch_date和created_at排序，无需重复排序
+                        for batch in inventory.get_batches():
+                            if remaining_qty <= 0:
+                                break
+                            
+                            # 获取可用数量（总数量 - 锁定数量）
+                            available_qty = batch.get_available_quantity()
+                            if available_qty <= 0:
+                                continue
+                            
+                            allocate_qty = min(remaining_qty, available_qty)
+                            batch.quantity -= allocate_qty
+                            batch.save()
+                            
+                            # 记录库存变动
+                            StockTransaction.objects.create(
+                                transaction_type='adjustment',
+                                inventory=inventory,
+                                batch=batch,
+                                quantity=-allocate_qty,  # 负数表示扣减
+                                unit=task.product.unit,
+                                reference_no=f"TERMINATE-{order.order_no}",
+                                remark=f"订单终结扣减已入库成品：{terminate_reason}",
+                                operator=terminated_by,
+                            )
+                            
+                            remaining_qty -= allocate_qty
+                        
+                        # 更新库存总数量
+                        inventory.update_quantity_from_batches()
                     except Inventory.DoesNotExist:
-                        # 如果库存不存在，创建新的库存记录
-                        inventory = Inventory.objects.create(
-                            inventory_type='product',
-                            product=item.product,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                        )
-                        # 记录库存变动
-                        StockTransaction.objects.create(
-                            transaction_type='adjustment',
-                            inventory=inventory,
-                            quantity=item.quantity,
-                            unit=item.product.unit,
-                            reference_no=f"TERMINATE-{order.order_no}",
-                            remark=f"订单终结退回锁定库存：{terminate_reason}",
-                            operator=terminated_by,
-                        )
+                        pass
         
-        # 2. 终结产品订单
+        # 3. 已发料原料重新入库（创建新批次）
+        # 查找该订单关联的所有生产任务的领料单，如果已批准（已发料），需要重新入库原料
+        from production.models import MaterialRequisition, MaterialRequisitionItem
+        from inventory.models import Batch
+        for task in all_production_tasks:
+            requisitions = MaterialRequisition.objects.filter(
+                task=task,
+                status='approved'  # 已批准表示已发料
+            )
+            for requisition in requisitions:
+                for req_item in requisition.items.all():
+                    # 重新入库原料（创建新批次）
+                    inventory, created = Inventory.objects.get_or_create(
+                        inventory_type='material',
+                        material=req_item.material,
+                        defaults={'quantity': 0, 'unit': req_item.material.unit}
+                    )
+                    
+                    # 创建新批次
+                    batch_date = timezone.now().date()
+                    batch_no = f"RETURN-{order.order_no}-{req_item.material.sku}-{batch_date.strftime('%Y%m%d')}"
+                    # 确保批次号唯一
+                    counter = 1
+                    original_batch_no = batch_no
+                    while Batch.objects.filter(batch_no=batch_no).exists():
+                        batch_no = f"{original_batch_no}-{counter}"
+                        counter += 1
+                    
+                    # 创建批次
+                    batch = Batch.objects.create(
+                        batch_no=batch_no,
+                        inventory=inventory,
+                        batch_date=batch_date,
+                        quantity=req_item.required_quantity,
+                        unit_price=req_item.material.unit_price,
+                        remark=f"订单终结退回原料：{order.order_no}，领料单：{requisition.requisition_no}，原因：{terminate_reason}",
+                    )
+                    
+                    # 更新库存总数量
+                    inventory.update_quantity_from_batches()
+                    
+                    # 记录库存变动
+                    StockTransaction.objects.create(
+                        transaction_type='adjustment',
+                        inventory=inventory,
+                        batch=batch,
+                        quantity=req_item.required_quantity,
+                        unit=req_item.unit,
+                        reference_no=f"TERMINATE-{order.order_no}",
+                        remark=f"订单终结退回原料：{terminate_reason}",
+                        operator=terminated_by,
+                    )
+        
+        # 4. 释放订单审批时锁定的批次库存
+        # 如果订单状态是ready_to_ship或ceo_approved或in_production，说明审批时已经锁定了批次库存
+        # 需要释放锁定的批次库存（注意：已发货的订单不需要释放，因为库存已经实际扣减）
+        if order.status in ['ready_to_ship', 'ceo_approved', 'in_production']:
+            from sales.models import SalesOrderItemBatch
+            from inventory.models import Batch
+            from decimal import Decimal
+            # 释放所有批次分配中锁定的库存
+            for item in order.items.all():
+                order_batch_allocations = SalesOrderItemBatch.objects.filter(order_item=item)
+                for order_batch in order_batch_allocations:
+                    batch = order_batch.batch
+                    # 释放锁定的数量
+                    if batch.locked_quantity >= order_batch.quantity:
+                        batch.locked_quantity -= order_batch.quantity
+                    else:
+                        # 如果锁定数量异常，清零（兼容处理）
+                        batch.locked_quantity = Decimal('0')
+                    batch.save()
+        
+        # 5. 终结产品订单
         order.status = 'terminated'
         order.terminated_by = terminated_by
         order.terminated_at = timezone.now()
         order.terminate_reason = terminate_reason
         order.save()
         
-        # 3. 终结所有关联的生产任务
-        production_tasks = ProductionTask.objects.filter(order=order)
-        for task in production_tasks:
+        # 6. 终结所有关联的生产任务
+        for task in all_production_tasks:
             if task.status not in ['completed', 'cancelled', 'terminated']:
                 task.status = 'terminated'
                 task.terminated_by = terminated_by

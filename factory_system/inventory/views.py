@@ -220,7 +220,7 @@ def inventory_detail(request, pk):
 @role_or_permission_required('sales', 'sales_mgr', 'ceo', permission_code='inventory.customer.view')
 def customer_list(request):
     """客户列表"""
-    customers = Customer.objects.select_related('created_by').all()
+    customers = Customer.objects.select_related('created_by').filter(is_deleted=False)
     
     # 权限控制：销售员只能看到自己负责的客户
     if request.user.profile.role == 'sales' and not request.user.profile.has_permission('inventory.customer.manage'):
@@ -481,12 +481,18 @@ def customer_delete_approve(request, pk):
             customer.delete_status = 'approved'
             customer.delete_approved_by = request.user
             customer.delete_approved_at = timezone.now()
-            customer.save()
             
-            # 执行删除
-            customer.delete()
+            # 检查是否有关联订单，如果有则只软删除，否则硬删除
+            if customer.has_related_orders():
+                # 有关联订单，仅软删除
+                customer.is_deleted = True
+                customer.save()
+                messages.success(request, f'客户 {customer_name} 的删除申请已审批通过。由于该客户有关联订单，已执行软删除（标记为已删除）。')
+            else:
+                # 无关联订单，硬删除
+                customer.delete()
+                messages.success(request, f'客户 {customer_name} 的删除申请已审批通过，客户已删除')
         
-        messages.success(request, f'客户 {customer_name} 的删除申请已审批通过，客户已删除')
         return redirect('inventory:customer_list')
     
     context = {
