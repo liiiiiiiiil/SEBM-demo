@@ -52,20 +52,20 @@
                         <td>
                             {% if record.type == 'adjustment' %}
                                 <span class="text-info">
-                                    {{ record.current_quantity }} → {{ record.new_quantity }}
+                                    {{ record.current_quantity|floatformat:2 }} → {{ record.new_quantity|floatformat:2 }}
                                     {% if record.adjust_quantity >= 0 %}
-                                        <span class="text-success">(+{{ record.adjust_quantity }})</span>
+                                        <span class="text-success">(+{{ record.adjust_quantity|floatformat:2 }})</span>
                                     {% else %}
-                                        <span class="text-danger">({{ record.adjust_quantity }})</span>
+                                        <span class="text-danger">({{ record.adjust_quantity|floatformat:2 }})</span>
                                     {% endif %}
                                 </span>
                             {% else %}
                                 {% if record.quantity > 0 %}
-                                    <span class="text-success">+{{ record.quantity }}</span>
+                                    <span class="text-success">+{{ record.quantity|floatformat:2 }}</span>
                                 {% elif record.quantity < 0 %}
-                                    <span class="text-danger">{{ record.quantity }}</span>
+                                    <span class="text-danger">{{ record.quantity|floatformat:2 }}</span>
                                 {% else %}
-                                    <span class="text-muted">0</span>
+                                    <span class="text-muted">0.00</span>
                                 {% endif %}
                             {% endif %}
                         </td>
@@ -198,20 +198,20 @@
                         <p>
                             {% if record.type == 'adjustment' %}
                                 <span class="text-info">
-                                    {{ record.current_quantity }} → {{ record.new_quantity }}
+                                    {{ record.current_quantity|floatformat:2 }} → {{ record.new_quantity|floatformat:2 }}
                                     {% if record.adjust_quantity >= 0 %}
-                                        <span class="text-success">(+{{ record.adjust_quantity }})</span>
+                                        <span class="text-success">(+{{ record.adjust_quantity|floatformat:2 }})</span>
                                     {% else %}
-                                        <span class="text-danger">({{ record.adjust_quantity }})</span>
+                                        <span class="text-danger">({{ record.adjust_quantity|floatformat:2 }})</span>
                                     {% endif %}
                                 </span>
                             {% else %}
                                 {% if record.quantity > 0 %}
-                                    <span class="text-success">+{{ record.quantity }}</span>
+                                    <span class="text-success">+{{ record.quantity|floatformat:2 }}</span>
                                 {% elif record.quantity < 0 %}
-                                    <span class="text-danger">{{ record.quantity }}</span>
+                                    <span class="text-danger">{{ record.quantity|floatformat:2 }}</span>
                                 {% else %}
-                                    <span class="text-muted">0</span>
+                                    <span class="text-muted">0.00</span>
                                 {% endif %}
                             {% endif %}
                         </p>
@@ -320,7 +320,7 @@
                                 -
                             {% endif %}
                         </td>
-                        <td><strong>{{ inv.quantity }}</strong></td>
+                        <td><strong>{{ inv.quantity|floatformat:2 }}</strong></td>
                         <td>{{ inv.unit }}</td>
                         <td>
                             {% if inv.batches_list %}
@@ -403,7 +403,7 @@
                                 <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
                                     <td>{{ batch.batch_no }}</td>
                                     <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                                    <td><strong>{{ batch.quantity }}{{ inv.unit }}</strong></td>
+                                    <td><strong>{{ batch.quantity|floatformat:2 }}{{ inv.unit }}</strong></td>
                                     <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
                                     <td>
                                         {% if batch.expiry_date %}

@@ -81,7 +81,7 @@
                             <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
-                        <td>¥{{ order.total_amount }}</td>
+                        <td>¥{{ order.total_amount|floatformat:2 }}</td>
                         <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
                         <td>
                             <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-sm btn-info">

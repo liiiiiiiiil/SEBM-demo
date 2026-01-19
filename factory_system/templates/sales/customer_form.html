@@ -56,11 +56,10 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> {% if is_edit_request %}提交审批申请{% else %}保存{% endif %}
                 </button>
-                <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+                <a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">取消</a>
             </div>
         </form>
     </div>
 </div>
 {% endblock %}
-
 

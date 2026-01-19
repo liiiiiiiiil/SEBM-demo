@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Driver, Vehicle, Shipment, ShipmentImage
+from .models import Driver, Vehicle, Shipment, ShipmentImage, ShippingNotice
 
 
 @admin.register(Driver)
@@ -27,3 +27,10 @@ class ShipmentImageAdmin(admin.ModelAdmin):
     list_display = ['shipment', 'uploaded_at', 'uploaded_by', 'remark']
     list_filter = ['uploaded_at']
     search_fields = ['shipment__shipment_no', 'remark']
+
+
+@admin.register(ShippingNotice)
+class ShippingNoticeAdmin(admin.ModelAdmin):
+    list_display = ['notice_no', 'order', 'status', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['notice_no', 'order__order_no']

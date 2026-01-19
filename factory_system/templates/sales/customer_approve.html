@@ -66,10 +66,10 @@
             <button type="submit" class="btn btn-success">
                 <i class="bi bi-check-circle"></i> 审批通过
             </button>
-            <a href="{% url 'inventory:customer_edit_reject' customer.pk %}" class="btn btn-warning">
+            <a href="{% url 'sales:customer_edit_reject' customer.pk %}" class="btn btn-warning">
                 <i class="bi bi-x-circle"></i> 拒绝申请
             </a>
-            <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+            <a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">取消</a>
         </form>
         
         {% elif action == 'delete_approve' %}
@@ -89,10 +89,10 @@
             <button type="submit" class="btn btn-danger">
                 <i class="bi bi-check-circle"></i> 审批通过并删除
             </button>
-            <a href="{% url 'inventory:customer_delete_reject' customer.pk %}" class="btn btn-warning">
+            <a href="{% url 'sales:customer_delete_reject' customer.pk %}" class="btn btn-warning">
                 <i class="bi bi-x-circle"></i> 拒绝申请
             </a>
-            <a href="{% url 'inventory:customer_list' %}" class="btn btn-secondary">取消</a>
+            <a href="{% url 'sales:customer_list' %}" class="btn btn-secondary">取消</a>
         </form>
         {% endif %}
     </div>

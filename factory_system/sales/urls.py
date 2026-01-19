@@ -14,5 +14,16 @@ urlpatterns = [
     path('orders/<int:pk>/ceo-reject/', views.ceo_reject, name='ceo_reject'),
     path('orders/<int:pk>/terminate/', views.order_terminate, name='order_terminate'),
     path('orders/<int:pk>/cancel/', views.order_cancel, name='order_cancel'),
+    # Customer 相关 URL
+    path('customers/', views.customer_list, name='customer_list'),
+    path('customers/create/', views.customer_create, name='customer_create'),
+    path('customers/<int:pk>/edit/', views.customer_edit, name='customer_edit'),
+    path('customers/<int:pk>/delete/', views.customer_delete, name='customer_delete'),
+    path('customers/<int:pk>/edit/approve/', views.customer_edit_approve, name='customer_edit_approve'),
+    path('customers/<int:pk>/edit/reject/', views.customer_edit_reject, name='customer_edit_reject'),
+    path('customers/<int:pk>/delete/approve/', views.customer_delete_approve, name='customer_delete_approve'),
+    path('customers/<int:pk>/delete/reject/', views.customer_delete_reject, name='customer_delete_reject'),
+    path('customers/approvals/', views.customer_approval_list, name='customer_approval_list'),
+    path('customers/transfer/', views.customer_transfer, name='customer_transfer'),
 ]
 

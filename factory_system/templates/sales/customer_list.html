@@ -8,17 +8,17 @@
     <h2><i class="bi bi-people"></i> 客户信息</h2>
     <div>
         {% if user.profile.role == 'ceo' or user.profile.role == 'sales_mgr' %}
-        <a href="{% url 'inventory:customer_transfer' %}" class="btn btn-info me-2">
+        <a href="{% url 'sales:customer_transfer' %}" class="btn btn-info me-2">
             <i class="bi bi-arrow-left-right"></i> 客户转移
         </a>
         {% endif %}
         {% if user.profile.role == 'ceo' %}
-        <a href="{% url 'inventory:customer_approval_list' %}" class="btn btn-warning me-2">
+        <a href="{% url 'sales:customer_approval_list' %}" class="btn btn-warning me-2">
             <i class="bi bi-clock-history"></i> 操作记录
         </a>
         {% endif %}
     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.create' %}
-    <a href="{% url 'inventory:customer_create' %}" class="btn btn-primary">
+    <a href="{% url 'sales:customer_create' %}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> 新增客户
     </a>
     {% endif %}
@@ -75,12 +75,12 @@
                         <td>
                             {% if user.profile.role == 'ceo' %}
                                 {% if customer.edit_status == 'pending' %}
-                                <a href="{% url 'inventory:customer_edit_approve' customer.pk %}" class="btn btn-sm btn-success">
+                                <a href="{% url 'sales:customer_edit_approve' customer.pk %}" class="btn btn-sm btn-success">
                                     <i class="bi bi-check-circle"></i> 审批编辑
                                 </a>
                                 {% endif %}
                                 {% if customer.delete_status == 'pending' %}
-                                <a href="{% url 'inventory:customer_delete_approve' customer.pk %}" class="btn btn-sm btn-success">
+                                <a href="{% url 'sales:customer_delete_approve' customer.pk %}" class="btn btn-sm btn-success">
                                     <i class="bi bi-check-circle"></i> 审批删除
                                 </a>
                                 {% endif %}
@@ -88,23 +88,23 @@
                             {% if customer.edit_status != 'pending' and customer.delete_status != 'pending' %}
                             {% if user.profile.role == 'sales' %}
                                 {% if customer.created_by == user or user|has_permission:'inventory.customer.manage' %}
-                                <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                                <a href="{% url 'sales:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
                                     <i class="bi bi-pencil"></i> 编辑
                                 </a>
-                                <a href="{% url 'inventory:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
+                                <a href="{% url 'sales:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
                                     <i class="bi bi-trash"></i> 删除
                                 </a>
                                 {% endif %}
                             {% elif user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.manage' %}
-                            <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                            <a href="{% url 'sales:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
                                 <i class="bi bi-pencil"></i> 编辑
                             </a>
-                            <a href="{% url 'inventory:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
+                            <a href="{% url 'sales:customer_delete' customer.pk %}" class="btn btn-sm btn-danger">
                                 <i class="bi bi-trash"></i> 删除
                             </a>
                             {% elif user|has_permission:'inventory.customer.edit' %}
                                 {% if customer.created_by == user %}
-                                <a href="{% url 'inventory:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
+                                <a href="{% url 'sales:customer_edit' customer.pk %}" class="btn btn-sm btn-info">
                                     <i class="bi bi-pencil"></i> 编辑
                                 </a>
                                     {% endif %}
@@ -126,5 +126,4 @@
     </div>
 </div>
 {% endblock %}
-
 

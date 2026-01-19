@@ -38,9 +38,9 @@
                 <i class="bi bi-x-circle"></i> 确认拒绝
             </button>
             {% if action == 'edit_reject' %}
-            <a href="{% url 'inventory:customer_edit_approve' customer.pk %}" class="btn btn-secondary">返回</a>
+            <a href="{% url 'sales:customer_edit_approve' customer.pk %}" class="btn btn-secondary">返回</a>
             {% elif action == 'delete_reject' %}
-            <a href="{% url 'inventory:customer_delete_approve' customer.pk %}" class="btn btn-secondary">返回</a>
+            <a href="{% url 'sales:customer_delete_approve' customer.pk %}" class="btn btn-secondary">返回</a>
             {% endif %}
         </form>
     </div>

@@ -6,7 +6,8 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from accounts.decorators import role_required
 from .models import Shipment, Driver, Vehicle, ShipmentImage
-from sales.models import ShippingNotice, SalesOrder
+from sales.models import SalesOrder
+from .models import ShippingNotice
 from inventory.models import Inventory, StockTransaction
 
 

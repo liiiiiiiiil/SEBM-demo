@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
@@ -7,7 +8,8 @@ from django.core.paginator import Paginator
 from decimal import Decimal
 from accounts.decorators import role_required
 from .models import PurchaseTask, PurchaseTaskItem, Supplier
-from inventory.models import Material, Inventory, StockTransaction, Batch
+from inventory.models import Material, Inventory, StockTransaction, Batch, BOM
+from production.models import ProductionTask
 from django.db.models import Q
 
 
@@ -41,12 +43,76 @@ def task_list(request):
 
 @login_required
 @role_required('warehouse', 'ceo')
+def task_create_from_production(request, production_task_pk):
+    """从生产任务跳转到采购任务创建页面（预填所需原料）"""
+    production_task = get_object_or_404(ProductionTask, pk=production_task_pk)
+    
+    # 检查原材料是否不足
+    bom_items = BOM.objects.filter(product=production_task.product)
+    insufficient_materials = []
+    
+    for bom_item in bom_items:
+        total_required = bom_item.quantity * production_task.required_quantity
+        try:
+            inventory = Inventory.objects.get(inventory_type='material', material=bom_item.material)
+            available_quantity = inventory.quantity
+        except Inventory.DoesNotExist:
+            available_quantity = Decimal('0')
+        
+        if available_quantity < total_required:
+            shortage = total_required - available_quantity
+            insufficient_materials.append({
+                'material': bom_item.material,
+                'shortage': shortage,
+                'unit': bom_item.unit,
+            })
+    
+    # 如果没有不足的原料，重定向到普通创建页面
+    if not insufficient_materials:
+        messages.info(request, '该生产任务的原材料充足，无需采购')
+        return redirect('purchase:task_create')
+    
+    # 重定向到创建页面，通过 URL 参数传递预填数据
+    material_ids = ','.join([str(m['material'].id) for m in insufficient_materials])
+    quantities = ','.join([str(m['shortage']) for m in insufficient_materials])
+    
+    return redirect(f"{reverse('purchase:task_create')}?from_production={production_task_pk}&materials={material_ids}&quantities={quantities}")
+
+
+@login_required
+@role_required('warehouse', 'ceo')
 def task_create(request):
     """创建采购任务"""
+    # 检查是否从生产任务跳转过来
+    from_production_task_pk = request.GET.get('from_production')
+    prefill_materials = []
+    production_task = None
+    
+    if from_production_task_pk:
+        try:
+            production_task = ProductionTask.objects.get(pk=from_production_task_pk)
+            material_ids_str = request.GET.get('materials', '')
+            quantities_str = request.GET.get('quantities', '')
+            
+            if material_ids_str and quantities_str:
+                material_ids = [int(id) for id in material_ids_str.split(',') if id]
+                quantities = [Decimal(q) for q in quantities_str.split(',') if q]
+                
+                for material_id, quantity in zip(material_ids, quantities):
+                    try:
+                        material = Material.objects.get(pk=material_id)
+                        prefill_materials.append({
+                            'material': material,
+                            'quantity': quantity,
+                            'unit': material.unit,
+                        })
+                    except Material.DoesNotExist:
+                        pass
+        except (ProductionTask.DoesNotExist, ValueError):
+            pass
+    
     if request.method == 'POST':
-        supplier = request.POST.get('supplier', '').strip()
-        contact_person = request.POST.get('contact_person', '').strip()
-        contact_phone = request.POST.get('contact_phone', '').strip()
+        supplier_id = request.POST.get('supplier', '').strip()
         remark = request.POST.get('remark', '').strip()
         
         # 获取采购明细
@@ -57,8 +123,14 @@ def task_create(request):
         quantities = request.POST.getlist('quantity')
         unit_prices = request.POST.getlist('unit_price')
         
-        if not supplier:
-            messages.error(request, '请输入供应商名称')
+        if not supplier_id:
+            messages.error(request, '请选择供应商')
+            return redirect('purchase:task_create')
+        
+        try:
+            supplier = Supplier.objects.get(pk=supplier_id)
+        except Supplier.DoesNotExist:
+            messages.error(request, '选择的供应商不存在')
             return redirect('purchase:task_create')
         
         # 验证至少有一个有效的明细项
@@ -81,8 +153,6 @@ def task_create(request):
             task = PurchaseTask.objects.create(
                 task_no=f"PT{timezone.now().strftime('%Y%m%d%H%M%S')}",
                 supplier=supplier,
-                contact_person=contact_person,
-                contact_phone=contact_phone,
                 status='pending',
                 created_by=request.user,
                 remark=remark,
@@ -140,9 +210,24 @@ def task_create(request):
     # GET 请求：显示创建表单
     materials = Material.objects.all().order_by('sku')
     suppliers = Supplier.objects.all().order_by('name')
+    
+    # 准备预填数据（转换为 JSON 格式供模板使用）
+    import json
+    prefill_materials_json = json.dumps([
+        {
+            'material_id': item['material'].id,
+            'material_name': item['material'].name,
+            'quantity': str(item['quantity']),
+            'unit': item['unit'],
+        }
+        for item in prefill_materials
+    ])
+    
     context = {
         'materials': materials,
         'suppliers': suppliers,
+        'prefill_materials': prefill_materials_json,
+        'production_task': production_task,
     }
     return render(request, 'purchase/task_form.html', context)
 
@@ -194,15 +279,12 @@ def task_complete(request, pk):
     
     if request.method == 'POST':
         with transaction.atomic():
-            # 更新收货数量并增加库存
+            # 处理收货并增加库存
             for item in task.items.all():
                 received_qty_str = request.POST.get(f'received_quantity_{item.id}', '0')
                 if received_qty_str:
                     received_qty = Decimal(received_qty_str)
                     if received_qty > 0:
-                        item.received_quantity = received_qty
-                        item.save()
-                        
                         # 增加库存（只对已有物料进行库存管理）
                         inventory = None
                         if item.material:
@@ -269,7 +351,7 @@ def task_complete(request, pk):
                             quantity=received_qty,
                             unit_price=batch_unit_price,
                             expiry_date=expiry_date,
-                            supplier=task.supplier,
+                            supplier=task.supplier.name,
                             remark=f"采购任务：{task.task_no}",
                         )
                         
@@ -288,20 +370,11 @@ def task_complete(request, pk):
                             operator=request.user,
                         )
             
-            # 检查是否全部收货
-            all_received = all(
-                item.received_quantity >= item.quantity 
-                for item in task.items.all()
-            )
-            
-            if all_received:
-                task.status = 'completed'
-            else:
-                task.status = 'purchasing'
-            
+            # 直接完成任务
+            task.status = 'completed'
             task.save()
             
-            messages.success(request, f'采购任务 {task.task_no} 收货完成，库存已更新')
+            messages.success(request, f'采购任务 {task.task_no} 已完成，库存已更新')
             return redirect('purchase:task_detail', pk=pk)
     
     return render(request, 'purchase/task_complete.html', {'task': task})

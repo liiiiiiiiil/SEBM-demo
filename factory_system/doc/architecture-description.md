@@ -48,22 +48,19 @@
 ### 2.2 inventory（库存模块）
 
 **职责边界**：
-- 客户信息管理（含编辑/删除审批流程）
 - 产品（Product）与原料（Material）基础信息管理
 - BOM配方管理（成品与原料的配比关系）
 - 实时库存（Inventory）管理
-- 库存批次（Batch）管理
+- 库存批次（Batch）管理（支持锁定数量）
 - 库存变动记录（StockTransaction）
 - 库存调整申请与审批
-- 采购单（PurchaseOrder）管理（历史遗留，部分功能）
 
 **核心模型**：
-- `Customer`：客户信息
 - `Product`：成品信息
 - `Material`：原料信息
 - `BOM`：BOM配方（成品→原料配比）
 - `Inventory`：实时库存（支持成品、原料、其它类型）
-- `Batch`：库存批次
+- `Batch`：库存批次（含锁定数量字段）
 - `StockTransaction`：库存变动记录
 - `InventoryAdjustmentRequest`：库存调整申请
 
@@ -71,15 +68,17 @@
 - 依赖`auth.User`（操作人、审批人等）
 
 **对外提供**：
-- 客户信息（供sales模块使用）
 - 产品信息（供sales、production模块使用）
 - 原料信息（供production、purchase模块使用）
 - BOM配方（供production模块计算领料需求）
 - 库存查询与更新接口（供其他模块调用）
+- 批次管理（含锁定数量功能，供sales模块锁定库存）
 - 库存变动记录（供其他模块记录库存变化）
 
 **关键业务逻辑**：
 - 库存支持批次管理（FIFO原则）
+- 批次支持锁定数量（`locked_quantity`字段），用于订单审批时锁定库存
+- 批次可用数量 = 总数量 - 锁定数量（`get_available_quantity()`方法）
 - 库存数量从批次汇总计算
 - 库存类型分为：成品（product）、原料（material）、其它（other）
 
@@ -88,38 +87,45 @@
 ### 2.3 sales（销售模块）
 
 **职责边界**：
+- 客户信息管理（Customer，含编辑/删除审批流程、客户转移）
 - 销售订单（SalesOrder）创建、编辑、审批
 - 订单明细（SalesOrderItem）管理
 - 订单批次分配（SalesOrderItemBatch）
-- 发货通知单（ShippingNotice）创建
 - 订单状态流转控制
 - 订单审批后触发库存研判与生产任务/发货通知单创建
+- 订单批次库存锁定（通过`Batch.locked_quantity`）
 
 **核心模型**：
+- `Customer`：客户信息（含软删除、编辑/删除审批流程）
+- `CustomerTransfer`：客户转移记录
 - `SalesOrder`：销售订单
 - `SalesOrderItem`：订单明细
 - `SalesOrderItemBatch`：订单明细批次分配
-- `ShippingNotice`：发货通知单
 
 **对外依赖**：
-- 依赖`inventory.Customer`（客户信息）
 - 依赖`inventory.Product`（产品信息）
 - 依赖`inventory.Inventory`（库存查询）
-- 依赖`inventory.Batch`（批次分配）
+- 依赖`inventory.Batch`（批次分配与锁定）
 - 依赖`inventory.BOM`（检查原材料是否充足）
 - 依赖`production.ProductionTask`（创建生产任务）
+- 依赖`logistics.ShippingNotice`（创建发货通知单）
 - 依赖`auth.User`（销售员、审批人等）
 
 **对外提供**：
+- 客户信息（供订单创建使用）
 - 销售订单信息（供production、logistics模块使用）
-- 发货通知单（供logistics模块使用）
+- 订单批次分配信息（供logistics模块发货时使用）
 
 **关键业务逻辑**：
+- 客户管理支持软删除（`is_deleted`字段）
+- 客户编辑/删除需要审批流程
 - 订单审批流程：销售员创建 → 销售经理审批 → 总经理审批
-- 总经理审批后，系统自动进行库存研判：
-  - 检查成品库存（按批次FIFO分配）
-  - 如果库存充足：创建发货通知单，订单状态→待发货
-  - 如果库存不足：计算缺口，检查原材料是否充足，创建生产任务，订单状态→生产中
+- 总经理审批时：
+  - 按批次FIFO分配库存，记录到`SalesOrderItemBatch`
+  - 锁定批次库存（`batch.locked_quantity += 分配数量`）
+  - 自动进行库存研判：
+    - 如果库存充足：创建发货通知单，订单状态→待发货
+    - 如果库存不足：计算缺口，检查原材料是否充足，创建生产任务，订单状态→生产中
 - 订单状态包括：待审批、已审批、待总经理审批、总经理已审批、已退回、生产中、待发货、已发货、已完成、已取消、已终结
 
 ---
@@ -151,7 +157,7 @@
 - 依赖`inventory.Inventory`（查询与更新库存）
 - 依赖`inventory.Batch`（批次扣减）
 - 依赖`inventory.StockTransaction`（记录库存变动）
-- 依赖`sales.ShippingNotice`（创建发货通知单）
+- 依赖`logistics.ShippingNotice`（创建发货通知单）
 - 依赖`auth.User`（操作人、审批人等）
 
 **对外提供**：
@@ -177,36 +183,39 @@
 ### 2.5 logistics（物流模块）
 
 **职责边界**：
+- 发货通知单（ShippingNotice）管理
 - 发货单（Shipment）创建与管理
 - 司机（Driver）信息管理
 - 车辆（Vehicle）信息管理
 - 发货回执图片（ShipmentImage）管理
-- 发货确认与库存扣减
+- 发货确认与库存扣减（从锁定数量中扣减）
 - 收货回执录入
 
 **核心模型**：
+- `ShippingNotice`：发货通知单
 - `Driver`：司机信息
 - `Vehicle`：车辆信息
 - `Shipment`：发货单
 - `ShipmentImage`：发货回执图片
 
 **对外依赖**：
-- 依赖`sales.ShippingNotice`（发货通知单）
 - 依赖`sales.SalesOrder`（关联订单）
 - 依赖`inventory.Inventory`（扣减成品库存）
-- 依赖`inventory.Batch`（批次扣减）
+- 依赖`inventory.Batch`（批次扣减，从锁定数量中扣减）
 - 依赖`inventory.StockTransaction`（记录库存变动）
 - 依赖`sales.SalesOrderItemBatch`（订单批次分配）
 - 依赖`auth.User`（操作人）
 
 **对外提供**：
+- 发货通知单（供sales、production模块查询）
 - 发货单信息（供订单状态查询）
 
 **关键业务逻辑**：
+- 发货通知单由sales模块或production模块创建
 - 根据发货通知单创建发货单
 - 分配司机和车辆
 - 确认发货时：
-  - 按订单批次分配扣减库存（FIFO）
+  - 按订单批次分配扣减库存（从`Batch.locked_quantity`中扣减，然后扣减`Batch.quantity`）
   - 记录库存变动
   - 更新订单状态为已发货
 - 发货单状态包括：待发货、装车中、已发货、已送达
@@ -224,7 +233,7 @@
 
 **核心模型**：
 - `Supplier`：供应商信息
-- `PurchaseTask`：采购任务
+- `PurchaseTask`：采购任务（supplier字段为ForeignKey关联Supplier）
 - `PurchaseTaskItem`：采购任务明细
 
 **对外依赖**：
@@ -236,8 +245,10 @@
 
 **对外提供**：
 - 采购任务信息（供生产模块查询原材料是否充足）
+- 供应商信息（供采购任务关联）
 
 **关键业务逻辑**：
+- 采购任务通过ForeignKey关联Supplier（不再使用CharField）
 - 采购任务审批流程：待审批 → 已审批 → 采购中 → 已完成
 - 采购任务完成时：
   - 创建批次（支持批次号、批次日期、单价、过期日期）
@@ -275,15 +286,18 @@
 ### 3.2 模块间调用关系
 
 **sales → inventory**：
-- 查询客户信息（Customer）
 - 查询产品信息（Product）
 - 查询成品库存（Inventory）
 - 查询批次信息（Batch）
 - 进行批次分配（SalesOrderItemBatch）
+- 锁定批次库存（Batch.locked_quantity）
 - 查询BOM检查原材料是否充足
 
 **sales → production**：
 - 创建生产任务（ProductionTask）
+
+**sales → logistics**：
+- 创建发货通知单（ShippingNotice）
 
 **production → inventory**：
 - 查询产品信息（Product）
@@ -296,16 +310,17 @@
 
 **production → sales**：
 - 查询关联订单（SalesOrder）
-- 创建发货通知单（ShippingNotice）
 - 更新订单状态
 
+**production → logistics**：
+- 创建发货通知单（ShippingNotice）
+
 **logistics → sales**：
-- 查询发货通知单（ShippingNotice）
 - 查询订单信息（SalesOrder）
 - 查询订单批次分配（SalesOrderItemBatch）
 
 **logistics → inventory**：
-- 扣减成品库存（Inventory、Batch）
+- 扣减成品库存（Inventory、Batch，从锁定数量中扣减）
 - 记录库存变动（StockTransaction）
 
 **purchase → inventory**：
@@ -367,7 +382,11 @@
 ### 4.5 数据一致性保证
 
 - **库存数量**：通过`Inventory.update_quantity_from_batches()`从批次汇总计算
-- **批次管理**：库存扣减按FIFO原则从批次中扣减
+- **批次管理**：
+  - 库存扣减按FIFO原则从批次中扣减
+  - 批次支持锁定数量（`locked_quantity`），用于订单审批时锁定库存
+  - 批次可用数量 = 总数量 - 锁定数量（`Batch.get_available_quantity()`）
+  - 发货时从锁定数量中扣减，然后扣减总数量
 - **库存变动记录**：所有库存变化都记录在`StockTransaction`中
 - **事务控制**：关键操作使用数据库事务保证原子性
 
@@ -384,11 +403,17 @@
 
 1. **Django标准架构**：遵循Django应用模块化最佳实践
 2. **RBAC权限系统**：基于角色的访问控制，支持细粒度权限管理
-3. **批次管理**：库存支持批次管理，实现FIFO出库
+3. **批次管理**：
+   - 库存支持批次管理，实现FIFO出库
+   - 批次支持锁定数量，订单审批时锁定库存，发货时从锁定数量中扣减
 4. **状态机模式**：业务流程通过状态字段驱动
 5. **审批流程**：支持多级审批（销售经理、总经理）
 6. **库存自动研判**：订单审批后自动检查库存并创建生产任务或发货通知单
 7. **BOM自动计算**：生产任务接收时根据BOM自动计算领料需求
+8. **模块职责优化**：
+   - Customer模型从inventory迁移到sales模块（客户属于销售领域）
+   - ShippingNotice模型从sales迁移到logistics模块（发货通知单属于物流领域）
+   - PurchaseTask.supplier从CharField改为ForeignKey(Supplier)（规范化数据关联）
 
 ---
 
@@ -399,19 +424,19 @@ User (Django内置)
   └─ UserProfile (accounts)
       └─ Permission (accounts)
 
-Customer (inventory)
+Customer (sales)
   └─ SalesOrder (sales)
       ├─ SalesOrderItem (sales)
       │   └─ SalesOrderItemBatch (sales)
       ├─ ProductionTask (production)
-      └─ ShippingNotice (sales)
+      └─ ShippingNotice (logistics)
           └─ Shipment (logistics)
 
 Product (inventory)
   ├─ BOM (inventory)
   │   └─ Material (inventory)
   ├─ Inventory (inventory)
-  │   └─ Batch (inventory)
+  │   └─ Batch (inventory, 含locked_quantity)
   └─ ProductionTask (production)
       ├─ MaterialRequisition (production)
       │   └─ MaterialRequisitionItem (production)
@@ -420,14 +445,20 @@ Product (inventory)
 
 Material (inventory)
   ├─ Inventory (inventory)
-  │   └─ Batch (inventory)
+  │   └─ Batch (inventory, 含locked_quantity)
   └─ PurchaseTaskItem (purchase)
       └─ PurchaseTask (purchase)
+          └─ Supplier (purchase)
 
 StockTransaction (inventory) - 记录所有库存变动
 ```
 
 ---
 
-**文档生成时间**：2026-01-14
+**文档生成时间**：2026-01-17
 **系统版本**：Django 5.2.9
+**文档更新说明**：
+- Customer模型从inventory迁移到sales模块
+- ShippingNotice模型从sales迁移到logistics模块
+- Batch模型增加locked_quantity字段和get_available_quantity()方法
+- PurchaseTask.supplier从CharField改为ForeignKey(Supplier)

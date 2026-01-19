@@ -93,7 +93,8 @@ def dashboard(request):
     from django.utils import timezone
     from datetime import timedelta, date
     from decimal import Decimal
-    from sales.models import SalesOrder, ShippingNotice
+    from sales.models import SalesOrder
+    from logistics.models import ShippingNotice
     from inventory.models import Inventory, Material, Product, BOM, StockTransaction
     from production.models import ProductionTask, MaterialRequisition
     from logistics.models import Shipment

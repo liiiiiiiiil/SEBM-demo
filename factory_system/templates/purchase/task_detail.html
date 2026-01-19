@@ -10,9 +10,15 @@
     <div class="card-body">
         <div class="row mb-4">
             <div class="col-md-6">
-                <p><strong>供应商：</strong>{{ task.supplier }}</p>
-                <p><strong>联系人：</strong>{{ task.contact_person|default:"-" }}</p>
-                <p><strong>联系电话：</strong>{{ task.contact_phone|default:"-" }}</p>
+                <p><strong>供应商：</strong>{{ task.supplier.name }}</p>
+                <p><strong>联系人：</strong>{{ task.supplier.contact_person|default:"-" }}</p>
+                <p><strong>联系电话：</strong>{{ task.supplier.contact_phone|default:"-" }}</p>
+                {% if task.supplier.address %}
+                <p><strong>地址：</strong>{{ task.supplier.address }}</p>
+                {% endif %}
+                {% if task.supplier.email %}
+                <p><strong>邮箱：</strong>{{ task.supplier.email }}</p>
+                {% endif %}
                 <p><strong>状态：</strong>
                     {% if task.status == 'pending' %}
                     <span class="badge bg-warning">待审批</span>
@@ -71,17 +77,17 @@
                         {% endif %}
                     </td>
                     <td>
-                        {{ item.quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}
+                        {{ item.quantity|floatformat:2 }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}
                     </td>
-                    <td>¥{{ item.unit_price }}</td>
-                    <td>¥{{ item.subtotal }}</td>
+                    <td>¥{{ item.unit_price|floatformat:2 }}</td>
+                    <td>¥{{ item.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr>
                     <th colspan="4">合计</th>
-                    <th>¥{{ task.total_amount }}</th>
+                    <th>¥{{ task.total_amount|floatformat:2 }}</th>
                 </tr>
             </tfoot>
         </table>

@@ -52,8 +52,8 @@
                     {% for task in tasks %}
                     <tr>
                         <td>{{ task.task_no }}</td>
-                        <td>{{ task.supplier }}</td>
-                        <td>¥{{ task.total_amount }}</td>
+                        <td>{{ task.supplier.name }}</td>
+                        <td>¥{{ task.total_amount|floatformat:2 }}</td>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-warning">待审批</span>

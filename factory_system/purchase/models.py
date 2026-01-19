@@ -36,9 +36,7 @@ class PurchaseTask(models.Model):
     ]
     
     task_no = models.CharField(max_length=50, unique=True, verbose_name='采购任务号')
-    supplier = models.CharField(max_length=200, verbose_name='供应商')
-    contact_person = models.CharField(max_length=100, blank=True, verbose_name='联系人')
-    contact_phone = models.CharField(max_length=20, blank=True, verbose_name='联系电话')
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name='供应商')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='采购总额')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     created_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='created_purchase_tasks', verbose_name='创建人')
@@ -57,7 +55,7 @@ class PurchaseTask(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.task_no} - {self.supplier} - {self.get_status_display()}"
+        return f"{self.task_no} - {self.supplier.name} - {self.get_status_display()}"
 
 
 class PurchaseTaskItem(models.Model):
@@ -76,7 +74,6 @@ class PurchaseTaskItem(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='采购数量')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价')
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='小计')
-    received_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='已收货数量')
     
     class Meta:
         verbose_name = '采购任务明细'

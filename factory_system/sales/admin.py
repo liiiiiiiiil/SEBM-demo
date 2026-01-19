@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import SalesOrder, SalesOrderItem, ShippingNotice
+from .models import SalesOrder, SalesOrderItem
 
 
 class SalesOrderItemInline(admin.TabularInline):
@@ -15,7 +15,3 @@ class SalesOrderAdmin(admin.ModelAdmin):
     inlines = [SalesOrderItemInline]
 
 
-@admin.register(ShippingNotice)
-class ShippingNoticeAdmin(admin.ModelAdmin):
-    list_display = ['notice_no', 'order', 'status', 'created_at']
-    list_filter = ['status', 'created_at']

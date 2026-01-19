@@ -18,7 +18,7 @@
                     {{ inventory.material.name }}
                 {% endif %}
             </p>
-            <p><strong>当前数量：</strong>{{ inventory.quantity }}{{ inventory.unit }}</p>
+            <p><strong>当前数量：</strong>{{ inventory.quantity|floatformat:2 }}{{ inventory.unit }}</p>
             <p><strong>当前单价：</strong>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
         </div>
         

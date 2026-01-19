@@ -607,7 +607,7 @@ def check_order_ready_to_ship(order):
        - 所有生产任务是否都已完成
        - 当前库存 + 已完成的生产数量是否 >= 订单数量
     """
-    from sales.models import ShippingNotice
+    from logistics.models import ShippingNotice
     
     # 检查所有订单项是否都有足够库存
     all_ready = True

@@ -28,22 +28,22 @@
                     </tr>
                     <tr>
                         <th>当前数量</th>
-                        <td>{{ adjustment.current_quantity }}{{ adjustment.inventory.unit }}</td>
+                        <td>{{ adjustment.current_quantity|floatformat:2 }}{{ adjustment.inventory.unit }}</td>
                     </tr>
                     <tr>
                         <th>调整数量</th>
                         <td>
                             {% if adjustment.adjust_quantity >= 0 %}
-                            <span class="text-success">+{{ adjustment.adjust_quantity }}</span>
+                            <span class="text-success">+{{ adjustment.adjust_quantity|floatformat:2 }}</span>
                             {% else %}
-                            <span class="text-danger">{{ adjustment.adjust_quantity }}</span>
+                            <span class="text-danger">{{ adjustment.adjust_quantity|floatformat:2 }}</span>
                             {% endif %}
                             {{ adjustment.inventory.unit }}
                         </td>
                     </tr>
                     <tr>
                         <th>调整后数量</th>
-                        <td><strong>{{ adjustment.new_quantity }}{{ adjustment.inventory.unit }}</strong></td>
+                        <td><strong>{{ adjustment.new_quantity|floatformat:2 }}{{ adjustment.inventory.unit }}</strong></td>
                     </tr>
                     <tr>
                         <th>当前单价</th>

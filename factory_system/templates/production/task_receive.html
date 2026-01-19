@@ -41,6 +41,11 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="mt-3">
+                <a href="{% url 'purchase:task_create_from_production' task.pk %}" class="btn btn-primary">
+                    <i class="bi bi-cart-plus"></i> 发起采购任务（预填所需原料）
+                </a>
+            </div>
         </div>
         {% else %}
         <div class="alert alert-success">

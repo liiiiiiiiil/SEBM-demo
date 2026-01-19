@@ -52,17 +52,17 @@
                     </tr>
                     <tr>
                         <th>需求数量</th>
-                        <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
+                        <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
                     </tr>
                     <tr>
                         <th>完成数量</th>
-                        <td id="completed-quantity">{{ task.completed_quantity }}{{ task.product.unit }}</td>
+                        <td id="completed-quantity">{{ task.completed_quantity|floatformat:2 }}{{ task.product.unit }}</td>
                     </tr>
                     <tr>
                         <th>缺口数量</th>
                         <td>
                             <span id="shortage-quantity" class="badge {% if shortage_quantity > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                {{ shortage_quantity }}{{ task.product.unit }}
+                                {{ shortage_quantity|floatformat:2 }}{{ task.product.unit }}
                             </span>
                         </td>
                     </tr>
@@ -124,7 +124,7 @@
                         {% for bom in bom_items %}
                         <tr>
                             <td>{{ bom.material.name }}</td>
-                            <td>{{ bom.quantity }}</td>
+                            <td>{{ bom.quantity|floatformat:2 }}</td>
                             <td>{{ bom.unit }}</td>
                         </tr>
                         {% empty %}
@@ -162,13 +162,13 @@
                                 <tr data-material-id="{{ req.material_id }}">
                                     <td>{{ req.material.name }}</td>
                                     <td><small class="text-muted">{{ req.material.sku }}</small></td>
-                                    <td>{{ req.bom_quantity }}</td>
-                                    <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
-                                    <td><strong>{{ req.total_required }}</strong></td>
-                                    <td id="material-available-{{ req.material_id }}">{{ req.available_quantity }}</td>
+                                    <td>{{ req.bom_quantity|floatformat:2 }}</td>
+                                    <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
+                                    <td><strong>{{ req.total_required|floatformat:2 }}</strong></td>
+                                    <td id="material-available-{{ req.material_id }}">{{ req.available_quantity|floatformat:2 }}</td>
                                     <td>
                                         <span id="material-shortage-{{ req.material_id }}" class="badge {% if req.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                            {{ req.shortage }}
+                                            {{ req.shortage|floatformat:2 }}
                                         </span>
                                     </td>
                                     <td>{{ req.unit }}</td>
@@ -205,11 +205,11 @@
                                 <tr data-material-id="{{ summary.material_id }}">
                                     <td><strong>{{ summary.material.name }}</strong></td>
                                     <td><small class="text-muted">{{ summary.material.sku }}</small></td>
-                                    <td><strong class="text-primary">{{ summary.total_quantity }}</strong></td>
-                                    <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity }}</td>
+                                    <td><strong class="text-primary">{{ summary.total_quantity|floatformat:2 }}</strong></td>
+                                    <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity|floatformat:2 }}</td>
                                     <td>
                                         <span id="material-shortage-{{ summary.material_id }}" class="badge {% if summary.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                            {{ summary.shortage }}
+                                            {{ summary.shortage|floatformat:2 }}
                                         </span>
                                     </td>
                                     <td>{{ summary.unit }}</td>
@@ -263,12 +263,12 @@
                 // 更新完成数量
                 const completedQty = parseFloat(data.completed_quantity);
                 const requiredQty = parseFloat(data.required_quantity);
-                document.getElementById('completed-quantity').textContent = completedQty + '{{ task.product.unit }}';
+                document.getElementById('completed-quantity').textContent = completedQty.toFixed(2) + '{{ task.product.unit }}';
                 
                 // 更新产品缺口数量
                 const shortageQty = parseFloat(data.shortage_quantity);
                 const shortageElement = document.getElementById('shortage-quantity');
-                shortageElement.textContent = shortageQty + '{{ task.product.unit }}';
+                shortageElement.textContent = shortageQty.toFixed(2) + '{{ task.product.unit }}';
                 if (shortageQty > 0) {
                     shortageElement.className = 'badge bg-warning';
                 } else {

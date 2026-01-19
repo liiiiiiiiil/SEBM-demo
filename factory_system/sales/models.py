@@ -1,6 +1,89 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from inventory.models import Customer, Product
+from inventory.models import Product
+
+
+class Customer(models.Model):
+    """客户中心"""
+    CREDIT_LEVEL_CHOICES = [
+        ('A', 'A级（优秀）'),
+        ('B', 'B级（良好）'),
+        ('C', 'C级（一般）'),
+        ('D', 'D级（较差）'),
+    ]
+    
+    EDIT_STATUS_CHOICES = [
+        ('none', '无编辑申请'),
+        ('pending', '待审批'),
+        ('approved', '已审批'),
+        ('rejected', '已拒绝'),
+    ]
+    
+    DELETE_STATUS_CHOICES = [
+        ('none', '无删除申请'),
+        ('pending', '待审批'),
+        ('approved', '已审批'),
+        ('rejected', '已拒绝'),
+    ]
+    
+    name = models.CharField(max_length=200, unique=True, verbose_name='客户名称')
+    contact_person = models.CharField(max_length=100, verbose_name='联系人')
+    phone = models.CharField(max_length=20, verbose_name='联系电话')
+    address = models.TextField(verbose_name='地址')
+    credit_level = models.CharField(max_length=1, choices=CREDIT_LEVEL_CHOICES, default='C', verbose_name='信用等级')
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_customers', verbose_name='负责人')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    # 编辑审批相关字段
+    edit_status = models.CharField(max_length=20, choices=EDIT_STATUS_CHOICES, default='none', verbose_name='编辑审批状态')
+    edit_pending_data = models.TextField(blank=True, verbose_name='待审批编辑数据')  # JSON格式存储待审批的数据
+    edit_reason = models.TextField(blank=True, verbose_name='编辑原因')
+    edit_requested_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_edit_requests', verbose_name='编辑申请人')
+    edit_requested_at = models.DateTimeField(null=True, blank=True, verbose_name='编辑申请时间')
+    edit_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_customer_edits', verbose_name='编辑审批人')
+    edit_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='编辑审批时间')
+    edit_reject_reason = models.TextField(blank=True, verbose_name='编辑拒绝原因')
+    
+    # 删除审批相关字段
+    delete_status = models.CharField(max_length=20, choices=DELETE_STATUS_CHOICES, default='none', verbose_name='删除审批状态')
+    delete_reason = models.TextField(blank=True, verbose_name='删除原因')
+    delete_requested_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_delete_requests', verbose_name='删除申请人')
+    delete_requested_at = models.DateTimeField(null=True, blank=True, verbose_name='删除申请时间')
+    delete_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_customer_deletes', verbose_name='删除审批人')
+    delete_approved_at = models.DateTimeField(null=True, blank=True, verbose_name='删除审批时间')
+    delete_reject_reason = models.TextField(blank=True, verbose_name='删除拒绝原因')
+    is_deleted = models.BooleanField(default=False, verbose_name='是否已删除（软删除）')
+    
+    class Meta:
+        verbose_name = '客户'
+        verbose_name_plural = '客户'
+        ordering = ['-created_at']
+    
+    def has_related_orders(self):
+        """检查是否有关联订单（包括所有状态的订单）"""
+        return SalesOrder.objects.filter(customer=self).exists()
+    
+    def __str__(self):
+        return self.name
+
+
+class CustomerTransfer(models.Model):
+    """客户转移记录"""
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='transfers', verbose_name='客户')
+    from_user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='transferred_from_customers', verbose_name='原负责人')
+    to_user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='transferred_to_customers', verbose_name='新负责人')
+    transferred_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_transfers', verbose_name='操作人')
+    transferred_at = models.DateTimeField(auto_now_add=True, verbose_name='转移时间')
+    remark = models.TextField(blank=True, verbose_name='备注')
+    
+    class Meta:
+        verbose_name = '客户转移记录'
+        verbose_name_plural = '客户转移记录'
+        ordering = ['-transferred_at']
+    
+    def __str__(self):
+        return f"{self.customer.name} - {self.from_user.username if self.from_user else '无'} -> {self.to_user.username if self.to_user else '无'}"
 
 
 class SalesOrder(models.Model):
@@ -80,17 +163,3 @@ class SalesOrderItemBatch(models.Model):
         return f"{self.order_item.order.order_no} - {self.batch.batch_no} x {self.quantity}"
 
 
-class ShippingNotice(models.Model):
-    """发货通知单"""
-    notice_no = models.CharField(max_length=50, unique=True, verbose_name='通知单号')
-    order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name='shipping_notices', verbose_name='订单')
-    status = models.CharField(max_length=20, default='pending', choices=[('pending', '待发货'), ('shipped', '已发货')], verbose_name='状态')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    
-    class Meta:
-        verbose_name = '发货通知单'
-        verbose_name_plural = '发货通知单'
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.notice_no} - {self.order.order_no}"

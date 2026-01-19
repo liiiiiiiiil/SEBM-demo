@@ -29,7 +29,7 @@
             </div>
             <div class="col-md-3">
                 <strong>总数量：</strong>
-                <p><span class="badge bg-primary fs-6">{{ inventory.quantity }}</span> {{ inventory.unit }}</p>
+                <p><span class="badge bg-primary fs-6">{{ inventory.quantity|floatformat:2 }}</span> {{ inventory.unit }}</p>
             </div>
             <div class="col-md-3">
                 <strong>基础单价：</strong>
@@ -76,7 +76,7 @@
                     <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
                         <td>{{ batch.batch_no }}</td>
                         <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                        <td><strong>{{ batch.quantity }}{{ inventory.unit }}</strong></td>
+                        <td><strong>{{ batch.quantity|floatformat:2 }}{{ inventory.unit }}</strong></td>
                         <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
                         <td>
                             {% if batch.expiry_date %}
@@ -134,9 +134,9 @@
                         </td>
                         <td>
                             {% if transaction.transaction_type == 'sale_out' or transaction.transaction_type == 'production_out' %}
-                                <span class="text-danger">-{{ transaction.quantity }}</span>
+                                <span class="text-danger">-{{ transaction.quantity|floatformat:2 }}</span>
                             {% else %}
-                                <span class="text-success">+{{ transaction.quantity }}</span>
+                                <span class="text-success">+{{ transaction.quantity|floatformat:2 }}</span>
                             {% endif %}
                         </td>
                         <td>{{ transaction.unit }}</td>

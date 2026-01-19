@@ -12,7 +12,7 @@
             {% csrf_token %}
             <div class="alert alert-info">
                 <h5>采购明细</h5>
-                <p>请填写实际收货数量，系统将自动更新库存。</p>
+                <p>请填写收货数量，点击"确认完成"后，该采购任务即完成，系统将自动更新库存。</p>
             </div>
             
             <table class="table table-bordered">
@@ -21,8 +21,7 @@
                         <th>物料</th>
                         <th>类型</th>
                         <th>采购数量</th>
-                        <th>已收货数量</th>
-                        <th>本次收货数量</th>
+                        <th>收货数量</th>
                         <th>批次号</th>
                         <th>批次日期</th>
                         <th>批次单价</th>
@@ -47,7 +46,6 @@
                             {% endif %}
                         </td>
                         <td>{{ item.quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</td>
-                        <td>{{ item.received_quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</td>
                         <td>
                             <input type="number" 
                                    name="received_quantity_{{ item.id }}" 
@@ -55,12 +53,10 @@
                                    step="0.01" 
                                    min="0" 
                                    max="{{ item.quantity }}"
-                                   value="0"
+                                   value="{{ item.quantity }}"
+                                   required
                                    onchange="toggleBatchFields({{ item.id }})">
                             <small class="text-muted">{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</small>
-                            {% if item.received_quantity > 0 %}
-                            <br><small class="text-info">已收货：{{ item.received_quantity }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}</small>
-                            {% endif %}
                         </td>
                         <td>
                             <input type="text" 
@@ -101,7 +97,7 @@
             </table>
             
             <div class="alert alert-warning">
-                <strong>注意：</strong>收货后，系统将自动增加物料库存，并创建批次记录。批次号如不填写将自动生成。
+                <strong>注意：</strong>确认完成后，系统将自动增加物料库存，并创建批次记录。批次号如不填写将自动生成。采购任务将直接标记为已完成。
             </div>
             
             <div class="d-flex justify-content-between">
@@ -144,5 +140,12 @@
             });
         }
     }
+    
+    // 页面加载时，自动启用所有批次字段（因为默认值已经是采购数量）
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for item in task.items.all %}
+        toggleBatchFields({{ item.id }});
+        {% endfor %}
+    });
 </script>
 {% endblock %}

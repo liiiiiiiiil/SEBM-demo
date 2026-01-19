@@ -1,5 +1,5 @@
 from django.db import models
-from sales.models import SalesOrder, ShippingNotice
+from sales.models import SalesOrder
 
 
 class Driver(models.Model):
@@ -42,6 +42,22 @@ class Vehicle(models.Model):
     
     def __str__(self):
         return f"{self.plate_no} - {self.get_vehicle_type_display()}"
+
+
+class ShippingNotice(models.Model):
+    """发货通知单"""
+    notice_no = models.CharField(max_length=50, unique=True, verbose_name='通知单号')
+    order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name='shipping_notices', verbose_name='订单')
+    status = models.CharField(max_length=20, default='pending', choices=[('pending', '待发货'), ('shipped', '已发货')], verbose_name='状态')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    
+    class Meta:
+        verbose_name = '发货通知单'
+        verbose_name_plural = '发货通知单'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.notice_no} - {self.order.order_no}"
 
 
 class Shipment(models.Model):

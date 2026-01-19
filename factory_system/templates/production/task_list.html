@@ -78,8 +78,8 @@
                             {% endif %}
                         </td>
                         <td>{{ task.product.name }}</td>
-                        <td>{{ task.required_quantity }}{{ task.product.unit }}</td>
-                        <td>{{ task.completed_quantity }}{{ task.product.unit }}</td>
+                        <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
+                        <td>{{ task.completed_quantity|floatformat:2 }}{{ task.product.unit }}</td>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-secondary">待接收</span>
