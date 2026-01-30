@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import MaterialCategory, Material, Product, BOM, Inventory, StockTransaction
+from .models import (
+    MaterialCategory, Material, Product, BOM, Inventory, StockTransaction,
+    Unit, MaterialPackagingUnit, MaterialUnitChangeHistory,
+    ProductPackagingUnit, ProductUnitChangeHistory
+)
 
 
 @admin.register(MaterialCategory)
@@ -42,4 +46,45 @@ class StockTransactionAdmin(admin.ModelAdmin):
     list_filter = ['transaction_type', 'created_at']
     readonly_fields = ['created_at']
 
+
+@admin.register(Unit)
+class UnitAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'category', 'is_base', 'display_order', 'is_active']
+    list_filter = ['category', 'is_base', 'is_active']
+    search_fields = ['code', 'name']
+    ordering = ['category', 'display_order', 'code']
+
+
+@admin.register(MaterialPackagingUnit)
+class MaterialPackagingUnitAdmin(admin.ModelAdmin):
+    list_display = ['material', 'packaging_unit_name', 'base_unit', 'conversion_factor', 'is_default', 'is_active']
+    list_filter = ['is_default', 'is_active', 'base_unit']
+    search_fields = ['material__name', 'material__sku', 'packaging_unit_name']
+    ordering = ['material', 'display_order', 'packaging_unit_name']
+
+
+@admin.register(MaterialUnitChangeHistory)
+class MaterialUnitChangeHistoryAdmin(admin.ModelAdmin):
+    list_display = ['material', 'old_unit', 'new_unit', 'conversion_factor', 'changed_by', 'changed_at', 'approval_status']
+    list_filter = ['approval_status', 'changed_at']
+    search_fields = ['material__name', 'material__sku', 'old_unit', 'new_unit', 'reason']
+    readonly_fields = ['changed_at', 'old_inventory_quantity', 'new_inventory_quantity']
+    ordering = ['-changed_at']
+
+
+@admin.register(ProductPackagingUnit)
+class ProductPackagingUnitAdmin(admin.ModelAdmin):
+    list_display = ['product', 'packaging_unit_name', 'base_unit', 'conversion_factor', 'is_default', 'is_active']
+    list_filter = ['is_default', 'is_active', 'base_unit']
+    search_fields = ['product__name', 'product__sku', 'packaging_unit_name']
+    ordering = ['product', 'display_order', 'packaging_unit_name']
+
+
+@admin.register(ProductUnitChangeHistory)
+class ProductUnitChangeHistoryAdmin(admin.ModelAdmin):
+    list_display = ['product', 'old_unit', 'new_unit', 'conversion_factor', 'changed_by', 'changed_at', 'approval_status']
+    list_filter = ['approval_status', 'changed_at']
+    search_fields = ['product__name', 'product__sku', 'old_unit', 'new_unit', 'reason']
+    readonly_fields = ['changed_at', 'old_inventory_quantity', 'new_inventory_quantity']
+    ordering = ['-changed_at']
 

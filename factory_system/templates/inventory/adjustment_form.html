@@ -14,13 +14,71 @@
             <p><strong>物品名称：</strong>
                 {% if inventory.inventory_type == 'product' %}
                     {{ inventory.product.name }}
-                {% else %}
+                {% elif inventory.inventory_type == 'material' %}
                     {{ inventory.material.name }}
+                {% else %}
+                    {{ inventory.other_name }}
                 {% endif %}
             </p>
             <p><strong>当前数量：</strong>{{ inventory.quantity|floatformat:2 }}{{ inventory.unit }}</p>
             <p><strong>当前单价：</strong>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
         </div>
+        
+        <!-- 单位管理入口 -->
+        {% if inventory.inventory_type == 'material' and inventory.material %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-gear"></i> 单位管理 - 原料</h5>
+            </div>
+            <div class="card-body">
+                <div class="btn-group-vertical w-100" role="group">
+                    <a href="{% url 'inventory:packaging_unit_list' inventory.material.id %}" class="btn btn-outline-primary mb-2">
+                        <i class="bi bi-box-seam"></i> 包装单位管理
+                    </a>
+                    <a href="{% url 'inventory:unit_change_request' inventory.material.id %}" class="btn btn-outline-primary mb-2">
+                        <i class="bi bi-arrow-repeat"></i> 单位变更
+                    </a>
+                    <a href="{% url 'inventory:unit_change_history' inventory.material.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-clock-history"></i> 变更历史
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% elif inventory.inventory_type == 'product' and inventory.product %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-gear"></i> 单位管理 - 成品</h5>
+            </div>
+            <div class="card-body">
+                <div class="btn-group-vertical w-100" role="group">
+                    <a href="{% url 'inventory:product_packaging_unit_list' inventory.product.id %}" class="btn btn-outline-primary mb-2">
+                        <i class="bi bi-box-seam"></i> 包装单位管理
+                    </a>
+                    <a href="{% url 'inventory:product_unit_change_request' inventory.product.id %}" class="btn btn-outline-primary mb-2">
+                        <i class="bi bi-arrow-repeat"></i> 单位变更
+                    </a>
+                    <a href="{% url 'inventory:product_unit_change_history' inventory.product.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-clock-history"></i> 变更历史
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% elif inventory.inventory_type == 'other' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-gear"></i> 单位管理 - 其它</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning mb-0">
+                    <i class="bi bi-info-circle"></i> 其它类型库存暂不支持单位管理。
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <hr class="my-4">
+        
+        <h5 class="mb-3"><i class="bi bi-pencil"></i> 库存调整</h5>
         
         <form method="post">
             {% csrf_token %}

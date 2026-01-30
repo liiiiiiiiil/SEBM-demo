@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}包装单位管理 - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box-seam"></i> 包装单位管理 - {{ product.name }}</h2>
+    <div>
+        <a href="{% url 'inventory:product_packaging_unit_create' product.id %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 添加包装单位
+        </a>
+        <a href="{% url 'inventory:inventory_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5>成品信息</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <strong>SKU编码：</strong>{{ product.sku }}
+            </div>
+            <div class="col-md-3">
+                <strong>产品名称：</strong>{{ product.name }}
+            </div>
+            <div class="col-md-3">
+                <strong>基础单位：</strong>{{ product.get_base_unit }}
+            </div>
+            <div class="col-md-3">
+                <strong>单价：</strong>¥{{ product.unit_price|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5>包装单位列表</h5>
+    </div>
+    <div class="card-body">
+        {% if packaging_units %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>包装单位名称</th>
+                        <th>基础单位</th>
+                        <th>转换系数</th>
+                        <th>说明</th>
+                        <th>是否默认</th>
+                        <th>显示顺序</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pkg_unit in packaging_units %}
+                    <tr>
+                        <td>{{ pkg_unit.packaging_unit_name }}</td>
+                        <td>{{ pkg_unit.base_unit.name }}({{ pkg_unit.base_unit.code }})</td>
+                        <td>{{ pkg_unit.conversion_factor|floatformat:4 }}</td>
+                        <td>{{ pkg_unit.get_display_text }}</td>
+                        <td>
+                            {% if pkg_unit.is_default %}
+                            <span class="badge bg-success">是</span>
+                            {% else %}
+                            <span class="badge bg-secondary">否</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ pkg_unit.display_order }}</td>
+                        <td>
+                            <a href="{% url 'inventory:product_packaging_unit_edit' product.id pkg_unit.id %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </a>
+                            <a href="{% url 'inventory:product_packaging_unit_delete' product.id pkg_unit.id %}" 
+                               class="btn btn-sm btn-danger"
+                               onclick="return confirm('确定要删除包装单位\"{{ pkg_unit.packaging_unit_name }}\"吗？')">
+                                <i class="bi bi-trash"></i> 删除
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 暂无包装单位，请点击"添加包装单位"创建。
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

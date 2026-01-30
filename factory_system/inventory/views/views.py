@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from decimal import Decimal
 from accounts.decorators import role_required, permission_required, role_or_permission_required
-from .models import Inventory, StockTransaction, Product, Material, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM
+from inventory.models import Inventory, StockTransaction, Product, Material, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM
 
 
 @login_required
@@ -252,7 +252,7 @@ def product_list(request):
 @role_or_permission_required('warehouse', 'ceo', permission_code='inventory.product.manage')
 def product_create(request):
     """创建产品"""
-    from .forms import ProductForm
+    from inventory.forms import ProductForm
     
     if request.method == 'POST':
         form = ProductForm(request.POST)
@@ -270,7 +270,7 @@ def product_create(request):
 @role_or_permission_required('warehouse', 'ceo', permission_code='inventory.product.manage')
 def product_edit(request, pk):
     """编辑产品"""
-    from .forms import ProductForm
+    from inventory.forms import ProductForm
     
     product = get_object_or_404(Product, pk=pk)
     
@@ -304,7 +304,7 @@ def product_delete(request, pk):
 @role_or_permission_required('warehouse', 'ceo', permission_code='inventory.adjustment.create')
 def inventory_adjustment_create(request, inventory_pk):
     """创建库存调整申请"""
-    from .forms import InventoryAdjustmentRequestForm
+    from inventory.forms import InventoryAdjustmentRequestForm
     from django.utils import timezone
     
     inventory = get_object_or_404(Inventory, pk=inventory_pk)

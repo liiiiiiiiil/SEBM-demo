@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if action == 'create' %}添加包装单位{% else %}编辑包装单位{% endif %} - {{ material.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>{% if action == 'create' %}添加包装单位{% else %}编辑包装单位{% endif %} - {{ material.name }}</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>物料信息</h5>
+            <p><strong>SKU编码：</strong>{{ material.sku }} | <strong>物料名称：</strong>{{ material.name }} | <strong>基础单位：</strong>{{ material.get_base_unit }}</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="packaging_unit_name" class="form-label">包装单位名称 <span class="text-danger">*</span></label>
+                <input type="text" 
+                       class="form-control" 
+                       id="packaging_unit_name" 
+                       name="packaging_unit_name" 
+                       value="{% if packaging_unit %}{{ packaging_unit.packaging_unit_name }}{% endif %}"
+                       required
+                       placeholder="例如：袋、箱、桶等">
+                <small class="form-text text-muted">包装单位的名称，如"袋"、"箱"、"桶"等</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="base_unit" class="form-label">基础单位 <span class="text-danger">*</span></label>
+                <select class="form-select" id="base_unit" name="base_unit" required>
+                    <option value="">请选择基础单位</option>
+                    {% for unit in base_units %}
+                    <option value="{{ unit.id }}" 
+                            {% if packaging_unit and packaging_unit.base_unit.id == unit.id %}selected{% endif %}>
+                        {{ unit.name }}({{ unit.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">选择该包装单位对应的基础单位</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="conversion_factor" class="form-label">转换系数 <span class="text-danger">*</span></label>
+                <input type="number" 
+                       class="form-control" 
+                       id="conversion_factor" 
+                       name="conversion_factor" 
+                       value="{% if packaging_unit %}{{ packaging_unit.conversion_factor }}{% endif %}"
+                       step="0.0001"
+                       min="0.0001"
+                       required
+                       placeholder="例如：100（表示1袋=100kg）">
+                <small class="form-text text-muted">
+                    转换系数表示：1个包装单位 = 转换系数 个基础单位<br>
+                    例如：1袋=100kg，则转换系数为100
+                </small>
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" 
+                           type="checkbox" 
+                           id="is_default" 
+                           name="is_default"
+                           {% if packaging_unit and packaging_unit.is_default %}checked{% endif %}>
+                    <label class="form-check-label" for="is_default">
+                        设为默认包装单位
+                    </label>
+                </div>
+                <small class="form-text text-muted">如果勾选，该包装单位将作为该物料的默认包装单位</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="remark" class="form-label">备注</label>
+                <textarea class="form-control" 
+                          id="remark" 
+                          name="remark" 
+                          rows="3"
+                          placeholder="可选，填写备注信息">{% if packaging_unit %}{{ packaging_unit.remark }}{% endif %}</textarea>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> 保存
+                </button>
+                <a href="{% url 'inventory:packaging_unit_list' material.id %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

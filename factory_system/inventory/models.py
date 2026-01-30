@@ -2,6 +2,34 @@ from django.db import models
 from django.core.validators import MinValueValidator
 
 
+class Unit(models.Model):
+    """基础单位字典表"""
+    UNIT_CATEGORY_CHOICES = [
+        ('weight', '重量'),
+        ('length', '长度'),
+        ('volume', '体积'),
+        ('quantity', '数量'),
+        ('packaging', '包装'),
+    ]
+    
+    code = models.CharField(max_length=20, unique=True, verbose_name='单位代码')
+    name = models.CharField(max_length=50, verbose_name='单位名称')
+    category = models.CharField(max_length=20, choices=UNIT_CATEGORY_CHOICES, verbose_name='单位类别')
+    is_base = models.BooleanField(default=False, verbose_name='是否为基础计量单位')
+    display_order = models.IntegerField(default=0, verbose_name='显示顺序')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    
+    class Meta:
+        verbose_name = '基础单位'
+        verbose_name_plural = '基础单位'
+        ordering = ['category', 'display_order', 'code']
+        db_table = 'inventory_unit'
+    
+    def __str__(self):
+        return f"{self.name}({self.code})"
+
+
 class MaterialCategory(models.Model):
     """原料分类"""
     name = models.CharField(max_length=100, unique=True, verbose_name='分类名称')
@@ -27,7 +55,15 @@ class Material(models.Model):
     name = models.CharField(max_length=200, verbose_name='名称')
     category = models.ForeignKey(MaterialCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name='分类')
     material_type = models.CharField(max_length=20, choices=MATERIAL_TYPE_CHOICES, default='raw', verbose_name='类型')
-    unit = models.CharField(max_length=20, default='kg', verbose_name='单位')
+    unit = models.CharField(max_length=20, default='kg', verbose_name='单位（显示单位）')
+    base_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='materials',
+        verbose_name='基础单位'
+    )
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='单价')
     safety_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='安全库存')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
@@ -39,6 +75,166 @@ class Material(models.Model):
     
     def __str__(self):
         return f"{self.sku} - {self.name}"
+    
+    def get_base_unit(self):
+        """获取基础单位代码"""
+        if self.base_unit:
+            return self.base_unit.code
+        return self.unit
+    
+    def get_packaging_units(self):
+        """获取所有启用的包装单位"""
+        return self.packaging_units.filter(is_active=True).order_by('display_order')
+    
+    def get_default_packaging_unit(self):
+        """获取默认包装单位"""
+        return self.packaging_units.filter(is_active=True, is_default=True).first()
+    
+    def convert_quantity(self, quantity, from_unit, to_unit):
+        """转换数量（便捷方法）"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.convert_quantity(
+            quantity, from_unit, to_unit, material=self
+        )
+    
+    def convert_price(self, price, from_unit, to_unit):
+        """转换单价（便捷方法）"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.convert_price(
+            price, from_unit, to_unit, material=self
+        )
+    
+    def get_available_units(self):
+        """获取可用单位列表"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.get_available_units(material=self)
+
+
+class MaterialPackagingUnit(models.Model):
+    """物料特定的包装单位定义"""
+    material = models.ForeignKey(
+        Material,
+        on_delete=models.CASCADE,
+        related_name='packaging_units',
+        verbose_name='物料'
+    )
+    packaging_unit_name = models.CharField(max_length=20, verbose_name='包装单位名称')
+    base_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        related_name='material_packaging_units',
+        verbose_name='基础单位'
+    )
+    conversion_factor = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        validators=[MinValueValidator(0.0001)],
+        verbose_name='转换系数',
+        help_text='1个包装单位 = 转换系数 个基础单位。例如：1袋=100kg，则系数为100'
+    )
+    is_default = models.BooleanField(default=False, verbose_name='是否默认包装单位')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    display_order = models.IntegerField(default=0, verbose_name='显示顺序')
+    remark = models.TextField(blank=True, verbose_name='备注')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '物料包装单位'
+        verbose_name_plural = '物料包装单位'
+        unique_together = ['material', 'packaging_unit_name']
+        ordering = ['material', 'display_order', 'packaging_unit_name']
+        db_table = 'inventory_material_packaging_unit'
+    
+    def __str__(self):
+        return f"{self.material.name} - {self.packaging_unit_name} ({self.conversion_factor}{self.base_unit.code})"
+    
+    def convert_to_base(self, packaging_quantity):
+        """将包装单位数量转换为基础单位数量"""
+        from decimal import Decimal
+        return Decimal(str(packaging_quantity)) * self.conversion_factor
+    
+    def convert_from_base(self, base_quantity):
+        """将基础单位数量转换为包装单位数量"""
+        from decimal import Decimal
+        if self.conversion_factor == 0:
+            raise ValueError("转换系数不能为0")
+        return Decimal(str(base_quantity)) / self.conversion_factor
+    
+    def get_display_text(self):
+        """获取显示文本：如"袋(100kg/袋)" """
+        return f"{self.packaging_unit_name}({self.conversion_factor}{self.base_unit.code}/{self.packaging_unit_name})"
+
+
+class MaterialUnitChangeHistory(models.Model):
+    """物料单位变更历史记录"""
+    material = models.ForeignKey(
+        Material,
+        on_delete=models.CASCADE,
+        related_name='unit_change_history',
+        verbose_name='物料'
+    )
+    
+    # 变更前信息
+    old_unit = models.CharField(max_length=20, verbose_name='旧单位')
+    old_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='旧单价')
+    old_safety_stock = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='旧安全库存')
+    
+    # 变更后信息
+    new_unit = models.CharField(max_length=20, verbose_name='新单位')
+    new_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='新单价')
+    new_safety_stock = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='新安全库存')
+    
+    # 转换信息
+    conversion_factor = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        verbose_name='转换系数'
+    )
+    # 说明：新单位数量 = 旧单位数量 × conversion_factor
+    #      新单价 = 旧单价 ÷ conversion_factor
+    
+    # 变更时的库存快照
+    old_inventory_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='变更前库存数量')
+    new_inventory_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='变更后库存数量')
+    
+    # 变更信息
+    changed_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.PROTECT,
+        related_name='material_unit_changes',
+        verbose_name='变更人'
+    )
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name='变更时间')
+    reason = models.TextField(verbose_name='变更原因')
+    approval_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('auto', '自动通过'),
+            ('approved', '已审批'),
+            ('rejected', '已拒绝'),
+        ],
+        default='auto',
+        verbose_name='审批状态'
+    )
+    approved_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_unit_changes',
+        verbose_name='审批人'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    
+    class Meta:
+        verbose_name = '物料单位变更历史'
+        verbose_name_plural = '物料单位变更历史'
+        ordering = ['-changed_at']
+        db_table = 'inventory_material_unit_change_history'
+    
+    def __str__(self):
+        return f"{self.material.name} - {self.old_unit} → {self.new_unit} ({self.changed_at})"
 
 
 class ProductCategory(models.Model):
@@ -62,7 +258,15 @@ class Product(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='基础单价')
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='售价')
     safety_stock = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='安全库存')
-    unit = models.CharField(max_length=20, default='件', verbose_name='单位')
+    unit = models.CharField(max_length=20, default='件', verbose_name='单位（显示单位）')
+    base_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='products',
+        verbose_name='基础单位'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -73,6 +277,168 @@ class Product(models.Model):
     
     def __str__(self):
         return f"{self.sku} - {self.name}"
+    
+    def get_base_unit(self):
+        """获取基础单位代码"""
+        if self.base_unit:
+            return self.base_unit.code
+        return self.unit
+    
+    def get_packaging_units(self):
+        """获取所有启用的包装单位"""
+        return self.packaging_units.filter(is_active=True).order_by('display_order')
+    
+    def get_default_packaging_unit(self):
+        """获取默认包装单位"""
+        return self.packaging_units.filter(is_active=True, is_default=True).first()
+    
+    def convert_quantity(self, quantity, from_unit, to_unit):
+        """转换数量（便捷方法）"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.convert_quantity(
+            quantity, from_unit, to_unit, product=self
+        )
+    
+    def convert_price(self, price, from_unit, to_unit):
+        """转换单价（便捷方法）"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.convert_price(
+            price, from_unit, to_unit, product=self
+        )
+    
+    def get_available_units(self):
+        """获取可用单位列表"""
+        from inventory.services.unit_conversion import UnitConversionService
+        return UnitConversionService.get_available_units(product=self)
+
+
+class ProductPackagingUnit(models.Model):
+    """成品特定的包装单位定义（与MaterialPackagingUnit对称）"""
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='packaging_units',
+        verbose_name='成品'
+    )
+    packaging_unit_name = models.CharField(max_length=20, verbose_name='包装单位名称')
+    base_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        related_name='product_packaging_units',
+        verbose_name='基础单位'
+    )
+    conversion_factor = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        validators=[MinValueValidator(0.0001)],
+        verbose_name='转换系数',
+        help_text='1个包装单位 = 转换系数 个基础单位。例如：1箱=12件，则系数为12'
+    )
+    is_default = models.BooleanField(default=False, verbose_name='是否默认包装单位')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+    display_order = models.IntegerField(default=0, verbose_name='显示顺序')
+    remark = models.TextField(blank=True, verbose_name='备注')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    
+    class Meta:
+        verbose_name = '成品包装单位'
+        verbose_name_plural = '成品包装单位'
+        unique_together = ['product', 'packaging_unit_name']
+        ordering = ['product', 'display_order', 'packaging_unit_name']
+        db_table = 'inventory_product_packaging_unit'
+    
+    def __str__(self):
+        return f"{self.product.name} - {self.packaging_unit_name} ({self.conversion_factor}{self.base_unit.code})"
+    
+    def convert_to_base(self, packaging_quantity):
+        """将包装单位数量转换为基础单位数量"""
+        from decimal import Decimal
+        return Decimal(str(packaging_quantity)) * self.conversion_factor
+    
+    def convert_from_base(self, base_quantity):
+        """将基础单位数量转换为包装单位数量"""
+        from decimal import Decimal
+        if self.conversion_factor == 0:
+            raise ValueError("转换系数不能为0")
+        return Decimal(str(base_quantity)) / self.conversion_factor
+    
+    def get_display_text(self):
+        """获取显示文本：如"箱(12件/箱)" """
+        return f"{self.packaging_unit_name}({self.conversion_factor}{self.base_unit.code}/{self.packaging_unit_name})"
+
+
+class ProductUnitChangeHistory(models.Model):
+    """成品单位变更历史记录（与MaterialUnitChangeHistory对称）"""
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='unit_change_history',
+        verbose_name='成品'
+    )
+    
+    # 变更前信息
+    old_unit = models.CharField(max_length=20, verbose_name='旧单位')
+    old_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='旧单价')
+    old_sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='旧售价')
+    old_safety_stock = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='旧安全库存')
+    
+    # 变更后信息
+    new_unit = models.CharField(max_length=20, verbose_name='新单位')
+    new_unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='新单价')
+    new_sale_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='新售价')
+    new_safety_stock = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='新安全库存')
+    
+    # 转换信息
+    conversion_factor = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        verbose_name='转换系数'
+    )
+    # 说明：新单位数量 = 旧单位数量 × conversion_factor
+    #      新单价 = 旧单价 ÷ conversion_factor
+    
+    # 变更时的库存快照
+    old_inventory_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='变更前库存数量')
+    new_inventory_quantity = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='变更后库存数量')
+    
+    # 变更信息
+    changed_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.PROTECT,
+        related_name='product_unit_changes',
+        verbose_name='变更人'
+    )
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name='变更时间')
+    reason = models.TextField(verbose_name='变更原因')
+    approval_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('auto', '自动通过'),
+            ('approved', '已审批'),
+            ('rejected', '已拒绝'),
+        ],
+        default='auto',
+        verbose_name='审批状态'
+    )
+    approved_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_product_unit_changes',
+        verbose_name='审批人'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    
+    class Meta:
+        verbose_name = '成品单位变更历史'
+        verbose_name_plural = '成品单位变更历史'
+        ordering = ['-changed_at']
+        db_table = 'inventory_product_unit_change_history'
+    
+    def __str__(self):
+        return f"{self.product.name} - {self.old_unit} → {self.new_unit} ({self.changed_at})"
 
 
 class BOM(models.Model):
