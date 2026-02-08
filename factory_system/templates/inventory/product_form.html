@@ -72,10 +72,19 @@
             </div>
             
             <div class="mb-3">
-                <label class="form-label">{{ form.unit.label }}</label>
-                {{ form.unit }}
-                {% if form.unit.errors %}
-                <div class="text-danger">{{ form.unit.errors }}</div>
+                <label class="form-label">{{ form.base_unit.label }} <span class="text-danger">*</span></label>
+                {{ form.base_unit }}
+                {% if form.base_unit.errors %}
+                <div class="text-danger">{{ form.base_unit.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">{{ form.display_unit.label }}</label>
+                {{ form.display_unit }}
+                <small class="form-text text-muted">显示单位（可选），用于前端展示。留空则使用基础单位。</small>
+                {% if form.display_unit.errors %}
+                <div class="text-danger">{{ form.display_unit.errors }}</div>
                 {% endif %}
             </div>
             

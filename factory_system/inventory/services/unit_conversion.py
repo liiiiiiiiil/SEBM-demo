@@ -1,259 +1,204 @@
+"""统一单位换算服务
+
+替代旧版 UnitConversionService，基于 ItemUnitConversion 换算表实现。
+所有换算通过 base_unit 作为中间桥梁：
+    to_base:   任意单位 → 基础单位
+    from_base: 基础单位 → 任意单位
+    convert:   任意单位 A → 基础单位 → 任意单位 B
+"""
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 
 
 class UnitConversionService:
-    """单位转换服务类"""
-    
+    """统一单位换算服务"""
+
     @staticmethod
-    def convert_quantity(quantity, from_unit, to_unit, material=None, product=None):
+    def get_factor(item, unit) -> Decimal:
         """
-        转换数量
-        
+        获取 unit 相对于 item.base_unit 的换算系数。
+        返回值含义：1 unit = factor × base_unit
+
         参数:
-            quantity: 数量（Decimal或数字）
-            from_unit: 源单位（str）
-            to_unit: 目标单位（str）
-            material: 物料对象（可选）
-            product: 成品对象（可选）
-        
+            item: Material 或 Product 实例
+            unit: Unit 实例或 unit code 字符串
+
         返回:
-            转换后的数量（Decimal）
-        
+            Decimal — 换算系数
+
         异常:
-            ValueError: 无法转换时抛出
+            ValueError — 单位不合法时抛出
+        """
+        from inventory.models import Unit, ItemUnitConversion
+
+        # 解析 unit 参数
+        if isinstance(unit, str):
+            try:
+                unit_obj = Unit.objects.get(code=unit)
+            except Unit.DoesNotExist:
+                raise ValueError(f"未找到单位代码：{unit}")
+        else:
+            unit_obj = unit
+
+        # 如果 unit == base_unit，factor = 1
+        if unit_obj.pk == item.base_unit_id:
+            return Decimal('1')
+
+        # 查换算表
+        content_type = 'material' if hasattr(item, 'material_type') else 'product'
+        filters = {
+            'content_type': content_type,
+            'target_unit': unit_obj,
+            'is_active': True,
+        }
+        if content_type == 'material':
+            filters['material'] = item
+        else:
+            filters['product'] = item
+
+        conversion = ItemUnitConversion.objects.filter(**filters).first()
+        if conversion:
+            return conversion.factor
+
+        raise ValueError(
+            f"单位「{unit_obj.name}」不在「{item.name}」的合法单位列表中。"
+            f"请在换算表中添加该单位的换算关系。"
+        )
+
+    @staticmethod
+    def to_base(item, quantity, from_unit) -> Decimal:
+        """将任意单位数量转换为基础单位数量。
+        
+        base_qty = quantity × get_factor(item, from_unit)
         """
         quantity = Decimal(str(quantity))
-        
-        # 如果单位相同，直接返回
-        if from_unit == to_unit:
-            return quantity
-        
-        # 优先使用物料
-        item = material or product
-        if not item:
-            raise ValueError("需要提供物料或成品对象以进行单位转换")
-        
-        # 获取基础单位
-        base_unit_code = item.get_base_unit() if hasattr(item, 'get_base_unit') else item.unit
-        
-        # 情况1：从包装单位转换为基础单位
-        if from_unit != base_unit_code:
-            packaging_unit = None
-            if material:
-                packaging_unit = material.packaging_units.filter(
-                    packaging_unit_name=from_unit,
-                    is_active=True
-                ).first()
-            elif product and hasattr(product, 'packaging_units'):
-                packaging_unit = product.packaging_units.filter(
-                    packaging_unit_name=from_unit,
-                    is_active=True
-                ).first()
-            
-            if packaging_unit:
-                # 转换为基础单位
-                base_quantity = packaging_unit.convert_to_base(quantity)
-                
-                # 如果目标单位是基础单位，直接返回
-                if to_unit == base_unit_code:
-                    return base_quantity
-                
-                # 如果目标单位也是包装单位
-                target_packaging = None
-                if material:
-                    target_packaging = material.packaging_units.filter(
-                        packaging_unit_name=to_unit,
-                        is_active=True
-                    ).first()
-                elif product and hasattr(product, 'packaging_units'):
-                    target_packaging = product.packaging_units.filter(
-                        packaging_unit_name=to_unit,
-                        is_active=True
-                    ).first()
-                
-                if target_packaging:
-                    # 从基础单位转换为目标包装单位
-                    return target_packaging.convert_from_base(base_quantity)
-        
-        # 情况2：从基础单位转换为包装单位
-        if from_unit == base_unit_code:
-            packaging_unit = None
-            if material:
-                packaging_unit = material.packaging_units.filter(
-                    packaging_unit_name=to_unit,
-                    is_active=True
-                ).first()
-            elif product and hasattr(product, 'packaging_units'):
-                packaging_unit = product.packaging_units.filter(
-                    packaging_unit_name=to_unit,
-                    is_active=True
-                ).first()
-            
-            if packaging_unit:
-                return packaging_unit.convert_from_base(quantity)
-        
-        # 无法转换
-        raise ValueError(
-            f"无法转换：{from_unit} → {to_unit}。"
-            f"请检查物料/成品是否定义了相应的包装单位。"
-        )
-    
+        factor = UnitConversionService.get_factor(item, from_unit)
+        return quantity * factor
+
     @staticmethod
-    def convert_price(price, from_unit, to_unit, material=None, product=None):
+    def from_base(item, base_quantity, to_unit) -> Decimal:
+        """将基础单位数量转换为目标单位数量。
+        
+        target_qty = base_quantity ÷ get_factor(item, to_unit)
         """
-        转换单价
-        
-        参数:
-            price: 单价（Decimal或数字）
-            from_unit: 源单位（str）
-            to_unit: 目标单位（str）
-            material: 物料对象（可选）
-            product: 成品对象（可选）
-        
-        返回:
-            转换后的单价（Decimal）
-        
-        说明:
-            单价转换公式：新单价 = 旧单价 ÷ 转换系数
-            例如：0.5元/kg，1袋=100kg，则50元/袋
-        """
-        price = Decimal(str(price))
-        
-        if from_unit == to_unit:
-            return price
-        
-        # 获取转换系数
-        conversion_factor = UnitConversionService.get_conversion_factor(
-            from_unit, to_unit, material, product
-        )
-        
-        # 单价转换：新单价 = 旧单价 ÷ 转换系数
-        return price / conversion_factor
-    
+        base_quantity = Decimal(str(base_quantity))
+        factor = UnitConversionService.get_factor(item, to_unit)
+        if factor == 0:
+            raise ValueError("换算系数不能为0")
+        return base_quantity / factor
+
     @staticmethod
-    def get_conversion_factor(from_unit, to_unit, material=None, product=None):
-        """获取转换系数"""
-        if from_unit == to_unit:
-            return Decimal('1')
+    def convert(item, quantity, from_unit, to_unit) -> Decimal:
+        """任意两个合法单位之间互转。
         
-        item = material or product
-        if not item:
-            raise ValueError("需要提供物料或成品对象")
-        
-        base_unit_code = item.get_base_unit() if hasattr(item, 'get_base_unit') else item.unit
-        
-        # 从包装单位到基础单位
-        if from_unit != base_unit_code:
-            packaging_unit = None
-            if material:
-                packaging_unit = material.packaging_units.filter(
-                    packaging_unit_name=from_unit,
-                    is_active=True
-                ).first()
-            elif product and hasattr(product, 'packaging_units'):
-                packaging_unit = product.packaging_units.filter(
-                    packaging_unit_name=from_unit,
-                    is_active=True
-                ).first()
-            
-            if packaging_unit:
-                factor = packaging_unit.conversion_factor
-                
-                # 目标单位是基础单位
-                if to_unit == base_unit_code:
-                    return factor
-                
-                # 目标单位也是包装单位
-                target_packaging = None
-                if material:
-                    target_packaging = material.packaging_units.filter(
-                        packaging_unit_name=to_unit,
-                        is_active=True
-                    ).first()
-                elif product and hasattr(product, 'packaging_units'):
-                    target_packaging = product.packaging_units.filter(
-                        packaging_unit_name=to_unit,
-                        is_active=True
-                    ).first()
-                
-                if target_packaging:
-                    # 从包装单位A到包装单位B
-                    # 例如：从"袋"到"箱"，需要知道1箱=多少袋
-                    # 这里假设都是基于同一个基础单位
-                    if packaging_unit.base_unit == target_packaging.base_unit:
-                        return factor / target_packaging.conversion_factor
-        
-        # 从基础单位到包装单位
-        if from_unit == base_unit_code:
-            packaging_unit = None
-            if material:
-                packaging_unit = material.packaging_units.filter(
-                    packaging_unit_name=to_unit,
-                    is_active=True
-                ).first()
-            elif product and hasattr(product, 'packaging_units'):
-                packaging_unit = product.packaging_units.filter(
-                    packaging_unit_name=to_unit,
-                    is_active=True
-                ).first()
-            
-            if packaging_unit:
-                return Decimal('1') / packaging_unit.conversion_factor
-        
-        raise ValueError(f"无法获取转换系数：{from_unit} → {to_unit}")
-    
+        先转为基础单位，再转为目标单位。
+        """
+        from inventory.models import Unit
+
+        # 解析单位
+        if isinstance(from_unit, str):
+            from_unit = Unit.objects.get(code=from_unit)
+        if isinstance(to_unit, str):
+            to_unit = Unit.objects.get(code=to_unit)
+
+        if from_unit.pk == to_unit.pk:
+            return Decimal(str(quantity))
+
+        base_qty = UnitConversionService.to_base(item, quantity, from_unit)
+        return UnitConversionService.from_base(item, base_qty, to_unit)
+
     @staticmethod
-    def get_available_units(material=None, product=None):
-        """
-        获取可用的单位列表（基础单位 + 包装单位）
+    def to_display(item, base_quantity):
+        """将基础单位数量转换为该物料/成品的当前显示单位数量。
         
-        返回:
-            [
-                {'code': 'kg', 'name': '千克', 'type': 'base'},
-                {'code': '袋', 'name': '袋(100kg/袋)', 'type': 'packaging'},
-            ]
+        返回: (display_quantity, display_unit)
         """
+        base_quantity = Decimal(str(base_quantity))
+        display_unit = item.display_unit
+
+        if display_unit.pk == item.base_unit_id:
+            return base_quantity, display_unit
+
+        display_qty = UnitConversionService.from_base(item, base_quantity, display_unit)
+        return display_qty, display_unit
+
+    @staticmethod
+    def from_display(item, display_quantity) -> Decimal:
+        """将显示单位数量转换为基础单位数量。"""
+        return UnitConversionService.to_base(item, display_quantity, item.display_unit)
+
+    @staticmethod
+    def get_available_units(item) -> list:
+        """
+        获取物料/成品的所有可用单位列表。
+        
+        返回: [
+            {'unit': Unit实例, 'factor': Decimal, 'is_base': True/False, 'display_text': str},
+            ...
+        ]
+        包含 base_unit (factor=1) + 所有 ItemUnitConversion 中的 target_unit。
+        """
+        from inventory.models import ItemUnitConversion
+
         units = []
-        item = material or product
-        
-        if not item:
-            return units
-        
+
         # 添加基础单位
-        base_unit_code = item.get_base_unit() if hasattr(item, 'get_base_unit') else item.unit
-        base_unit_obj = None
-        if hasattr(item, 'base_unit') and item.base_unit:
-            base_unit_obj = item.base_unit
+        if item.base_unit:
             units.append({
-                'code': base_unit_obj.code,
-                'name': base_unit_obj.name,
-                'type': 'base',
-                'display_text': base_unit_obj.name
+                'unit': item.base_unit,
+                'code': item.base_unit.code,
+                'name': item.base_unit.name,
+                'factor': Decimal('1'),
+                'is_base': True,
+                'display_text': item.base_unit.name,
             })
+
+        # 添加换算表中的单位
+        content_type = 'material' if hasattr(item, 'material_type') else 'product'
+        filters = {
+            'content_type': content_type,
+            'is_active': True,
+        }
+        if content_type == 'material':
+            filters['material'] = item
         else:
+            filters['product'] = item
+
+        conversions = ItemUnitConversion.objects.filter(**filters).select_related('target_unit')
+        for conv in conversions:
             units.append({
-                'code': base_unit_code,
-                'name': base_unit_code,
-                'type': 'base',
-                'display_text': base_unit_code
+                'unit': conv.target_unit,
+                'code': conv.target_unit.code,
+                'name': conv.target_unit.name,
+                'factor': conv.factor,
+                'is_base': False,
+                'display_text': conv.get_display_text(),
             })
-        
-        # 添加包装单位
-        packaging_units = []
-        if material:
-            packaging_units = material.packaging_units.filter(is_active=True)
-        elif product and hasattr(product, 'packaging_units'):
-            packaging_units = product.packaging_units.filter(is_active=True)
-        
-        for pkg_unit in packaging_units:
-            units.append({
-                'code': pkg_unit.packaging_unit_name,
-                'name': pkg_unit.packaging_unit_name,
-                'type': 'packaging',
-                'display_text': pkg_unit.get_display_text(),
-                'conversion_factor': pkg_unit.conversion_factor,
-                'base_unit': pkg_unit.base_unit.code
-            })
-        
+
         return units
+
+    @staticmethod
+    def validate_bom_unit(bom_item) -> bool:
+        """
+        校验 BOM 行的 unit 是否合法：
+        必须是 bom_item.material 的 base_unit 或其换算表中已定义的 target_unit。
+        """
+        from inventory.models import ItemUnitConversion
+
+        material = bom_item.material
+        unit = bom_item.unit
+
+        if not material or not unit:
+            return False
+
+        # 是基础单位
+        if unit.pk == material.base_unit_id:
+            return True
+
+        # 在换算表中
+        return ItemUnitConversion.objects.filter(
+            content_type='material',
+            material=material,
+            target_unit=unit,
+            is_active=True,
+        ).exists()

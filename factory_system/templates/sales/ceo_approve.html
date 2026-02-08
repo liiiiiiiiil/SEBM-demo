@@ -13,7 +13,7 @@
             <p><strong>订单号：</strong>{{ order.order_no }}</p>
             <p><strong>客户：</strong>{{ order.customer.name }}</p>
             <p><strong>销售员：</strong>{{ order.salesperson.username }}</p>
-            <p><strong>订单总额：</strong>¥{{ order.total_amount }}</p>
+            <p><strong>订单总额：</strong>¥{{ order.total_amount|floatformat:2 }}</p>
             <p><strong>状态：</strong><span class="badge bg-warning">待总经理审批</span></p>
         </div>
         
@@ -31,9 +31,9 @@
                 {% for item in order.items.all %}
                 <tr>
                     <td>{{ item.product.name }}</td>
-                    <td>{{ item.quantity }}{{ item.product.unit }}</td>
-                    <td>¥{{ item.unit_price }}</td>
-                    <td>¥{{ item.subtotal }}</td>
+                    <td>{{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }}</td>
+                    <td>¥{{ item.unit_price|floatformat:2 }}</td>
+                    <td>¥{{ item.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -59,13 +59,13 @@
                     {% for item_check in inventory_check.items %}
                     <tr>
                         <td>{{ item_check.product.name }}</td>
-                        <td>{{ item_check.required_quantity }}{{ item_check.product.unit }}</td>
-                        <td>{{ item_check.available_quantity }}{{ item_check.product.unit }}</td>
+                        <td>{{ item_check.required_quantity|floatformat:2 }}{{ item_check.product.display_unit.name }}</td>
+                        <td>{{ item_check.available_quantity|floatformat:2 }}{{ item_check.product.display_unit.name }}</td>
                         <td>
                             {% if item_check.shortage > 0 %}
-                            <span class="text-danger">{{ item_check.shortage }}{{ item_check.product.unit }}</span>
+                            <span class="text-danger">{{ item_check.shortage|floatformat:2 }}{{ item_check.product.display_unit.name }}</span>
                             {% else %}
-                            <span class="text-success">0{{ item_check.product.unit }}</span>
+                            <span class="text-success">0{{ item_check.product.display_unit.name }}</span>
                             {% endif %}
                         </td>
                         <td>
@@ -79,7 +79,7 @@
                     {% if item_check.shortage > 0 and item_check.material_needs %}
                     <tr class="table-light">
                         <td colspan="5" class="p-2">
-                            <small class="text-muted"><strong>缺口产品 {{ item_check.product.name }} ({{ item_check.shortage }}{{ item_check.product.unit }}) 所需原料：</strong></small>
+                            <small class="text-muted"><strong>缺口产品 {{ item_check.product.name }} ({{ item_check.shortage|floatformat:2 }}{{ item_check.product.display_unit.name }}) 所需原料：</strong></small>
                             <table class="table table-sm table-bordered mb-0 mt-2">
                                 <thead>
                                     <tr>
@@ -93,11 +93,11 @@
                                     {% for material_need in item_check.material_needs %}
                                     <tr>
                                         <td>{{ material_need.material.name }}</td>
-                                        <td>{{ material_need.required }}{{ material_need.unit }}</td>
-                                        <td>{{ material_need.available }}{{ material_need.unit }}</td>
+                                        <td>{{ material_need.required|floatformat:2 }}{{ material_need.unit }}</td>
+                                        <td>{{ material_need.available|floatformat:2 }}{{ material_need.unit }}</td>
                                         <td>
                                             {% if material_need.shortage > 0 %}
-                                            <span class="text-danger">{{ material_need.shortage }}{{ material_need.unit }}</span>
+                                            <span class="text-danger">{{ material_need.shortage|floatformat:2 }}{{ material_need.unit }}</span>
                                             {% else %}
                                             <span class="text-success">0{{ material_need.unit }}</span>
                                             {% endif %}
@@ -130,11 +130,11 @@
                     {% for material_id, material_req in inventory_check.material_requirements.items %}
                     <tr>
                         <td>{{ material_req.material.name }}</td>
-                        <td>{{ material_req.required }}{{ material_req.unit }}</td>
-                        <td>{{ material_req.available }}{{ material_req.unit }}</td>
+                        <td>{{ material_req.required|floatformat:2 }}{{ material_req.unit }}</td>
+                        <td>{{ material_req.available|floatformat:2 }}{{ material_req.unit }}</td>
                         <td>
                             {% if material_req.shortage > 0 %}
-                            <span class="text-danger">{{ material_req.shortage }}{{ material_req.unit }}</span>
+                            <span class="text-danger">{{ material_req.shortage|floatformat:2 }}{{ material_req.unit }}</span>
                             {% else %}
                             <span class="text-success">0{{ material_req.unit }}</span>
                             {% endif %}

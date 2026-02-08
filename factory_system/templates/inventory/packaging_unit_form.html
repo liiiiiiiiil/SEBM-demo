@@ -1,90 +1,81 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if action == 'create' %}添加包装单位{% else %}编辑包装单位{% endif %} - {{ material.name }}{% endblock %}
+{% block title %}{% if conversion %}编辑显示单位{% else %}添加显示单位{% endif %} - {{ material.name }}{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h4>{% if action == 'create' %}添加包装单位{% else %}编辑包装单位{% endif %} - {{ material.name }}</h4>
+        <h4>{% if conversion %}编辑显示单位{% else %}添加显示单位{% endif %} - {{ material.name }}</h4>
     </div>
     <div class="card-body">
-        <div class="alert alert-info">
+        <div class="alert alert-info mb-4">
             <h5>物料信息</h5>
-            <p><strong>SKU编码：</strong>{{ material.sku }} | <strong>物料名称：</strong>{{ material.name }} | <strong>基础单位：</strong>{{ material.get_base_unit }}</p>
+            <p><strong>SKU编码：</strong>{{ material.sku }} | <strong>物料名称：</strong>{{ material.name }} | <strong>基础单位：</strong>{{ material.base_unit.name }}{% if material.base_unit.code %} ({{ material.base_unit.code }}){% endif %}</p>
         </div>
         
         <form method="post">
             {% csrf_token %}
+            {% if conversion %}
+            {# 编辑模式：目标单位只读 #}
             <div class="mb-3">
-                <label for="packaging_unit_name" class="form-label">包装单位名称 <span class="text-danger">*</span></label>
-                <input type="text" 
-                       class="form-control" 
-                       id="packaging_unit_name" 
-                       name="packaging_unit_name" 
-                       value="{% if packaging_unit %}{{ packaging_unit.packaging_unit_name }}{% endif %}"
-                       required
-                       placeholder="例如：袋、箱、桶等">
-                <small class="form-text text-muted">包装单位的名称，如"袋"、"箱"、"桶"等</small>
+                <label class="form-label">目标单位</label>
+                <p class="form-control-plaintext fw-bold">{{ conversion.target_unit.name }}{% if conversion.target_unit.code %} ({{ conversion.target_unit.code }}){% endif %}</p>
+                <small class="form-text text-muted">编辑时不可修改目标单位</small>
             </div>
-            
+            {% else %}
+            {# 创建模式：选择目标单位 #}
             <div class="mb-3">
-                <label for="base_unit" class="form-label">基础单位 <span class="text-danger">*</span></label>
-                <select class="form-select" id="base_unit" name="base_unit" required>
-                    <option value="">请选择基础单位</option>
-                    {% for unit in base_units %}
-                    <option value="{{ unit.id }}" 
-                            {% if packaging_unit and packaging_unit.base_unit.id == unit.id %}selected{% endif %}>
-                        {{ unit.name }}({{ unit.code }})
-                    </option>
+                <label for="target_unit" class="form-label">目标单位 <span class="text-danger">*</span></label>
+                <select class="form-select" id="target_unit" name="target_unit" required>
+                    <option value="">请选择目标单位</option>
+                    {% for unit in available_units %}
+                    <option value="{{ unit.id }}">{{ unit.name }}{% if unit.code %} ({{ unit.code }}){% endif %}</option>
                     {% endfor %}
                 </select>
-                <small class="form-text text-muted">选择该包装单位对应的基础单位</small>
+                <small class="form-text text-muted">选择要添加的换算单位，如吨、袋、桶等</small>
             </div>
+            {% endif %}
             
             <div class="mb-3">
-                <label for="conversion_factor" class="form-label">转换系数 <span class="text-danger">*</span></label>
+                <label for="factor" class="form-label">换算系数 <span class="text-danger">*</span></label>
                 <input type="number" 
                        class="form-control" 
-                       id="conversion_factor" 
-                       name="conversion_factor" 
-                       value="{% if packaging_unit %}{{ packaging_unit.conversion_factor }}{% endif %}"
+                       id="factor" 
+                       name="factor" 
+                       value="{% if conversion %}{{ conversion.factor }}{% endif %}"
                        step="0.0001"
                        min="0.0001"
                        required
-                       placeholder="例如：100（表示1袋=100kg）">
-                <small class="form-text text-muted">
-                    转换系数表示：1个包装单位 = 转换系数 个基础单位<br>
-                    例如：1袋=100kg，则转换系数为100
-                </small>
+                       placeholder="例如：100（表示1目标单位=100千克）">
+                <small class="form-text text-muted">1 目标单位 = 换算系数 个基础单位。例如：1袋=100kg，则系数为100</small>
             </div>
             
             <div class="mb-3">
                 <div class="form-check">
-                    <input class="form-check-input" 
-                           type="checkbox" 
-                           id="is_default" 
-                           name="is_default"
-                           {% if packaging_unit and packaging_unit.is_default %}checked{% endif %}>
-                    <label class="form-check-label" for="is_default">
-                        设为默认包装单位
-                    </label>
+                    <input class="form-check-input" type="checkbox" id="is_default" name="is_default"
+                           {% if conversion and conversion.is_default %}checked{% endif %}>
+                    <label class="form-check-label" for="is_default">设为默认显示单位</label>
                 </div>
-                <small class="form-text text-muted">如果勾选，该包装单位将作为该物料的默认包装单位</small>
             </div>
+            
+            {% if conversion %}
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                           {% if conversion and conversion.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">启用</label>
+                </div>
+            </div>
+            {% endif %}
             
             <div class="mb-3">
                 <label for="remark" class="form-label">备注</label>
-                <textarea class="form-control" 
-                          id="remark" 
-                          name="remark" 
-                          rows="3"
-                          placeholder="可选，填写备注信息">{% if packaging_unit %}{{ packaging_unit.remark }}{% endif %}</textarea>
+                <textarea class="form-control" id="remark" name="remark" rows="2"
+                          placeholder="可选">{% if conversion %}{{ conversion.remark }}{% endif %}</textarea>
             </div>
             
             <div class="d-flex justify-content-between">
-                <button type="submit" class="btn btn-success">
-                    <i class="bi bi-check-circle"></i> 保存
-                </button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> 保存</button>
                 <a href="{% url 'inventory:packaging_unit_list' material.id %}" class="btn btn-secondary">取消</a>
             </div>
         </form>

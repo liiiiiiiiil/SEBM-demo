@@ -12,8 +12,8 @@
             <h5><i class="bi bi-info-circle"></i> 确认完成生产</h5>
             <p>任务单号：<strong>{{ task.task_no }}</strong></p>
             <p>产品：<strong>{{ task.product.name }}</strong></p>
-            <p>需求数量：<strong>{{ task.required_quantity }}{{ task.product.unit }}</strong></p>
-            <p>完成数量：<strong>{{ task.completed_quantity }}{{ task.product.unit }}</strong></p>
+            <p>需求数量：<strong>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</strong></p>
+            <p>完成数量：<strong>{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</strong></p>
             <p class="mb-0">完成生产后，任务将进入<strong>质检环节</strong>。</p>
         </div>
         

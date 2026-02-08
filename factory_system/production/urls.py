@@ -8,6 +8,7 @@ urlpatterns = [
     path('tasks/stock/create/', views.stock_task_create, name='stock_task_create'),
     path('tasks/<int:pk>/', views.task_detail, name='task_detail'),
     path('tasks/<int:pk>/status-api/', views.task_status_api, name='task_status_api'),
+    path('tasks/<int:pk>/material-override/', views.task_material_override_api, name='task_material_override_api'),
     path('tasks/<int:pk>/receive/', views.task_receive, name='task_receive'),
     path('tasks/<int:pk>/complete/', views.task_complete, name='task_complete'),
     path('tasks/<int:pk>/terminate/', views.task_terminate, name='task_terminate'),

@@ -17,18 +17,31 @@
                         <td>{{ adjustment.request_no }}</td>
                     </tr>
                     <tr>
+                        <th>调整类型</th>
+                        <td>
+                            {% with adj_type=adjustment.adjustment_type|default:'quantity' %}
+                            {% if adj_type == 'quantity' %}<span class="badge bg-secondary">数量调整</span>
+                            {% elif adj_type == 'price' %}<span class="badge bg-info">单价调整</span>
+                            {% elif adj_type == 'both' %}<span class="badge bg-primary">数量+单价调整</span>
+                            {% else %}{{ adj_type }}{% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    <tr>
                         <th>库存物品</th>
                         <td>
                             {% if adjustment.inventory.inventory_type == 'product' %}
                                 {{ adjustment.inventory.product.name }}
-                            {% else %}
+                            {% elif adjustment.inventory.inventory_type == 'material' %}
                                 {{ adjustment.inventory.material.name }}
+                            {% else %}
+                                {{ adjustment.inventory.other_name|default:"-" }}
                             {% endif %}
                         </td>
                     </tr>
                     <tr>
                         <th>当前数量</th>
-                        <td>{{ adjustment.current_quantity|floatformat:2 }}{{ adjustment.inventory.unit }}</td>
+                        <td>{{ adjustment.current_quantity|floatformat:2 }}{{ adjustment.inventory.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>调整数量</th>
@@ -38,12 +51,12 @@
                             {% else %}
                             <span class="text-danger">{{ adjustment.adjust_quantity|floatformat:2 }}</span>
                             {% endif %}
-                            {{ adjustment.inventory.unit }}
+                            {{ adjustment.inventory.get_display_unit_name }}
                         </td>
                     </tr>
                     <tr>
                         <th>调整后数量</th>
-                        <td><strong>{{ adjustment.new_quantity|floatformat:2 }}{{ adjustment.inventory.unit }}</strong></td>
+                        <td><strong>{{ adjustment.new_quantity|floatformat:2 }}{{ adjustment.inventory.get_display_unit_name }}</strong></td>
                     </tr>
                     <tr>
                         <th>当前单价</th>
@@ -101,7 +114,9 @@
                         <i class="bi bi-check-circle"></i> 审批通过
                     </button>
                     <div class="alert alert-success mt-2 mb-0">
-                        <small>审批通过后，库存将立即更新为调整后数量{% if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price %}，单价将更新为¥{{ adjustment.new_unit_price|floatformat:2 }}{% endif %}，并创建库存变动记录。</small>
+                        <small>
+                            审批通过后，库存将立即更新为调整后数量{% if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price %}，单价将更新为¥{{ adjustment.new_unit_price|floatformat:2 }}{% endif %}，并创建库存变动记录。
+                        </small>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -136,4 +151,3 @@
     </div>
 </div>
 {% endblock %}
-

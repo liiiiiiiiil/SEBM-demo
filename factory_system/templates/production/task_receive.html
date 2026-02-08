@@ -11,7 +11,7 @@
         <div class="alert alert-info">
             <h5>任务信息</h5>
             <p>产品：{{ task.product.name }}</p>
-            <p>需求数量：{{ task.required_quantity }}{{ task.product.unit }}</p>
+            <p>需求数量：{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</p>
             <p>关联订单：{{ task.order.order_no }}</p>
         </div>
         
@@ -33,9 +33,9 @@
                     {% for material in insufficient_materials %}
                     <tr>
                         <td>{{ material.material.name }}</td>
-                        <td>{{ material.required }}</td>
-                        <td class="text-danger">{{ material.available }}</td>
-                        <td class="text-danger"><strong>{{ material.shortage }}</strong></td>
+                        <td>{{ material.required|floatformat:2 }}</td>
+                        <td class="text-danger">{{ material.available|floatformat:2 }}</td>
+                        <td class="text-danger"><strong>{{ material.shortage|floatformat:2 }} {{ material.unit }}</strong></td>
                         <td>{{ material.unit }}</td>
                     </tr>
                     {% endfor %}

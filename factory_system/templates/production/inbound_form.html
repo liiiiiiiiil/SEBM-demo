@@ -14,9 +14,9 @@
                 <label class="form-label">入库数量 <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" name="quantity" step="0.01" value="{{ remaining_quantity }}" required>
                 <small class="text-muted">
-                    需求数量：{{ task.required_quantity }}{{ task.product.unit }} | 
-                    已完成：{{ task.completed_quantity }}{{ task.product.unit }} | 
-                    剩余：{{ remaining_quantity }}{{ task.product.unit }}
+                    需求数量：{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }} | 
+                    已完成：{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }} | 
+                    剩余：{{ remaining_quantity|floatformat:2 }}{{ task.get_display_unit_name }}
                 </small>
             </div>
             <div class="row mb-3">

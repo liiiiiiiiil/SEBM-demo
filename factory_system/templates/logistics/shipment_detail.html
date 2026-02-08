@@ -53,7 +53,7 @@
                     </tr>
                     <tr>
                         <th>运费</th>
-                        <td>¥{{ shipment.freight_cost }}</td>
+                        <td>¥{{ shipment.freight_cost|floatformat:2 }}</td>
                     </tr>
                     <tr>
                         <th>状态</th>
@@ -110,7 +110,7 @@
                         {% for item in shipment.order.items.all %}
                         <tr>
                             <td>{{ item.product.name }}</td>
-                            <td>{{ item.quantity }}{{ item.product.unit }}</td>
+                            <td>{{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

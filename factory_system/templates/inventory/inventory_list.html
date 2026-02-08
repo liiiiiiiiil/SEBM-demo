@@ -4,18 +4,14 @@
 {% block title %}库存管理{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-box-seam"></i> 库存管理</h2>
-    <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="false" aria-controls="inventoryRecords">
-        <i class="bi bi-list-ul"></i> 库存记录
-    </button>
-</div>
-
-<!-- 库存记录 -->
-<div class="collapse mb-4" id="inventoryRecords">
+<!-- 库存记录：有分页参数时默认展开，避免翻页后回到主界面 -->
+<div class="collapse mb-4 {% if request.GET.page %}show{% endif %}" id="inventoryRecords">
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
             <h5 class="mb-0"><i class="bi bi-list-ul"></i> 库存记录</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="true" aria-controls="inventoryRecords">
+                <i class="bi bi-chevron-double-up"></i> 收起
+            </button>
         </div>
         <div class="card-body">
         <div class="table-responsive">
@@ -140,6 +136,11 @@
             </ul>
         </nav>
         {% endif %}
+        <div class="mt-2 text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="true" aria-controls="inventoryRecords">
+                <i class="bi bi-chevron-double-up"></i> 收起
+            </button>
+        </div>
         </div>
     </div>
 </div>
@@ -258,8 +259,11 @@
 
 <!-- 库存情况 -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
         <h5 class="mb-0"><i class="bi bi-box"></i> 库存情况</h5>
+        <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="{% if request.GET.page %}true{% else %}false{% endif %}" aria-controls="inventoryRecords">
+            <i class="bi bi-list-ul"></i> 库存记录
+        </button>
     </div>
     <div class="card-body">
         <!-- 分类标签页 -->
@@ -299,7 +303,7 @@
                         <th>总数量</th>
                         <th>单位</th>
                         <th>批次数量</th>
-                        <th>基础单价</th>
+                        <th>单价</th>
                         <th>总价值</th>
                         <th>更新时间</th>
                         <th>操作</th>
@@ -320,8 +324,8 @@
                                 -
                             {% endif %}
                         </td>
-                        <td><strong>{{ inv.quantity|floatformat:2 }}</strong></td>
-                        <td>{{ inv.unit }}</td>
+                        <td><strong>{{ inv.get_display_quantity|floatformat:2 }}</strong></td>
+                        <td>{{ inv.get_display_unit_name }}</td>
                         <td>
                             {% if inv.batches_list %}
                             <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#batchModal{{ inv.pk }}">
@@ -331,7 +335,7 @@
                             <span class="text-muted">无批次</span>
                             {% endif %}
                         </td>
-                        <td>¥{{ inv.get_unit_price|floatformat:2 }}</td>
+                        <td>¥{{ inv.get_display_unit_price|floatformat:2 }}</td>
                         <td><strong>¥{{ inv.get_total_value|floatformat:2 }}</strong></td>
                         <td>{{ inv.updated_at|date:"Y-m-d H:i" }}</td>
                         <td>
@@ -403,7 +407,7 @@
                                 <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
                                     <td>{{ batch.batch_no }}</td>
                                     <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                                    <td><strong>{{ batch.quantity|floatformat:2 }}{{ inv.unit }}</strong></td>
+                                    <td><strong>{{ batch.display_quantity|floatformat:2 }}{{ inv.get_display_unit_name }}</strong></td>
                                     <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
                                     <td>
                                         {% if batch.expiry_date %}

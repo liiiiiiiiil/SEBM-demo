@@ -77,7 +77,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {{ item.quantity|floatformat:2 }}{% if item.material %}{{ item.material.unit }}{% else %}{{ item.unit|default:"" }}{% endif %}
+                        {{ item.quantity|floatformat:2 }}{% if item.material %}{{ item.material.display_unit.name }}{% endif %}
                     </td>
                     <td>¥{{ item.unit_price|floatformat:2 }}</td>
                     <td>¥{{ item.subtotal|floatformat:2 }}</td>

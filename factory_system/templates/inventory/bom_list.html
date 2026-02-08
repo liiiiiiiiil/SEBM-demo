@@ -6,9 +6,27 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-check"></i> BOM配方列表</h2>
-    <a href="{% url 'production:task_list' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> 返回生产任务
-    </a>
+    <div>
+        {% if can_manage %}
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-plus-circle"></i> 创建/编辑配方
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                {% for product in products %}
+                <li>
+                    <a class="dropdown-item" href="{% url 'inventory:bom_edit' product.pk %}">
+                        {{ product.sku }} - {{ product.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <a href="{% url 'production:task_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回生产任务
+        </a>
+    </div>
 </div>
 
 <div class="card">
@@ -38,11 +56,18 @@
                 <h5 class="mb-0">
                     <i class="bi bi-box"></i> {{ bom_data.product.sku }} - {{ bom_data.product.name }}
                 </h5>
-                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
-                        data-bs-target="#bom-detail-{{ product_id }}" aria-expanded="false" 
-                        aria-controls="bom-detail-{{ product_id }}">
-                    <i class="bi bi-chevron-down"></i> 详情
-                </button>
+                <div>
+                    {% if can_manage %}
+                    <a href="{% url 'inventory:bom_edit' bom_data.product.pk %}" class="btn btn-sm btn-outline-warning me-1">
+                        <i class="bi bi-pencil-square"></i> 编辑配方
+                    </a>
+                    {% endif %}
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#bom-detail-{{ product_id }}" aria-expanded="false" 
+                            aria-controls="bom-detail-{{ product_id }}">
+                        <i class="bi bi-chevron-down"></i> 详情
+                    </button>
+                </div>
             </div>
             <div class="collapse" id="bom-detail-{{ product_id }}">
                 <div class="card-body">
@@ -53,7 +78,6 @@
                                     <th>原料SKU</th>
                                     <th>原料名称</th>
                                     <th>用量</th>
-                                    <th>单位</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -61,8 +85,7 @@
                                 <tr>
                                     <td>{{ bom_item.material.sku }}</td>
                                     <td>{{ bom_item.material.name }}</td>
-                                    <td>{{ bom_item.quantity }}</td>
-                                    <td>{{ bom_item.unit }}</td>
+                                    <td>{{ bom_item.quantity|floatformat:2 }} {{ bom_item.unit.name }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

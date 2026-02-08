@@ -51,8 +51,8 @@
                         <td>{{ product.category.name|default:"-" }}</td>
                         <td>{{ product.specification|truncatewords:5|default:"-" }}</td>
                         <td>¥{{ product.sale_price }}</td>
-                        <td>{{ product.safety_stock }}{{ product.unit }}</td>
-                        <td>{{ product.unit }}</td>
+                        <td>{{ product.safety_stock }}{{ product.display_unit.name }}</td>
+                        <td>{{ product.display_unit.name }}</td>
                         <td>{{ product.created_at|date:"Y-m-d" }}</td>
                         {% if can_manage %}
                         <td>

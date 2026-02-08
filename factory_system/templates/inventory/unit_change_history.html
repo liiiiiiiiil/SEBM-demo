@@ -28,10 +28,10 @@
                 <strong>物料名称：</strong>{{ material.name }}
             </div>
             <div class="col-md-3">
-                <strong>当前单位：</strong>{{ material.unit }}
+                <strong>基础单位：</strong>{{ material.base_unit.name }}
             </div>
             <div class="col-md-3">
-                <strong>当前单价：</strong>¥{{ material.unit_price|floatformat:2 }}/{{ material.unit }}
+                <strong>显示单位：</strong>{{ material.display_unit.name|default:material.base_unit.name }}
             </div>
         </div>
     </div>

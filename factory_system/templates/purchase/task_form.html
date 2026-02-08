@@ -59,7 +59,7 @@
                             <select name="material_id" class="form-select material-select">
                                 <option value="">请选择物料</option>
                                 {% for material in materials %}
-                                <option value="{{ material.id }}">
+                                <option value="{{ material.id }}" data-unit-price="{{ material.unit_price|default:0 }}">
                                     {{ material.sku }} - {{ material.name }} ({{ material.get_material_type_display }})
                                 </option>
                                 {% endfor %}
@@ -76,10 +76,6 @@
                                 <option value="office">办公用品</option>
                                 <option value="other">其它</option>
                             </select>
-                        </div>
-                        <div class="col-md-2 custom-input-group" style="display: none;">
-                            <label class="form-label">单位 <span class="text-danger">*</span></label>
-                            <input type="text" name="unit" class="form-control custom-unit" placeholder="如：个、件、箱">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">数量 <span class="text-danger">*</span></label>
@@ -134,7 +130,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const materialSelect = row.querySelector('.material-select');
         const customName = row.querySelector('.custom-item-name');
         const customType = row.querySelector('.custom-item-type');
-        const customUnit = row.querySelector('.custom-unit');
         
         if (source === 'material') {
             materialGroup.style.display = 'block';
@@ -142,14 +137,12 @@ document.addEventListener('DOMContentLoaded', function() {
             materialSelect.required = true;
             customName.required = false;
             customType.required = false;
-            customUnit.required = false;
         } else {
             materialGroup.style.display = 'none';
             customGroup.forEach(g => g.style.display = 'block');
             materialSelect.required = false;
             customName.required = true;
             customType.required = true;
-            customUnit.required = true;
         }
     }
     
@@ -219,12 +212,17 @@ document.addEventListener('DOMContentLoaded', function() {
             calculateSubtotal(row);
         });
         
-        // 选择物料时，自动填充单位（如果有）
+        // 选择物料时，自动填充单价并计算小计
         row.querySelector('.material-select').addEventListener('change', function() {
-            if (this.value) {
-                // 可以通过AJAX获取物料信息，这里简化处理
-                calculateSubtotal(row);
+            const opt = this.options[this.selectedIndex];
+            const unitPriceInput = row.querySelector('.unit-price-input');
+            if (this.value && opt && opt.dataset.unitPrice) {
+                const unitPrice = parseFloat(opt.dataset.unitPrice);
+                if (!isNaN(unitPrice) && unitPrice > 0) {
+                    unitPriceInput.value = unitPrice;
+                }
             }
+            calculateSubtotal(row);
         });
     }
     
@@ -274,12 +272,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 attachEventListeners(row);
             }
             
-            // 填充数据
+            // 填充数据（含单价）
             const materialSelect = row.querySelector('.material-select');
             const quantityInput = row.querySelector('.quantity-input');
+            const unitPriceInput = row.querySelector('.unit-price-input');
             
             materialSelect.value = prefill.material_id;
             quantityInput.value = prefill.quantity;
+            if (prefill.unit_price) {
+                unitPriceInput.value = prefill.unit_price;
+            } else if (materialSelect.selectedIndex >= 0) {
+                const opt = materialSelect.options[materialSelect.selectedIndex];
+                if (opt && opt.dataset.unitPrice) {
+                    unitPriceInput.value = opt.dataset.unitPrice;
+                }
+            }
+            calculateSubtotal(row);
         });
     }
     {% endif %}
@@ -291,7 +299,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const materialSelect = row.querySelector('.material-select');
             const customName = row.querySelector('.custom-item-name');
             const customType = row.querySelector('.custom-item-type');
-            const customUnit = row.querySelector('.custom-unit');
             const quantity = row.querySelector('.quantity-input').value;
             const unitPrice = row.querySelector('.unit-price-input').value;
             const sourceRadio = row.querySelector('.item-source-radio:checked');
@@ -316,11 +323,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (!customType.value) {
                     alert(`第 ${index + 1} 行：请选择物品类型`);
-                    hasError = true;
-                    return;
-                }
-                if (!customUnit.value.trim()) {
-                    alert(`第 ${index + 1} 行：请输入单位`);
                     hasError = true;
                     return;
                 }

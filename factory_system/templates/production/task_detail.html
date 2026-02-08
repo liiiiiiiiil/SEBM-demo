@@ -7,7 +7,7 @@
     <div class="card-header d-flex justify-content-between">
         <h4>生产任务详情 - {{ task.task_no }}</h4>
         <div>
-            {% if task.status == 'received' or task.status == 'material_preparing' or task.status == 'in_production' or task.status == 'qc_checking' or task.status == 'material_insufficient' %}
+            {% if task.status == 'pending' or task.status == 'material_insufficient' or task.status == 'received' or task.status == 'material_preparing' or task.status == 'in_production' or task.status == 'qc_checking' %}
                 {% if user.profile.role == 'ceo' %}
                 <a href="{% url 'production:task_terminate' task.pk %}" class="btn btn-danger">
                     <i class="bi bi-x-octagon"></i> 终结流程
@@ -52,17 +52,17 @@
                     </tr>
                     <tr>
                         <th>需求数量</th>
-                        <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
+                        <td>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>完成数量</th>
-                        <td id="completed-quantity">{{ task.completed_quantity|floatformat:2 }}{{ task.product.unit }}</td>
+                        <td id="completed-quantity">{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>缺口数量</th>
                         <td>
                             <span id="shortage-quantity" class="badge {% if shortage_quantity > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                {{ shortage_quantity|floatformat:2 }}{{ task.product.unit }}
+                                {{ shortage_quantity|floatformat:2 }}{{ task.get_display_unit_name }}
                             </span>
                         </td>
                     </tr>
@@ -111,13 +111,12 @@
                 </table>
             </div>
             <div class="col-md-6">
-                <h5>BOM配方（单位产品）</h5>
+                <h5>BOM配方</h5>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
                             <th>原料</th>
                             <th>用量</th>
-                            <th>单位</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -125,11 +124,10 @@
                         <tr>
                             <td>{{ bom.material.name }}</td>
                             <td>{{ bom.quantity|floatformat:2 }}</td>
-                            <td>{{ bom.unit }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="text-center text-muted">暂无BOM数据</td>
+                            <td colspan="2" class="text-center text-muted">暂无BOM数据</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -137,53 +135,48 @@
             </div>
         </div>
         
-        <!-- 原料需求详情 -->
-        {% if material_requirements %}
+        <!-- 已消耗原料汇总（任务已完成或入库成功跳转时显示，不显示当前库存、缺口） -->
+        {% if show_consumed_summary %}
         <div class="row mt-4">
             <div class="col-12">
-                <h5>产品所需原料明细</h5>
-                <div class="card">
+                <h5>已消耗原料汇总</h5>
+                <div class="card border-success">
                     <div class="card-body">
                         <table class="table table-bordered table-hover">
-                            <thead class="table-light">
+                            <thead class="table-success">
                                 <tr>
                                     <th>原料名称</th>
                                     <th>原料SKU</th>
-                                    <th>单位产品用量</th>
-                                    <th>需求数量</th>
-                                    <th>总需求量</th>
-                                    <th>当前库存</th>
-                                    <th>缺口数量</th>
+                                    <th>已消耗数量</th>
                                     <th>单位</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for req in material_requirements %}
-                                <tr data-material-id="{{ req.material_id }}">
-                                    <td>{{ req.material.name }}</td>
-                                    <td><small class="text-muted">{{ req.material.sku }}</small></td>
-                                    <td>{{ req.bom_quantity|floatformat:2 }}</td>
-                                    <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
-                                    <td><strong>{{ req.total_required|floatformat:2 }}</strong></td>
-                                    <td id="material-available-{{ req.material_id }}">{{ req.available_quantity|floatformat:2 }}</td>
-                                    <td>
-                                        <span id="material-shortage-{{ req.material_id }}" class="badge {% if req.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                            {{ req.shortage|floatformat:2 }}
-                                        </span>
-                                    </td>
-                                    <td>{{ req.unit }}</td>
+                                {% for summary in consumed_materials_summary %}
+                                <tr>
+                                    <td><strong>{{ summary.material.name }}</strong></td>
+                                    <td><small class="text-muted">{{ summary.material.sku }}</small></td>
+                                    <td><strong class="text-success">{{ summary.consumed_quantity|floatformat:2 }}</strong></td>
+                                    <td>{{ summary.unit }}</td>
                                 </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted">暂无消耗记录</td></tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr class="table-info">
+                                    <td colspan="2"><strong>合计原料种类</strong></td>
+                                    <td><strong>{{ consumed_materials_summary|length }} 种</strong></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
-        {% endif %}
-        
+        {% elif total_materials_summary %}
         <!-- 全部所需原料汇总 -->
-        {% if total_materials_summary %}
         <div class="row mt-4">
             <div class="col-12">
                 <h5>全部所需原料汇总</h5>
@@ -194,7 +187,7 @@
                                 <tr>
                                     <th>原料名称</th>
                                     <th>原料SKU</th>
-                                    <th>总需求量</th>
+                                    <th>总需求量 {% if can_edit_qty %}<i class="bi bi-pencil-square text-primary ms-1" style="font-size: 0.85em; vertical-align: middle;" title="可编辑"></i>{% endif %}</th>
                                     <th>当前库存</th>
                                     <th>缺口数量</th>
                                     <th>单位</th>
@@ -205,11 +198,26 @@
                                 <tr data-material-id="{{ summary.material_id }}">
                                     <td><strong>{{ summary.material.name }}</strong></td>
                                     <td><small class="text-muted">{{ summary.material.sku }}</small></td>
-                                    <td><strong class="text-primary">{{ summary.total_quantity|floatformat:2 }}</strong></td>
+                                    <td class="total-qty-cell" data-material-id="{{ summary.material_id }}" data-original-total="{{ summary.original_total|floatformat:2 }}" data-unit="{{ summary.unit }}" data-can-edit="{{ can_edit_qty|yesno:'true,false' }}" data-is-overridden="{{ summary.is_overridden|yesno:'true,false' }}">
+                                        <span class="total-qty-display d-inline-flex align-items-center gap-1" {% if can_edit_qty %}style="cursor:pointer;" title="点击编辑"{% endif %}>
+                                            <strong class="text-primary total-qty-value">{{ summary.total_quantity|floatformat:2 }}</strong>
+                                            {% if summary.is_overridden %}<span class="badge bg-info" style="font-size: 0.7em;">已调整</span>{% endif %}
+                                        </span>
+                                        {% if can_edit_qty %}
+                                        <span class="total-qty-edit" style="display:none;">
+                                            <input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:100px;" />
+                                            <button type="button" class="btn btn-sm btn-success total-qty-save ms-1"><i class="bi bi-check"></i></button>
+                                            <button type="button" class="btn btn-sm btn-secondary total-qty-cancel ms-1"><i class="bi bi-x"></i></button>
+                                            {% if summary.is_overridden %}
+                                            <button type="button" class="btn btn-sm btn-outline-secondary total-qty-reset ms-1" title="恢复为BOM默认">还原</button>
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </td>
                                     <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity|floatformat:2 }}</td>
                                     <td>
                                         <span id="material-shortage-{{ summary.material_id }}" class="badge {% if summary.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                            {{ summary.shortage|floatformat:2 }}
+                                            {{ summary.shortage|floatformat:2 }} {{ summary.unit }}
                                         </span>
                                     </td>
                                     <td>{{ summary.unit }}</td>
@@ -256,64 +264,171 @@
 
 {% block extra_js %}
 <script>
+    /* ====== 定时刷新任务状态 ====== */
     function updateTaskStatus() {
         fetch('{% url "production:task_status_api" task.pk %}')
             .then(response => response.json())
             .then(data => {
-                // 更新完成数量
-                const completedQty = parseFloat(data.completed_quantity);
-                const requiredQty = parseFloat(data.required_quantity);
-                document.getElementById('completed-quantity').textContent = completedQty.toFixed(2) + '{{ task.product.unit }}';
-                
-                // 更新产品缺口数量
+                document.getElementById('completed-quantity').textContent =
+                    parseFloat(data.completed_quantity).toFixed(2) + '{{ task.get_display_unit_name }}';
+
                 const shortageQty = parseFloat(data.shortage_quantity);
-                const shortageElement = document.getElementById('shortage-quantity');
-                shortageElement.textContent = shortageQty.toFixed(2) + '{{ task.product.unit }}';
-                if (shortageQty > 0) {
-                    shortageElement.className = 'badge bg-warning';
-                } else {
-                    shortageElement.className = 'badge bg-success';
-                }
-                
-                // 更新每种原料的库存和缺口数量
-                const materialShortages = data.material_shortages;
-                for (const materialId in materialShortages) {
-                    const info = materialShortages[materialId];
-                    const availableElement = document.getElementById('material-available-' + materialId);
-                    const shortageElement = document.getElementById('material-shortage-' + materialId);
-                    
-                    if (availableElement) {
-                        availableElement.textContent = parseFloat(info.available_quantity).toFixed(2);
-                    }
-                    
-                    if (shortageElement) {
-                        const shortage = parseFloat(info.shortage);
-                        shortageElement.textContent = shortage.toFixed(2);
-                        if (shortage > 0) {
-                            shortageElement.className = 'badge bg-warning';
-                        } else {
-                            shortageElement.className = 'badge bg-success';
-                        }
+                const shortageEl = document.getElementById('shortage-quantity');
+                shortageEl.textContent = shortageQty.toFixed(2) + '{{ task.get_display_unit_name }}';
+                shortageEl.className = shortageQty > 0 ? 'badge bg-warning' : 'badge bg-success';
+
+                const ms = data.material_shortages;
+                for (const mid in ms) {
+                    const info = ms[mid];
+                    const avEl = document.getElementById('material-available-' + mid);
+                    const shEl = document.getElementById('material-shortage-' + mid);
+                    if (avEl) avEl.textContent = parseFloat(info.available_quantity).toFixed(2);
+                    if (shEl) {
+                        const s = parseFloat(info.shortage);
+                        const unit = info.unit || '';
+                        shEl.textContent = s.toFixed(2) + (unit ? ' ' + unit : '');
+                        shEl.className = s > 0 ? 'badge bg-warning' : 'badge bg-success';
                     }
                 }
             })
-            .catch(error => {
-                console.error('更新任务状态失败:', error);
-            });
+            .catch(err => console.error('更新任务状态失败:', err));
     }
-    
-    // 页面加载后开始定期更新
+
     document.addEventListener('DOMContentLoaded', function() {
-        // 立即更新一次
         updateTaskStatus();
-        
-        // 每5秒更新一次
         setInterval(updateTaskStatus, 5000);
-        
-        // 监听页面可见性变化，当页面重新可见时立即更新
         document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                updateTaskStatus();
+            if (!document.hidden) updateTaskStatus();
+        });
+
+        /* ====== 内联编辑：单位产品用量 ====== */
+        document.querySelectorAll('.bom-qty-cell').forEach(function(cell) {
+            const materialId = cell.dataset.materialId;
+            const displaySpan = cell.querySelector('.bom-qty-display');
+            const editSpan = cell.querySelector('.bom-qty-edit');
+            if (!displaySpan || !editSpan) return;
+
+            const input = editSpan.querySelector('input');
+            const saveBtn = editSpan.querySelector('.bom-qty-save');
+            const cancelBtn = editSpan.querySelector('.bom-qty-cancel');
+            const resetBtn = editSpan.querySelector('.bom-qty-reset');
+
+            function showEdit() {
+                displaySpan.style.display = 'none';
+                editSpan.style.display = '';
+                input.focus();
+                input.select();
+            }
+            function hideEdit() {
+                editSpan.style.display = 'none';
+                displaySpan.style.display = '';
+            }
+
+            displaySpan.addEventListener('click', showEdit);
+            cancelBtn.addEventListener('click', hideEdit);
+
+            function doSave(qty) {
+                fetch('{% url "production:task_material_override_api" task.pk %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: JSON.stringify({ material_id: materialId, quantity: qty }),
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.ok) {
+                        alert(data.error || '保存失败');
+                        return;
+                    }
+                    // 刷新整行
+                    location.reload();
+                })
+                .catch(err => alert('网络错误: ' + err));
+            }
+
+            saveBtn.addEventListener('click', function() {
+                doSave(input.value);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); doSave(input.value); }
+                if (e.key === 'Escape') { hideEdit(); }
+            });
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function() {
+                    const original = cell.dataset.original;
+                    doSave(original);
+                });
+            }
+        });
+
+        /* ====== 内联编辑：全部所需原料汇总 - 总需求量 ====== */
+        document.querySelectorAll('.total-qty-cell').forEach(function(cell) {
+            if (cell.dataset.canEdit !== 'true') return;
+            const materialId = cell.dataset.materialId;
+            const originalTotal = cell.dataset.originalTotal;
+            const displaySpan = cell.querySelector('.total-qty-display');
+            const editSpan = cell.querySelector('.total-qty-edit');
+            if (!displaySpan || !editSpan) return;
+
+            const input = editSpan.querySelector('input');
+            const saveBtn = editSpan.querySelector('.total-qty-save');
+            const cancelBtn = editSpan.querySelector('.total-qty-cancel');
+            const resetBtn = editSpan.querySelector('.total-qty-reset');
+
+            function showEdit() {
+                const val = displaySpan.querySelector('.total-qty-value');
+                input.value = val ? val.textContent.trim() : '';
+                displaySpan.style.display = 'none';
+                editSpan.style.display = '';
+                input.focus();
+                input.select();
+            }
+            function hideEdit() {
+                editSpan.style.display = 'none';
+                displaySpan.style.display = '';
+            }
+
+            displaySpan.addEventListener('click', showEdit);
+            cancelBtn.addEventListener('click', hideEdit);
+
+            function doSave(totalQty) {
+                fetch('{% url "production:task_material_override_api" task.pk %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: JSON.stringify({ material_id: materialId, total_quantity: totalQty }),
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.ok) {
+                        alert(data.error || '保存失败');
+                        return;
+                    }
+                    hideEdit();
+                    location.reload();
+                })
+                .catch(err => alert('网络错误: ' + err));
+            }
+
+            saveBtn.addEventListener('click', function() {
+                doSave(input.value);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); doSave(input.value); }
+                if (e.key === 'Escape') { hideEdit(); }
+            });
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function() {
+                    doSave(originalTotal);
+                });
             }
         });
     });

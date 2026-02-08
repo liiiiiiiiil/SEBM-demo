@@ -25,9 +25,9 @@
                     {% for item in insufficient_items %}
                     <tr>
                         <td>{{ item.material_name }}</td>
-                        <td>{{ item.required }}{{ item.unit }}</td>
-                        <td>{{ item.available }}{{ item.unit }}</td>
-                        <td><span class="text-danger">{{ item.shortage }}{{ item.unit }}</span></td>
+                        <td>{{ item.required|floatformat:2 }}{{ item.unit }}</td>
+                        <td>{{ item.available|floatformat:2 }}{{ item.unit }}</td>
+                        <td><span class="text-danger">{{ item.shortage|floatformat:2 }}{{ item.unit }}</span></td>
                         <td>
                             <a href="{% url 'purchase:task_create' %}" class="btn btn-sm btn-primary">
                                 <i class="bi bi-cart-plus"></i> 发起采购任务
@@ -54,8 +54,8 @@
                     {% for item in requisition.items.all %}
                     <tr>
                         <td>{{ item.material.name }}</td>
-                        <td>{{ item.required_quantity }}</td>
-                        <td>{{ item.unit }}</td>
+                        <td>{{ item.required_quantity|floatformat:2 }}</td>
+                        <td>{{ item.material.display_unit.name }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

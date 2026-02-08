@@ -1,120 +1,71 @@
-from django.shortcuts import render, get_object_or_404, redirect
+"""成品显示单位变更视图
+
+双单位体系重构后，只需修改 display_unit 字段即可。
+"""
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from decimal import Decimal, InvalidOperation
-from django.utils import timezone
-from inventory.models import Product, ProductUnitChangeHistory
-from inventory.services.product_unit_change import ProductUnitChangeService
-from accounts.decorators import role_required
+from accounts.decorators import role_or_permission_required
+from inventory.models import Product, Unit, ItemUnitConversion
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_unit_change_request(request, product_id):
-    """成品单位变更申请"""
-    product = get_object_or_404(Product, pk=product_id)
+    """修改成品显示单位"""
+    product = get_object_or_404(Product.objects.select_related('base_unit', 'display_unit'), pk=product_id)
     
     if request.method == 'POST':
-        new_unit = request.POST.get('new_unit', '').strip()
-        conversion_factor_str = request.POST.get('conversion_factor', '').strip()
-        reason = request.POST.get('reason', '').strip()
-        force_change = request.POST.get('force_change') == 'on'  # 强制变更
+        new_display_unit_id = request.POST.get('display_unit', '').strip()
         
-        # 验证
-        if not new_unit:
-            messages.error(request, '请输入新单位')
-            return redirect('inventory:product_unit_change_request', product_id=product_id)
-        
-        if not conversion_factor_str:
-            messages.error(request, '请输入转换系数')
+        if not new_display_unit_id:
+            messages.error(request, '请选择新的显示单位')
             return redirect('inventory:product_unit_change_request', product_id=product_id)
         
         try:
-            conversion_factor = Decimal(conversion_factor_str)
-            if conversion_factor <= 0:
-                raise ValueError("转换系数必须大于0")
-        except (ValueError, InvalidOperation):
-            messages.error(request, '转换系数格式错误')
-            return redirect('inventory:product_unit_change_request', product_id=product_id)
-        
-        if not reason:
-            messages.error(request, '请输入变更原因')
-            return redirect('inventory:product_unit_change_request', product_id=product_id)
-        
-        # 前置检查
-        check_result = ProductUnitChangeService.check_can_change_unit(product)
-        
-        # 如果有严重问题且未选择强制变更
-        if not check_result['can_change'] and not force_change:
-            messages.error(request, '无法变更单位，存在业务冲突。如需强制变更，请勾选"强制变更"选项。')
-            return render(request, 'inventory/product_unit_change_form.html', {
-                'product': product,
-                'check_result': check_result,
-                'form_data': request.POST
-            })
-        
-        # 执行变更
-        try:
-            change_history = ProductUnitChangeService.change_unit(
-                product=product,
-                new_unit=new_unit,
-                conversion_factor=conversion_factor,
-                reason=reason,
-                changed_by=request.user,
-                auto_approve=True  # 根据业务规则决定是否需要审批
-            )
+            new_display_unit = Unit.objects.get(pk=new_display_unit_id)
             
-            messages.success(request, '单位变更成功')
-            return redirect('inventory:product_unit_change_history', product_id=product_id)
+            if new_display_unit.pk != product.base_unit_id:
+                exists = ItemUnitConversion.objects.filter(
+                    content_type='product',
+                    product=product,
+                    target_unit=new_display_unit,
+                    is_active=True,
+                ).exists()
+                if not exists:
+                    messages.error(request, f'「{new_display_unit.name}」不在该成品的换算表中，请先添加换算关系')
+                    return redirect('inventory:product_unit_change_request', product_id=product_id)
+            
+            old_display_unit = product.display_unit
+            product.display_unit = new_display_unit
+            product.save(update_fields=['display_unit'])
+            
+            messages.success(request, f'显示单位已从「{old_display_unit.name}」修改为「{new_display_unit.name}」，不影响任何存储数据')
+            return redirect('inventory:product_packaging_unit_list', product_id=product_id)
         
+        except Unit.DoesNotExist:
+            messages.error(request, '选择的单位不存在')
         except Exception as e:
-            messages.error(request, f'单位变更失败：{str(e)}')
-            return redirect('inventory:product_unit_change_request', product_id=product_id)
+            messages.error(request, f'修改失败：{str(e)}')
     
-    # GET请求：显示变更表单
-    check_result = ProductUnitChangeService.check_can_change_unit(product)
+    available_units = [product.base_unit]
+    conversions = ItemUnitConversion.objects.filter(
+        content_type='product', product=product, is_active=True
+    ).select_related('target_unit')
+    for conv in conversions:
+        available_units.append(conv.target_unit)
     
-    # 获取可用单位列表
-    available_units = product.get_available_units()
-    
-    # 计算预览数据
-    preview_data = None
-    if product.unit and product.unit_price:
-        preview_data = {
-            'current_unit': product.unit,
-            'current_unit_price': product.unit_price,
-            'current_sale_price': product.sale_price,
-            'current_safety_stock': product.safety_stock,
-        }
-        # 获取当前库存
-        try:
-            from inventory.models import Inventory
-            inventory = Inventory.objects.get(
-                inventory_type='product',
-                product=product
-            )
-            preview_data['current_inventory_quantity'] = inventory.quantity
-        except:
-            preview_data['current_inventory_quantity'] = Decimal('0')
-    
-    return render(request, 'inventory/product_unit_change_form.html', {
+    context = {
         'product': product,
-        'check_result': check_result,
         'available_units': available_units,
-        'preview_data': preview_data
-    })
+    }
+    return render(request, 'inventory/product_unit_change_form.html', context)
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_unit_change_history(request, product_id):
-    """成品单位变更历史"""
+    """成品单位变更历史 — 不再需要"""
     product = get_object_or_404(Product, pk=product_id)
-    history_list = ProductUnitChangeHistory.objects.filter(
-        product=product
-    ).order_by('-changed_at').select_related('changed_by', 'approved_by')
-    
-    return render(request, 'inventory/product_unit_change_history.html', {
-        'product': product,
-        'history_list': history_list
-    })
+    messages.info(request, '双单位体系重构后，显示单位变更不影响数据，无需记录历史')
+    return redirect('inventory:product_packaging_unit_list', product_id=product_id)

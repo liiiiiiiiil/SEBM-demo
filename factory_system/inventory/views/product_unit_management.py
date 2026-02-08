@@ -1,184 +1,188 @@
-from django.shortcuts import render, get_object_or_404, redirect
+"""成品单位换算表管理视图
+
+双单位体系重构后，替代原 ProductPackagingUnit 的管理界面。
+管理 ItemUnitConversion (content_type='product') 记录。
+"""
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from decimal import Decimal, InvalidOperation
-from inventory.models import Product, ProductPackagingUnit, Unit
-from accounts.decorators import role_required
+from accounts.decorators import role_or_permission_required
+from inventory.models import Product, Unit, ItemUnitConversion
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_packaging_unit_list(request, product_id):
-    """成品包装单位列表"""
-    product = get_object_or_404(Product, pk=product_id)
-    packaging_units = product.packaging_units.filter(is_active=True).order_by('display_order')
+    """成品换算表列表"""
+    product = get_object_or_404(Product.objects.select_related('base_unit', 'display_unit'), pk=product_id)
+    conversions = ItemUnitConversion.objects.filter(
+        content_type='product', product=product
+    ).select_related('base_unit', 'target_unit').order_by('created_at')
     
-    return render(request, 'inventory/product_packaging_unit_list.html', {
+    context = {
         'product': product,
-        'packaging_units': packaging_units
-    })
+        'conversions': conversions,
+    }
+    return render(request, 'inventory/product_packaging_unit_list.html', context)
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_packaging_unit_create(request, product_id):
-    """创建成品包装单位"""
-    product = get_object_or_404(Product, pk=product_id)
+    """新增成品换算关系"""
+    product = get_object_or_404(Product.objects.select_related('base_unit'), pk=product_id)
     
     if request.method == 'POST':
-        packaging_unit_name = request.POST.get('packaging_unit_name', '').strip()
-        base_unit_id = request.POST.get('base_unit')
-        conversion_factor_str = request.POST.get('conversion_factor', '').strip()
+        target_unit_id = request.POST.get('target_unit', '').strip()
+        factor = request.POST.get('factor', '').strip()
         is_default = request.POST.get('is_default') == 'on'
         remark = request.POST.get('remark', '').strip()
         
-        # 验证
-        if not packaging_unit_name:
-            messages.error(request, '请输入包装单位名称')
-            return redirect('inventory:product_packaging_unit_create', product_id=product_id)
-        
-        if not conversion_factor_str:
-            messages.error(request, '请输入转换系数')
+        if not target_unit_id or not factor:
+            messages.error(request, '请填写目标单位和换算系数')
             return redirect('inventory:product_packaging_unit_create', product_id=product_id)
         
         try:
-            conversion_factor = Decimal(conversion_factor_str)
-            if conversion_factor <= 0:
-                raise ValueError("转换系数必须大于0")
-        except (ValueError, InvalidOperation):
-            messages.error(request, '转换系数格式错误')
-            return redirect('inventory:product_packaging_unit_create', product_id=product_id)
-        
-        base_unit = get_object_or_404(Unit, pk=base_unit_id)
-        
-        # 检查是否已存在
-        if ProductPackagingUnit.objects.filter(
-            product=product,
-            packaging_unit_name=packaging_unit_name,
-            is_active=True
-        ).exists():
-            messages.error(request, f'包装单位"{packaging_unit_name}"已存在')
-            return redirect('inventory:product_packaging_unit_create', product_id=product_id)
-        
-        # 如果设置为默认，取消其他默认
-        if is_default:
-            ProductPackagingUnit.objects.filter(
+            from decimal import Decimal
+            target_unit = Unit.objects.get(pk=target_unit_id)
+            factor_val = Decimal(factor)
+            
+            if target_unit.pk == product.base_unit_id:
+                messages.error(request, '目标单位不能与基础单位相同')
+                return redirect('inventory:product_packaging_unit_create', product_id=product_id)
+            
+            if factor_val <= 0:
+                messages.error(request, '换算系数必须大于0')
+                return redirect('inventory:product_packaging_unit_create', product_id=product_id)
+            
+            if ItemUnitConversion.objects.filter(
+                content_type='product', product=product, target_unit=target_unit
+            ).exists():
+                messages.error(request, f'已存在到「{target_unit.name}」的换算关系')
+                return redirect('inventory:product_packaging_unit_create', product_id=product_id)
+            
+            ItemUnitConversion.objects.create(
+                content_type='product',
                 product=product,
-                is_default=True
-            ).update(is_default=False)
-        
-        # 创建
-        packaging_unit = ProductPackagingUnit.objects.create(
-            product=product,
-            packaging_unit_name=packaging_unit_name,
-            base_unit=base_unit,
-            conversion_factor=conversion_factor,
-            is_default=is_default,
-            remark=remark
-        )
-        
-        messages.success(request, f'包装单位"{packaging_unit_name}"创建成功')
-        return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+                base_unit=product.base_unit,
+                target_unit=target_unit,
+                factor=factor_val,
+                is_default=is_default,
+                remark=remark,
+            )
+            messages.success(request, f'换算关系创建成功：1 {target_unit.name} = {factor_val} {product.base_unit.name}')
+            return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+        except (Unit.DoesNotExist, ValueError, Exception) as e:
+            messages.error(request, f'创建失败：{str(e)}')
+            return redirect('inventory:product_packaging_unit_create', product_id=product_id)
     
-    # GET请求
-    base_units = Unit.objects.filter(is_active=True).order_by('category', 'display_order')
+    existing_unit_ids = list(
+        ItemUnitConversion.objects.filter(content_type='product', product=product)
+        .values_list('target_unit_id', flat=True)
+    )
+    existing_unit_ids.append(product.base_unit_id)
+    available_units = Unit.objects.filter(is_active=True).exclude(pk__in=existing_unit_ids)
     
-    return render(request, 'inventory/product_packaging_unit_form.html', {
+    context = {
         'product': product,
-        'base_units': base_units,
-        'action': 'create'
-    })
+        'available_units': available_units,
+    }
+    return render(request, 'inventory/product_packaging_unit_form.html', context)
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_packaging_unit_edit(request, product_id, packaging_unit_id):
-    """编辑成品包装单位"""
-    product = get_object_or_404(Product, pk=product_id)
-    packaging_unit = get_object_or_404(
-        ProductPackagingUnit,
+    """编辑成品换算关系"""
+    product = get_object_or_404(Product.objects.select_related('base_unit'), pk=product_id)
+    conversion = get_object_or_404(
+        ItemUnitConversion.objects.select_related('target_unit'),
         pk=packaging_unit_id,
-        product=product
+        content_type='product',
+        product=product,
     )
     
     if request.method == 'POST':
-        packaging_unit_name = request.POST.get('packaging_unit_name', '').strip()
-        base_unit_id = request.POST.get('base_unit')
-        conversion_factor_str = request.POST.get('conversion_factor', '').strip()
+        factor = request.POST.get('factor', '').strip()
         is_default = request.POST.get('is_default') == 'on'
+        is_active = request.POST.get('is_active') == 'on'
         remark = request.POST.get('remark', '').strip()
         
-        # 验证
-        if not packaging_unit_name:
-            messages.error(request, '请输入包装单位名称')
-            return redirect('inventory:product_packaging_unit_edit', product_id=product_id, packaging_unit_id=packaging_unit_id)
-        
-        if not conversion_factor_str:
-            messages.error(request, '请输入转换系数')
+        if not factor:
+            messages.error(request, '请填写换算系数')
             return redirect('inventory:product_packaging_unit_edit', product_id=product_id, packaging_unit_id=packaging_unit_id)
         
         try:
-            conversion_factor = Decimal(conversion_factor_str)
-            if conversion_factor <= 0:
-                raise ValueError("转换系数必须大于0")
-        except (ValueError, InvalidOperation):
-            messages.error(request, '转换系数格式错误')
-            return redirect('inventory:product_packaging_unit_edit', product_id=product_id, packaging_unit_id=packaging_unit_id)
-        
-        base_unit = get_object_or_404(Unit, pk=base_unit_id)
-        
-        # 检查是否已存在（排除自己）
-        if ProductPackagingUnit.objects.filter(
-            product=product,
-            packaging_unit_name=packaging_unit_name,
-            is_active=True
-        ).exclude(pk=packaging_unit_id).exists():
-            messages.error(request, f'包装单位"{packaging_unit_name}"已存在')
-            return redirect('inventory:product_packaging_unit_edit', product_id=product_id, packaging_unit_id=packaging_unit_id)
-        
-        # 如果设置为默认，取消其他默认
-        if is_default:
-            ProductPackagingUnit.objects.filter(
-                product=product,
-                is_default=True
-            ).exclude(pk=packaging_unit_id).update(is_default=False)
-        
-        # 更新
-        packaging_unit.packaging_unit_name = packaging_unit_name
-        packaging_unit.base_unit = base_unit
-        packaging_unit.conversion_factor = conversion_factor
-        packaging_unit.is_default = is_default
-        packaging_unit.remark = remark
-        packaging_unit.save()
-        
-        messages.success(request, f'包装单位"{packaging_unit_name}"更新成功')
-        return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+            from decimal import Decimal
+            factor_val = Decimal(factor)
+            if factor_val <= 0:
+                messages.error(request, '换算系数必须大于0')
+                return redirect('inventory:product_packaging_unit_edit', product_id=product_id, packaging_unit_id=packaging_unit_id)
+            
+            conversion.factor = factor_val
+            conversion.is_default = is_default
+            conversion.is_active = is_active
+            conversion.remark = remark
+            conversion.save()
+            
+            messages.success(request, f'换算关系更新成功')
+            return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+        except (ValueError, Exception) as e:
+            messages.error(request, f'更新失败：{str(e)}')
     
-    # GET请求
-    base_units = Unit.objects.filter(is_active=True).order_by('category', 'display_order')
-    
-    return render(request, 'inventory/product_packaging_unit_form.html', {
+    context = {
         'product': product,
-        'packaging_unit': packaging_unit,
-        'base_units': base_units,
-        'action': 'edit'
-    })
+        'conversion': conversion,
+    }
+    return render(request, 'inventory/product_packaging_unit_form.html', context)
 
 
 @login_required
-@role_required('warehouse', 'ceo')
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
+def product_set_display_unit(request, product_id, unit_id):
+    """将成品的显示单位设置为指定单位"""
+    product = get_object_or_404(Product.objects.select_related('base_unit', 'display_unit'), pk=product_id)
+    unit = get_object_or_404(Unit, pk=unit_id)
+
+    if request.method == 'POST':
+        if unit.pk == product.base_unit_id:
+            product.display_unit = unit
+            product.save(update_fields=['display_unit'])
+            messages.success(request, f'显示单位已切换为「{unit.name}」（基础单位）')
+        else:
+            exists = ItemUnitConversion.objects.filter(
+                content_type='product', product=product,
+                target_unit=unit, is_active=True,
+            ).exists()
+            if not exists:
+                messages.error(request, f'「{unit.name}」不在该成品的换算表中')
+                return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+            product.display_unit = unit
+            product.save(update_fields=['display_unit'])
+            messages.success(request, f'显示单位已切换为「{unit.name}」')
+        return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+    return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+
+
+@login_required
+@role_or_permission_required('warehouse', 'ceo', permission_code='inventory.unit.manage')
 def product_packaging_unit_delete(request, product_id, packaging_unit_id):
-    """删除成品包装单位（软删除）"""
+    """删除成品换算关系"""
     product = get_object_or_404(Product, pk=product_id)
-    packaging_unit = get_object_or_404(
-        ProductPackagingUnit,
+    conversion = get_object_or_404(
+        ItemUnitConversion,
         pk=packaging_unit_id,
-        product=product
+        content_type='product',
+        product=product,
     )
     
-    # 软删除
-    packaging_unit.is_active = False
-    packaging_unit.save()
+    if request.method == 'POST':
+        if product.display_unit_id == conversion.target_unit_id:
+            messages.error(request, f'无法删除：该换算单位「{conversion.target_unit.name}」是当前的显示单位，请先修改显示单位')
+            return redirect('inventory:product_packaging_unit_list', product_id=product_id)
+        
+        conversion.delete()
+        messages.success(request, '换算关系已删除')
+        return redirect('inventory:product_packaging_unit_list', product_id=product_id)
     
-    messages.success(request, f'包装单位"{packaging_unit.packaging_unit_name}"已删除')
     return redirect('inventory:product_packaging_unit_list', product_id=product_id)

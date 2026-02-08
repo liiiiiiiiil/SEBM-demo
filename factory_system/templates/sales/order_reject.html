@@ -12,11 +12,11 @@
             <h5>订单信息</h5>
             <p>客户：{{ order.customer.name }}</p>
             <p>销售员：{{ order.salesperson.username }}</p>
-            <p>订单总额：¥{{ order.total_amount }}</p>
+            <p>订单总额：¥{{ order.total_amount|floatformat:2 }}</p>
             <p>订单明细：</p>
             <ul>
                 {% for item in order.items.all %}
-                <li>{{ item.product.name }} x {{ item.quantity }}{{ item.product.unit }} = ¥{{ item.subtotal }}</li>
+                <li>{{ item.product.name }} x {{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }} = ¥{{ item.subtotal|floatformat:2 }}</li>
                 {% endfor %}
             </ul>
         </div>

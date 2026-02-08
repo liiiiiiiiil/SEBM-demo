@@ -3,46 +3,36 @@
 {% block title %}生产任务列表{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-gear"></i> 生产任务列表</h2>
-    <div>
-        <a href="{% url 'production:stock_task_create' %}" class="btn btn-primary me-2">
-            <i class="bi bi-plus-circle"></i> 创建备货生产任务
-        </a>
-        <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-primary">
-            <i class="bi bi-list-check"></i> BOM配方
-        </a>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-body">
-        <form method="get" class="mb-3">
-            <div class="row">
-                <div class="col-md-3">
-                    <select name="production_type" class="form-select">
-                        <option value="">全部类型</option>
-                        <option value="order" {% if production_type_filter == 'order' %}selected{% endif %}>订单生产</option>
-                        <option value="stock" {% if production_type_filter == 'stock' %}selected{% endif %}>备货生产</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select name="status" class="form-select">
-                        <option value="">全部状态</option>
-                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待接收</option>
-                        <option value="received" {% if status_filter == 'received' %}selected{% endif %}>已接收</option>
-                        <option value="material_preparing" {% if status_filter == 'material_preparing' %}selected{% endif %}>备料中</option>
-                        <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>生产中</option>
-                        <option value="qc_checking" {% if status_filter == 'qc_checking' %}selected{% endif %}>质检中</option>
-                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
-                        <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-secondary">筛选</button>
-                </div>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <form method="get" class="d-flex align-items-center flex-wrap gap-2">
+                <select name="production_type" class="form-select form-select-sm" style="width: auto;">
+                    <option value="">全部类型</option>
+                    <option value="order" {% if production_type_filter == 'order' %}selected{% endif %}>订单生产</option>
+                    <option value="stock" {% if production_type_filter == 'stock' %}selected{% endif %}>备货生产</option>
+                </select>
+                <select name="status" class="form-select form-select-sm" style="width: auto;">
+                    <option value="">全部状态</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待接收</option>
+                    <option value="received" {% if status_filter == 'received' %}selected{% endif %}>已接收</option>
+                    <option value="material_preparing" {% if status_filter == 'material_preparing' %}selected{% endif %}>备料中</option>
+                    <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>生产中</option>
+                    <option value="qc_checking" {% if status_filter == 'qc_checking' %}selected{% endif %}>质检中</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
+                    <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
+                </select>
+                <button type="submit" class="btn btn-secondary btn-sm">筛选</button>
+            </form>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'production:stock_task_create' %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> 创建备货生产任务
+                </a>
+                <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-list-check"></i> BOM配方
+                </a>
             </div>
-        </form>
+        </div>
 
         <div class="table-responsive">
             <table class="table table-hover table-sm">
@@ -78,8 +68,8 @@
                             {% endif %}
                         </td>
                         <td>{{ task.product.name }}</td>
-                        <td>{{ task.required_quantity|floatformat:2 }}{{ task.product.unit }}</td>
-                        <td>{{ task.completed_quantity|floatformat:2 }}{{ task.product.unit }}</td>
+                        <td>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
+                        <td>{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-secondary">待接收</span>

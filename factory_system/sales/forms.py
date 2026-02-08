@@ -42,11 +42,12 @@ class SalesOrderItemForm(forms.ModelForm):
         for product in products:
             try:
                 inventory = Inventory.objects.get(inventory_type='product', product=product)
-                quantity = float(inventory.quantity)
-                unit = inventory.unit
+                disp_qty, _ = product.to_display(inventory.quantity)
+                quantity = float(disp_qty)
+                unit = product.display_unit.name if product.display_unit else ''
             except Inventory.DoesNotExist:
                 quantity = 0.0
-                unit = product.unit
+                unit = product.display_unit.name if product.display_unit else ''
             
             # 获取基础单价
             unit_price = float(product.unit_price) if product.unit_price else 0.0

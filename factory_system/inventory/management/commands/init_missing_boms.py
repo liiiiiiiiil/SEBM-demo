@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from inventory.models import Product, BOM, Material
+from inventory.models import Product, BOM, Material, Unit
 
 
 class Command(BaseCommand):
@@ -39,13 +39,14 @@ class Command(BaseCommand):
                     # 删除可能存在的旧BOM（虽然应该没有）
                     BOM.objects.filter(product=product).delete()
                     
-                    # 创建新的BOM配方
+                    # 创建新的BOM配方（用量单位默认使用原料的基础单位）
                     for item in bom_items:
+                        bom_unit = item['material'].base_unit
                         BOM.objects.create(
                             product=product,
                             material=item['material'],
                             quantity=item['quantity'],
-                            unit=item['unit'],
+                            unit=bom_unit,
                         )
                         created_count += 1
                     

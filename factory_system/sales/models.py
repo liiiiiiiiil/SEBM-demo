@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from inventory.models import Product
+from inventory.models import Product, Unit
 
 
 class Customer(models.Model):
@@ -37,7 +37,7 @@ class Customer(models.Model):
     
     # 编辑审批相关字段
     edit_status = models.CharField(max_length=20, choices=EDIT_STATUS_CHOICES, default='none', verbose_name='编辑审批状态')
-    edit_pending_data = models.TextField(blank=True, verbose_name='待审批编辑数据')  # JSON格式存储待审批的数据
+    edit_pending_data = models.TextField(blank=True, verbose_name='待审批编辑数据')
     edit_reason = models.TextField(blank=True, verbose_name='编辑原因')
     edit_requested_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_edit_requests', verbose_name='编辑申请人')
     edit_requested_at = models.DateTimeField(null=True, blank=True, verbose_name='编辑申请时间')
@@ -61,7 +61,7 @@ class Customer(models.Model):
         ordering = ['-created_at']
     
     def has_related_orders(self):
-        """检查是否有关联订单（包括所有状态的订单）"""
+        """检查是否有关联订单"""
         return SalesOrder.objects.filter(customer=self).exists()
     
     def __str__(self):
@@ -108,7 +108,7 @@ class SalesOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='订单总额')
     delivery_date = models.DateField(null=True, blank=True, verbose_name='交付日期')
-    reserve_inventory = models.BooleanField(default=False, verbose_name='预占库存')
+    reserve_inventory = models.BooleanField(default=True, verbose_name='锁定库存')
     approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_orders', verbose_name='审批人')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
     ceo_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='ceo_approved_orders', verbose_name='总经理审批人')
@@ -133,12 +133,30 @@ class SalesOrder(models.Model):
 
 
 class SalesOrderItem(models.Model):
-    """订单明细"""
+    """订单明细
+    
+    变更说明（双单位体系重构）：
+    - quantity / unit_price 始终是「成品基础单位」口径
+    - 新增 display_unit / display_quantity 记录销售时使用的业务单位和数量
+    """
     order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name='items', verbose_name='订单')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='产品')
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='数量')
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='数量（基础单位）')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价（基础单位）')
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='小计')
+    display_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sales_order_items',
+        verbose_name='销售业务单位',
+    )
+    display_quantity = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='销售业务数量',
+    )
     
     class Meta:
         verbose_name = '订单明细'
@@ -147,12 +165,19 @@ class SalesOrderItem(models.Model):
     def __str__(self):
         return f"{self.order.order_no} - {self.product.name} x {self.quantity}"
 
+    def get_display_quantity(self):
+        """返回显示单位数量（quantity 存基础单位）"""
+        if self.product_id and hasattr(self.product, 'to_display'):
+            qty, _ = self.product.to_display(self.quantity)
+            return qty
+        return self.quantity
+
 
 class SalesOrderItemBatch(models.Model):
     """订单明细批次分配"""
     order_item = models.ForeignKey(SalesOrderItem, on_delete=models.CASCADE, related_name='batch_allocations', verbose_name='订单明细')
     batch = models.ForeignKey('inventory.Batch', on_delete=models.PROTECT, verbose_name='批次')
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='分配数量')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='分配数量（基础单位）')
     
     class Meta:
         verbose_name = '订单明细批次分配'
@@ -162,4 +187,10 @@ class SalesOrderItemBatch(models.Model):
     def __str__(self):
         return f"{self.order_item.order.order_no} - {self.batch.batch_no} x {self.quantity}"
 
-
+    def get_display_quantity(self):
+        """返回显示单位数量（quantity 存基础单位）"""
+        product = getattr(self.order_item, 'product', None)
+        if product and hasattr(product, 'to_display'):
+            qty, _ = product.to_display(self.quantity)
+            return qty
+        return self.quantity

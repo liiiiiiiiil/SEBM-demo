@@ -32,6 +32,7 @@
                 <thead>
                     <tr>
                         <th>申请单号</th>
+                        <th>调整类型</th>
                         <th>库存物品</th>
                         <th>当前数量</th>
                         <th>调整数量</th>
@@ -48,22 +49,31 @@
                     <tr>
                         <td>{{ adj.request_no }}</td>
                         <td>
+                            {% with adj_type=adj.adjustment_type|default:'quantity' %}
+                            {% if adj_type == 'quantity' %}<span class="badge bg-secondary">数量调整</span>
+                            {% elif adj_type == 'price' %}<span class="badge bg-info">单价调整</span>
+                            {% elif adj_type == 'both' %}<span class="badge bg-primary">数量+单价</span>
+                            {% else %}{{ adj_type }}{% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>
                             {% if adj.inventory.inventory_type == 'product' %}
                                 {{ adj.inventory.product.name }}
-                            {% else %}
+                            {% elif adj.inventory.inventory_type == 'material' %}
                                 {{ adj.inventory.material.name }}
+                            {% else %}
+                                {{ adj.inventory.other_name|default:"-" }}
                             {% endif %}
                         </td>
-                        <td>{{ adj.current_quantity }}{{ adj.inventory.unit }}</td>
+                        <td>{{ adj.current_quantity|floatformat:2 }}{{ adj.inventory.get_display_unit_name }}</td>
                         <td>
                             {% if adj.adjust_quantity >= 0 %}
-                            <span class="text-success">+{{ adj.adjust_quantity }}</span>
+                            <span class="text-success">+{{ adj.adjust_quantity|floatformat:2 }}</span>{{ adj.inventory.get_display_unit_name }}
                             {% else %}
-                            <span class="text-danger">{{ adj.adjust_quantity }}</span>
+                            <span class="text-danger">{{ adj.adjust_quantity|floatformat:2 }}</span>{{ adj.inventory.get_display_unit_name }}
                             {% endif %}
-                            {{ adj.inventory.unit }}
                         </td>
-                        <td>{{ adj.new_quantity }}{{ adj.inventory.unit }}</td>
+                        <td>{{ adj.new_quantity|floatformat:2 }}{{ adj.inventory.get_display_unit_name }}</td>
                         <td>{{ adj.reason|truncatewords:10 }}</td>
                         <td>{{ adj.applicant.username }}</td>
                         <td>
@@ -91,7 +101,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">暂无调整申请</td>
+                        <td colspan="11" class="text-center text-muted">暂无调整申请</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -103,4 +113,3 @@
     </div>
 </div>
 {% endblock %}
-

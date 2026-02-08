@@ -22,8 +22,8 @@
             <p><strong>关联订单：</strong>{{ task.order.order_no }}</p>
             {% endif %}
             <p><strong>产品：</strong>{{ task.product.name }}</p>
-            <p><strong>需求数量：</strong>{{ task.required_quantity }}{{ task.product.unit }}</p>
-            <p><strong>完成数量：</strong>{{ task.completed_quantity }}{{ task.product.unit }}</p>
+            <p><strong>需求数量：</strong>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</p>
+            <p><strong>完成数量：</strong>{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</p>
             <p><strong>当前状态：</strong>
                 {% if task.status == 'received' %}
                 <span class="badge bg-info">已接收</span>

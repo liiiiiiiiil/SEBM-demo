@@ -16,7 +16,7 @@
         <div class="mb-3">
             <h5>采购任务信息</h5>
             <p><strong>供应商：</strong>{{ task.supplier.name }}</p>
-            <p><strong>采购总额：</strong>¥{{ task.total_amount }}</p>
+            <p><strong>采购总额：</strong>¥{{ task.total_amount|floatformat:2 }}</p>
             <p><strong>状态：</strong>{{ task.get_status_display }}</p>
         </div>
         

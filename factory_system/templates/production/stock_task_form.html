@@ -16,12 +16,12 @@
                     <select name="product" id="product" class="form-select" required>
                         <option value="">请选择产品</option>
                         {% for product in products %}
-                        <option value="{{ product.pk }}">{{ product.sku }} - {{ product.name }}</option>
+                        <option value="{{ product.pk }}" data-unit="{{ product.display_unit.name }}">{{ product.sku }} - {{ product.name }}（{{ product.display_unit.name }}）</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label for="required_quantity" class="form-label">需求数量 <span class="text-danger">*</span></label>
+                    <label for="required_quantity" class="form-label">需求数量 <span id="quantity-unit" class="text-muted"></span> <span class="text-danger">*</span></label>
                     <input type="number" name="required_quantity" id="required_quantity" class="form-control" step="0.01" min="0.01" required>
                 </div>
             </div>
@@ -44,4 +44,12 @@
         </form>
     </div>
 </div>
+<script>
+document.getElementById('product').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const unit = opt.dataset.unit || '';
+    const span = document.getElementById('quantity-unit');
+    span.textContent = unit ? `（${unit}）` : '';
+});
+</script>
 {% endblock %}

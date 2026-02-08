@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+
+{% block title %}编辑BOM配方 - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-pencil-square"></i> 编辑BOM配方</h2>
+    <a href="{% url 'inventory:bom_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> 返回配方列表
+    </a>
+</div>
+
+<!-- 产品信息 -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-box"></i> {{ product.sku }} - {{ product.name }}</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <strong>基础单位：</strong> {{ product.base_unit.name }}
+            </div>
+            <div class="col-md-4">
+                <strong>显示单位：</strong> {{ product.display_unit.name }}
+            </div>
+            <div class="col-md-4">
+                <strong>当前配方行数：</strong> {{ bom_items|length }}
+            </div>
+        </div>
+        <p class="text-muted mt-2 mb-0">
+            <i class="bi bi-info-circle"></i>
+            BOM 用量含义：每生产 1 {{ product.base_unit.name }} 的「{{ product.name }}」所需的各原料量。
+        </p>
+    </div>
+</div>
+
+<!-- 现有 BOM 行 -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ul"></i> 配方明细</h5>
+    </div>
+    <div class="card-body">
+        {% if bom_items %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>原料 SKU</th>
+                        <th>原料名称</th>
+                        <th>用量</th>
+                        <th>单位</th>
+                        <th style="width: 200px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in bom_items %}
+                    <tr id="bom-row-{{ item.pk }}">
+                        <td>{{ item.material.sku }}</td>
+                        <td>{{ item.material.name }}</td>
+                        <td>
+                            <span class="display-value-{{ item.pk }}">{{ item.quantity|floatformat:2 }}</span>
+                        </td>
+                        <td>
+                            <span class="display-unit-{{ item.pk }}">{{ item.unit.name }}</span>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleEditRow({{ item.pk }})" id="edit-btn-{{ item.pk }}">
+                                <i class="bi bi-pencil"></i> 编辑
+                            </button>
+                            <form method="post" action="{% url 'inventory:bom_item_delete' product.pk item.pk %}" class="d-inline"
+                                  onsubmit="return confirm('确定要删除原料「{{ item.material.name }}」吗？')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i> 删除
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <!-- 编辑行（默认隐藏） -->
+                    <tr id="edit-row-{{ item.pk }}" style="display: none;" class="table-warning">
+                        <td>{{ item.material.sku }}</td>
+                        <td>{{ item.material.name }}</td>
+                        <td colspan="2">
+                            <form method="post" action="{% url 'inventory:bom_item_edit' product.pk item.pk %}" class="d-flex align-items-center gap-2" id="edit-form-{{ item.pk }}">
+                                {% csrf_token %}
+                                <input type="number" name="quantity" value="{{ item.quantity }}" class="form-control form-control-sm" style="width: 120px;" step="0.0001" min="0.0001" required>
+                                <select name="unit" class="form-select form-select-sm" style="width: 120px;" required>
+                                    <option value="{{ item.material.base_unit.pk }}" {% if item.unit_id == item.material.base_unit_id %}selected{% endif %}>
+                                        {{ item.material.base_unit.name }}
+                                    </option>
+                                    {% for conv in item.material.unit_conversions.all %}
+                                    {% if conv.is_active %}
+                                    <option value="{{ conv.target_unit_id }}" {% if item.unit_id == conv.target_unit_id %}selected{% endif %}>
+                                        {{ conv.target_unit.name }} (1{{ conv.target_unit.name }}={{ conv.factor|floatformat:2 }}{{ item.material.base_unit.name }})
+                                    </option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                        </td>
+                        <td>
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-check"></i> 保存
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleEditRow({{ item.pk }})">
+                                    取消
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle"></i> 该产品暂无 BOM 配方，请在下方添加原料。
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 添加新 BOM 行 -->
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-plus-circle"></i> 添加原料</h5>
+    </div>
+    <div class="card-body">
+        {% if available_materials %}
+        <form method="post" action="{% url 'inventory:bom_item_add' product.pk %}">
+            {% csrf_token %}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="material" class="form-label">原料 <span class="text-danger">*</span></label>
+                    <select name="material" id="material" class="form-select" required onchange="updateUnitOptions()">
+                        <option value="">请选择原料</option>
+                        {% for mat in available_materials %}
+                        <option value="{{ mat.pk }}"
+                                data-base-unit-id="{{ mat.base_unit_id }}"
+                                data-base-unit-name="{{ mat.base_unit.name }}"
+                                data-conversions='[{% for conv in mat.unit_conversions.all %}{% if conv.is_active %}{"id":{{ conv.target_unit_id }},"name":"{{ conv.target_unit.name }}","factor":"{{ conv.factor }}"}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'>
+                            {{ mat.sku }} - {{ mat.name }}（{{ mat.display_unit.name }}）
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="quantity" class="form-label">用量 <span class="text-danger">*</span></label>
+                    <input type="number" name="quantity" id="quantity" class="form-control" step="0.0001" min="0.0001" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="unit" class="form-label">单位 <span class="text-danger">*</span></label>
+                    <select name="unit" id="unit" class="form-select" required>
+                        <option value="">请先选择原料</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> 添加
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-warning mb-0">
+            <i class="bi bi-exclamation-triangle"></i> 所有原料均已在 BOM 中，没有可添加的原料了。
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleEditRow(bomId) {
+    const displayRow = document.getElementById('bom-row-' + bomId);
+    const editRow = document.getElementById('edit-row-' + bomId);
+    if (editRow.style.display === 'none') {
+        editRow.style.display = '';
+        displayRow.style.display = 'none';
+    } else {
+        editRow.style.display = 'none';
+        displayRow.style.display = '';
+    }
+}
+
+function updateUnitOptions() {
+    const materialSelect = document.getElementById('material');
+    const unitSelect = document.getElementById('unit');
+    const opt = materialSelect.options[materialSelect.selectedIndex];
+
+    unitSelect.innerHTML = '';
+
+    if (!opt.value) {
+        unitSelect.innerHTML = '<option value="">请先选择原料</option>';
+        return;
+    }
+
+    const baseUnitId = opt.dataset.baseUnitId;
+    const baseUnitName = opt.dataset.baseUnitName;
+
+    // 添加基础单位
+    const baseOption = document.createElement('option');
+    baseOption.value = baseUnitId;
+    baseOption.textContent = baseUnitName;
+    baseOption.selected = true;
+    unitSelect.appendChild(baseOption);
+
+    // 添加换算单位
+    try {
+        const conversions = JSON.parse(opt.dataset.conversions);
+        conversions.forEach(function(conv) {
+            const convOption = document.createElement('option');
+            convOption.value = conv.id;
+            convOption.textContent = conv.name + ' (1' + conv.name + '=' + conv.factor + baseUnitName + ')';
+            unitSelect.appendChild(convOption);
+        });
+    } catch(e) {
+        // 无换算单位
+    }
+}
+</script>
+{% endblock %}

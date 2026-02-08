@@ -11,7 +11,7 @@
         <div class="alert alert-info">
             <h5>采购任务信息</h5>
             <p><strong>供应商：</strong>{{ task.supplier.name }}</p>
-            <p><strong>采购总额：</strong>¥{{ task.total_amount }}</p>
+            <p><strong>采购总额：</strong>¥{{ task.total_amount|floatformat:2 }}</p>
         </div>
         
         <h5>采购明细</h5>
@@ -30,16 +30,16 @@
                 <tr>
                     <td>{{ item.material.name }}</td>
                     <td>{{ item.material.get_material_type_display }}</td>
-                    <td>{{ item.quantity }}{{ item.material.unit }}</td>
-                    <td>¥{{ item.unit_price }}</td>
-                    <td>¥{{ item.subtotal }}</td>
+                    <td>{{ item.quantity|floatformat:2 }}{{ item.material.display_unit.name }}</td>
+                    <td>¥{{ item.unit_price|floatformat:2 }}</td>
+                    <td>¥{{ item.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr>
                     <th colspan="4">合计</th>
-                    <th>¥{{ task.total_amount }}</th>
+                    <th>¥{{ task.total_amount|floatformat:2 }}</th>
                 </tr>
             </tfoot>
         </table>

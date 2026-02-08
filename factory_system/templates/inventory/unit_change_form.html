@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}单位变更 - {{ material.name }}{% endblock %}
+{% block title %}显示单位变更 - {{ material.name }}{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h4>单位变更 - {{ material.name }}</h4>
+        <h4>显示单位变更 - {{ material.name }}</h4>
     </div>
     <div class="card-body">
         <div class="alert alert-info">
@@ -18,139 +18,31 @@
                     <strong>物料名称：</strong>{{ material.name }}
                 </div>
                 <div class="col-md-3">
-                    <strong>当前单位：</strong>{{ material.unit }}
+                    <strong>基础单位：</strong>{{ material.base_unit.name }}
                 </div>
                 <div class="col-md-3">
-                    <strong>当前单价：</strong>¥{{ material.unit_price|floatformat:2 }}/{{ material.unit }}
+                    <strong>当前显示单位：</strong>{{ current_display_unit.name|default:"与基础单位相同" }}
                 </div>
             </div>
         </div>
-        
-        {% if check_result.warnings %}
-        <div class="alert alert-warning">
-            <h5><i class="bi bi-exclamation-triangle"></i> 前置检查警告</h5>
-            <ul class="mb-0">
-                {% for warning in check_result.warnings %}
-                <li>{{ warning }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        
-        {% if check_result.errors %}
-        <div class="alert alert-danger">
-            <h5><i class="bi bi-x-circle"></i> 前置检查错误</h5>
-            <ul class="mb-0">
-                {% for error in check_result.errors %}
-                <li>{{ error }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
         
         <form method="post" id="unitChangeForm">
             {% csrf_token %}
             
             <div class="mb-3">
-                <label for="new_unit" class="form-label">新单位 <span class="text-danger">*</span></label>
-                <input type="text" 
-                       class="form-control" 
-                       id="new_unit" 
-                       name="new_unit" 
-                       value="{% if form_data %}{{ form_data.new_unit }}{% endif %}"
-                       required
-                       placeholder="例如：袋、箱、桶等">
-                <small class="form-text text-muted">输入新的单位名称</small>
-            </div>
-            
-            <div class="mb-3">
-                <label for="conversion_factor" class="form-label">转换系数 <span class="text-danger">*</span></label>
-                <input type="number" 
-                       class="form-control" 
-                       id="conversion_factor" 
-                       name="conversion_factor" 
-                       value="{% if form_data %}{{ form_data.conversion_factor }}{% endif %}"
-                       step="0.0001"
-                       min="0.0001"
-                       required
-                       placeholder="例如：100（表示1新单位=100旧单位）"
-                       onchange="updatePreview()">
+                <label for="new_display_unit" class="form-label">新显示单位 <span class="text-danger">*</span></label>
+                <select class="form-select" id="new_display_unit" name="new_display_unit" required>
+                    <option value="">-- 请选择显示单位 --</option>
+                    {% for unit in available_units %}
+                    <option value="{{ unit.id }}" {% if current_display_unit and unit.id == current_display_unit.id %}selected{% endif %}>
+                        {{ unit.name }}{% if unit.code %} ({{ unit.code }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
                 <small class="form-text text-muted">
-                    转换系数表示：1个新单位 = 转换系数 个旧单位<br>
-                    例如：从kg改为袋，1袋=100kg，则转换系数为100<br>
-                    <strong>注意：</strong>新单价 = 旧单价 ÷ 转换系数，新数量 = 旧数量 × 转换系数
+                    选择用于前端显示的单位。基础单位为 <strong>{{ material.base_unit.name }}</strong>，系统内部始终以基础单位进行计算。
                 </small>
             </div>
-            
-            <div class="mb-3">
-                <label for="reason" class="form-label">变更原因 <span class="text-danger">*</span></label>
-                <textarea class="form-control" 
-                          id="reason" 
-                          name="reason" 
-                          rows="3"
-                          required
-                          placeholder="请详细说明单位变更的原因">{% if form_data %}{{ form_data.reason }}{% endif %}</textarea>
-            </div>
-            
-            {% if not check_result.can_change %}
-            <div class="mb-3">
-                <div class="form-check">
-                    <input class="form-check-input" 
-                           type="checkbox" 
-                           id="force_change" 
-                           name="force_change">
-                    <label class="form-check-label" for="force_change">
-                        <strong>强制变更</strong>
-                    </label>
-                </div>
-                <small class="form-text text-danger">
-                    警告：强制变更可能会影响进行中的业务，请谨慎操作！
-                </small>
-            </div>
-            {% endif %}
-            
-            {% if preview_data %}
-            <div class="card mb-3" id="previewCard" style="display: none;">
-                <div class="card-header">
-                    <h5>变更预览</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>项目</th>
-                                    <th>变更前</th>
-                                    <th>变更后</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>单位</td>
-                                    <td>{{ preview_data.current_unit }}</td>
-                                    <td id="preview_new_unit">-</td>
-                                </tr>
-                                <tr>
-                                    <td>单价</td>
-                                    <td>¥{{ preview_data.current_unit_price|floatformat:2 }}/{{ preview_data.current_unit }}</td>
-                                    <td id="preview_new_price">-</td>
-                                </tr>
-                                <tr>
-                                    <td>安全库存</td>
-                                    <td>{{ preview_data.current_safety_stock|floatformat:2 }} {{ preview_data.current_unit }}</td>
-                                    <td id="preview_new_safety_stock">-</td>
-                                </tr>
-                                <tr>
-                                    <td>库存数量</td>
-                                    <td>{{ preview_data.current_inventory_quantity|floatformat:2 }} {{ preview_data.current_unit }}</td>
-                                    <td id="preview_new_inventory">-</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
             
             <div class="d-flex justify-content-between">
                 <button type="submit" class="btn btn-success">
@@ -161,54 +53,4 @@
         </form>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    function updatePreview() {
-        const conversionFactor = parseFloat(document.getElementById('conversion_factor').value);
-        const newUnit = document.getElementById('new_unit').value;
-        
-        if (!conversionFactor || conversionFactor <= 0 || !newUnit) {
-            document.getElementById('previewCard').style.display = 'none';
-            return;
-        }
-        
-        // 显示预览卡片
-        document.getElementById('previewCard').style.display = 'block';
-        
-        // 更新预览数据
-        const currentUnitPrice = {{ preview_data.current_unit_price|default:0 }};
-        const currentSafetyStock = {{ preview_data.current_safety_stock|default:0 }};
-        const currentInventory = {{ preview_data.current_inventory_quantity|default:0 }};
-        
-        document.getElementById('preview_new_unit').textContent = newUnit;
-        document.getElementById('preview_new_price').textContent = 
-            '¥' + (currentUnitPrice / conversionFactor).toFixed(2) + '/' + newUnit;
-        document.getElementById('preview_new_safety_stock').textContent = 
-            (currentSafetyStock * conversionFactor).toFixed(2) + ' ' + newUnit;
-        document.getElementById('preview_new_inventory').textContent = 
-            (currentInventory * conversionFactor).toFixed(2) + ' ' + newUnit;
-    }
-    
-    // 监听输入变化
-    document.getElementById('new_unit').addEventListener('input', updatePreview);
-    document.getElementById('conversion_factor').addEventListener('input', updatePreview);
-    
-    // 表单提交确认
-    document.getElementById('unitChangeForm').addEventListener('submit', function(e) {
-        const forceChange = document.getElementById('force_change');
-        if (forceChange && forceChange.checked) {
-            if (!confirm('确定要强制变更单位吗？这可能会影响进行中的业务！')) {
-                e.preventDefault();
-                return false;
-            }
-        } else {
-            if (!confirm('确定要变更单位吗？此操作将影响库存数量、单价和安全库存。')) {
-                e.preventDefault();
-                return false;
-            }
-        }
-    });
-</script>
 {% endblock %}

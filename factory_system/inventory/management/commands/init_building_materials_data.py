@@ -1,8 +1,10 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 from inventory.models import (
-    Customer, MaterialCategory, Material, Product, BOM, Inventory
+    MaterialCategory, Material, Product, BOM, Inventory, Batch, Unit
 )
+from sales.models import Customer
 from logistics.models import Driver, Vehicle
 
 
@@ -90,156 +92,71 @@ class Command(BaseCommand):
         
         self.stdout.write(f'  创建了 {len(customers_data)} 个客户')
 
+    def _ensure_units(self):
+        """确保基础单位存在"""
+        unit_data = [
+            ('kg', '千克', 'weight', 'kg'),
+            ('g', '克', 'weight', 'g'),
+            ('t', '吨', 'weight', 't'),
+            ('m', '米', 'length', 'm'),
+            ('cm', '厘米', 'length', 'cm'),
+            ('mm', '毫米', 'length', 'mm'),
+            ('L', '升', 'volume', 'L'),
+            ('mL', '毫升', 'volume', 'mL'),
+            ('pcs', '个/件', 'quantity', '个'),
+            ('bag', '袋', 'quantity', '袋'),
+            ('barrel', '桶', 'quantity', '桶'),
+            ('tube', '支', 'quantity', '支'),
+            ('box', '箱', 'quantity', '箱'),
+            ('sqm', '平方米', 'area', '㎡'),
+        ]
+        units = {}
+        for code, name, category, symbol in unit_data:
+            unit, _ = Unit.objects.get_or_create(
+                code=code,
+                defaults={
+                    'name': name,
+                    'category': category,
+                    'symbol': symbol,
+                    'is_active': True,
+                }
+            )
+            units[code] = unit
+        return units
+
     def create_materials(self):
         """创建原料分类和原料"""
         self.stdout.write('创建原料数据...')
+        
+        units = self._ensure_units()
+        kg_unit = units['kg']
         
         # 创建原料分类
         categories = ['基础原料', '添加剂', '填料', '助剂']
         for cat_name in categories:
             MaterialCategory.objects.get_or_create(name=cat_name)
         
-        # 创建原料
+        # 创建原料（所有原料以 kg 为基础单位）
         materials_data = [
             # 基础原料
-            {
-                'sku': 'MAT-001',
-                'name': '普通硅酸盐水泥',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.35,
-                'safety_stock': 50000,
-            },
-            {
-                'sku': 'MAT-002',
-                'name': '中砂',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.08,
-                'safety_stock': 100000,
-            },
-            {
-                'sku': 'MAT-003',
-                'name': '细砂',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.10,
-                'safety_stock': 80000,
-            },
-            {
-                'sku': 'MAT-004',
-                'name': '粗砂',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.09,
-                'safety_stock': 60000,
-            },
-            {
-                'sku': 'MAT-005',
-                'name': '石灰石粉',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.12,
-                'safety_stock': 40000,
-            },
+            {'sku': 'MAT-001', 'name': '普通硅酸盐水泥', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.35, 'safety_stock': 50000},
+            {'sku': 'MAT-002', 'name': '中砂', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.08, 'safety_stock': 100000},
+            {'sku': 'MAT-003', 'name': '细砂', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.10, 'safety_stock': 80000},
+            {'sku': 'MAT-004', 'name': '粗砂', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.09, 'safety_stock': 60000},
+            {'sku': 'MAT-005', 'name': '石灰石粉', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.12, 'safety_stock': 40000},
             # 添加剂
-            {
-                'sku': 'MAT-101',
-                'name': '减水剂',
-                'category': '添加剂',
-                'material_type': 'auxiliary',
-                'unit': 'kg',
-                'unit_price': 8.50,
-                'safety_stock': 2000,
-            },
-            {
-                'sku': 'MAT-102',
-                'name': '增稠剂',
-                'category': '添加剂',
-                'material_type': 'auxiliary',
-                'unit': 'kg',
-                'unit_price': 12.00,
-                'safety_stock': 1500,
-            },
-            {
-                'sku': 'MAT-103',
-                'name': '早强剂',
-                'category': '添加剂',
-                'material_type': 'auxiliary',
-                'unit': 'kg',
-                'unit_price': 15.00,
-                'safety_stock': 1000,
-            },
-            {
-                'sku': 'MAT-104',
-                'name': '缓凝剂',
-                'category': '添加剂',
-                'material_type': 'auxiliary',
-                'unit': 'kg',
-                'unit_price': 18.00,
-                'safety_stock': 1000,
-            },
+            {'sku': 'MAT-101', 'name': '减水剂', 'category': '添加剂', 'material_type': 'auxiliary', 'unit_price': 8.50, 'safety_stock': 2000},
+            {'sku': 'MAT-102', 'name': '增稠剂', 'category': '添加剂', 'material_type': 'auxiliary', 'unit_price': 12.00, 'safety_stock': 1500},
+            {'sku': 'MAT-103', 'name': '早强剂', 'category': '添加剂', 'material_type': 'auxiliary', 'unit_price': 15.00, 'safety_stock': 1000},
+            {'sku': 'MAT-104', 'name': '缓凝剂', 'category': '添加剂', 'material_type': 'auxiliary', 'unit_price': 18.00, 'safety_stock': 1000},
             # 填料
-            {
-                'sku': 'MAT-201',
-                'name': '粉煤灰',
-                'category': '填料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.15,
-                'safety_stock': 30000,
-            },
-            {
-                'sku': 'MAT-202',
-                'name': '矿渣粉',
-                'category': '填料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.20,
-                'safety_stock': 25000,
-            },
-            {
-                'sku': 'MAT-203',
-                'name': '硅灰',
-                'category': '填料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.45,
-                'safety_stock': 15000,
-            },
+            {'sku': 'MAT-201', 'name': '粉煤灰', 'category': '填料', 'material_type': 'raw', 'unit_price': 0.15, 'safety_stock': 30000},
+            {'sku': 'MAT-202', 'name': '矿渣粉', 'category': '填料', 'material_type': 'raw', 'unit_price': 0.20, 'safety_stock': 25000},
+            {'sku': 'MAT-203', 'name': '硅灰', 'category': '填料', 'material_type': 'raw', 'unit_price': 0.45, 'safety_stock': 15000},
             # 防火材料专用原料
-            {
-                'sku': 'MAT-301',
-                'name': '膨胀珍珠岩',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.25,
-                'safety_stock': 20000,
-            },
-            {
-                'sku': 'MAT-302',
-                'name': '阻燃剂',
-                'category': '助剂',
-                'material_type': 'auxiliary',
-                'unit': 'kg',
-                'unit_price': 25.00,
-                'safety_stock': 2000,
-            },
-            {
-                'sku': 'MAT-303',
-                'name': '玻化微珠',
-                'category': '基础原料',
-                'material_type': 'raw',
-                'unit': 'kg',
-                'unit_price': 0.30,
-                'safety_stock': 18000,
-            },
+            {'sku': 'MAT-301', 'name': '膨胀珍珠岩', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.25, 'safety_stock': 20000},
+            {'sku': 'MAT-302', 'name': '阻燃剂', 'category': '助剂', 'material_type': 'auxiliary', 'unit_price': 25.00, 'safety_stock': 2000},
+            {'sku': 'MAT-303', 'name': '玻化微珠', 'category': '基础原料', 'material_type': 'raw', 'unit_price': 0.30, 'safety_stock': 18000},
         ]
         
         for data in materials_data:
@@ -249,6 +166,8 @@ class Command(BaseCommand):
                 defaults={
                     **data,
                     'category': category,
+                    'base_unit': kg_unit,
+                    'display_unit': kg_unit,
                 }
             )
         
@@ -258,93 +177,34 @@ class Command(BaseCommand):
         """创建产品"""
         self.stdout.write('创建产品数据...')
         
+        units = self._ensure_units()
+        bag_unit = units['bag']
+        barrel_unit = units['barrel']
+        tube_unit = units['tube']
+        
         products_data = [
-            {
-                'sku': 'PROD-001',
-                'name': '普通砌筑砂浆 M5',
-                'specification': '强度等级M5，适用于一般砌筑工程',
-                'sale_price': 280.00,
-                'safety_stock': 500,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-002',
-                'name': '普通砌筑砂浆 M7.5',
-                'specification': '强度等级M7.5，适用于一般砌筑工程',
-                'sale_price': 320.00,
-                'safety_stock': 500,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-003',
-                'name': '普通砌筑砂浆 M10',
-                'specification': '强度等级M10，适用于承重砌筑工程',
-                'sale_price': 360.00,
-                'safety_stock': 400,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-004',
-                'name': '抹灰砂浆',
-                'specification': '适用于内外墙抹灰，粘结力强',
-                'sale_price': 300.00,
-                'safety_stock': 600,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-005',
-                'name': '地面找平砂浆',
-                'specification': '适用于地面找平，自流平性能好',
-                'sale_price': 350.00,
-                'safety_stock': 400,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-006',
-                'name': '普通硅酸盐水泥 P.O 42.5',
-                'specification': '强度等级42.5，通用水泥',
-                'sale_price': 450.00,
-                'safety_stock': 800,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-007',
-                'name': '普通硅酸盐水泥 P.O 32.5',
-                'specification': '强度等级32.5，通用水泥',
-                'sale_price': 380.00,
-                'safety_stock': 1000,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-008',
-                'name': '防火保温砂浆',
-                'specification': 'A级防火，保温性能优良',
-                'sale_price': 680.00,
-                'safety_stock': 300,
-                'unit': '袋',
-            },
-            {
-                'sku': 'PROD-009',
-                'name': '防火涂料',
-                'specification': '钢结构防火涂料，耐火极限2小时',
-                'sale_price': 850.00,
-                'safety_stock': 200,
-                'unit': '桶',
-            },
-            {
-                'sku': 'PROD-010',
-                'name': '防火密封胶',
-                'specification': '防火封堵材料，阻燃性能好',
-                'sale_price': 1200.00,
-                'safety_stock': 150,
-                'unit': '支',
-            },
+            {'sku': 'PROD-001', 'name': '普通砌筑砂浆 M5', 'specification': '强度等级M5，适用于一般砌筑工程', 'sale_price': 280.00, 'safety_stock': 500, 'unit_code': 'bag'},
+            {'sku': 'PROD-002', 'name': '普通砌筑砂浆 M7.5', 'specification': '强度等级M7.5，适用于一般砌筑工程', 'sale_price': 320.00, 'safety_stock': 500, 'unit_code': 'bag'},
+            {'sku': 'PROD-003', 'name': '普通砌筑砂浆 M10', 'specification': '强度等级M10，适用于承重砌筑工程', 'sale_price': 360.00, 'safety_stock': 400, 'unit_code': 'bag'},
+            {'sku': 'PROD-004', 'name': '抹灰砂浆', 'specification': '适用于内外墙抹灰，粘结力强', 'sale_price': 300.00, 'safety_stock': 600, 'unit_code': 'bag'},
+            {'sku': 'PROD-005', 'name': '地面找平砂浆', 'specification': '适用于地面找平，自流平性能好', 'sale_price': 350.00, 'safety_stock': 400, 'unit_code': 'bag'},
+            {'sku': 'PROD-006', 'name': '普通硅酸盐水泥 P.O 42.5', 'specification': '强度等级42.5，通用水泥', 'sale_price': 450.00, 'safety_stock': 800, 'unit_code': 'bag'},
+            {'sku': 'PROD-007', 'name': '普通硅酸盐水泥 P.O 32.5', 'specification': '强度等级32.5，通用水泥', 'sale_price': 380.00, 'safety_stock': 1000, 'unit_code': 'bag'},
+            {'sku': 'PROD-008', 'name': '防火保温砂浆', 'specification': 'A级防火，保温性能优良', 'sale_price': 680.00, 'safety_stock': 300, 'unit_code': 'bag'},
+            {'sku': 'PROD-009', 'name': '防火涂料', 'specification': '钢结构防火涂料，耐火极限2小时', 'sale_price': 850.00, 'safety_stock': 200, 'unit_code': 'barrel'},
+            {'sku': 'PROD-010', 'name': '防火密封胶', 'specification': '防火封堵材料，阻燃性能好', 'sale_price': 1200.00, 'safety_stock': 150, 'unit_code': 'tube'},
         ]
         
         for data in products_data:
+            unit_code = data.pop('unit_code')
+            product_unit = units[unit_code]
             Product.objects.get_or_create(
                 sku=data['sku'],
-                defaults=data
+                defaults={
+                    **data,
+                    'base_unit': product_unit,
+                    'display_unit': product_unit,
+                }
             )
         
         self.stdout.write(f'  创建了 {len(products_data)} 种产品')
@@ -438,6 +298,10 @@ class Command(BaseCommand):
             },
         ]
         
+        # 获取 kg 单位用于 BOM
+        units = self._ensure_units()
+        kg_unit = units['kg']
+        
         bom_count = 0
         for bom_data in boms_data:
             product = Product.objects.get(sku=bom_data['product_sku'])
@@ -445,15 +309,42 @@ class Command(BaseCommand):
             BOM.objects.filter(product=product).delete()
             
             for item_data in bom_data['items']:
+                # 查找 BOM 用量单位（默认使用原料的 base_unit）
+                bom_unit = kg_unit
+                if 'unit' in item_data:
+                    unit_str = item_data['unit']
+                    bom_unit = Unit.objects.filter(name=unit_str).first() or \
+                               Unit.objects.filter(code=unit_str).first() or \
+                               item_data['material'].base_unit or kg_unit
+                
                 BOM.objects.create(
                     product=product,
                     material=item_data['material'],
                     quantity=item_data['quantity'],
-                    unit=item_data['unit'],
+                    unit=bom_unit,
                 )
                 bom_count += 1
         
         self.stdout.write(f'  创建了 {bom_count} 条BOM配方记录')
+
+    def _ensure_inventory_batch(self, inventory, quantity, sku_prefix):
+        """确保库存有对应的批次记录。若已有批次则跳过，否则创建初始批次。"""
+        from decimal import Decimal
+        batch_total = Batch.objects.filter(inventory=inventory).aggregate(
+            total=__import__('django.db.models', fromlist=['Sum']).Sum('quantity')
+        )['total'] or Decimal('0')
+        missing = Decimal(str(quantity)) - batch_total
+        if missing > 0:
+            batch_no = f"{sku_prefix}-INIT-{timezone.now().strftime('%Y%m%d')}"
+            Batch.objects.get_or_create(
+                batch_no=batch_no,
+                inventory=inventory,
+                defaults={
+                    'batch_date': timezone.now().date(),
+                    'quantity': missing,
+                    'remark': '初始化数据自动创建批次',
+                },
+            )
 
     def create_inventory(self):
         """创建初始库存"""
@@ -475,29 +366,29 @@ class Command(BaseCommand):
         
         for data in product_inventory:
             product = Product.objects.get(sku=data['sku'])
-            Inventory.objects.update_or_create(
+            inv, _ = Inventory.objects.update_or_create(
                 inventory_type='product',
                 product=product,
                 defaults={
                     'quantity': data['quantity'],
-                    'unit': product.unit,
                 }
             )
+            self._ensure_inventory_batch(inv, data['quantity'], data['sku'])
         
         # 原料库存（设置为安全库存的1.5倍）
         materials = Material.objects.all()
         for material in materials:
             initial_qty = float(material.safety_stock) * 1.5
-            Inventory.objects.update_or_create(
+            inv, _ = Inventory.objects.update_or_create(
                 inventory_type='material',
                 material=material,
                 defaults={
                     'quantity': initial_qty,
-                    'unit': material.unit,
                 }
             )
+            self._ensure_inventory_batch(inv, initial_qty, material.sku)
         
-        self.stdout.write(f'  创建了成品和原料的初始库存')
+        self.stdout.write(f'  创建了成品和原料的初始库存（含批次记录）')
 
     def create_logistics_resources(self):
         """创建司机和车辆"""

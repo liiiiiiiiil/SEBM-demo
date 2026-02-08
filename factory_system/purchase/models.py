@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-from inventory.models import Material
+from inventory.models import Material, Unit
 
 
 class Supplier(models.Model):
@@ -59,7 +59,13 @@ class PurchaseTask(models.Model):
 
 
 class PurchaseTaskItem(models.Model):
-    """采购任务明细"""
+    """采购任务明细
+    
+    变更说明（双单位体系重构）：
+    - quantity / unit_price 始终是「基础单位」口径
+    - 删除旧 unit CharField
+    - 新增 display_unit / display_quantity 记录采购人填写时的原始单位和数量
+    """
     ITEM_TYPE_CHOICES = [
         ('material', '原料'),
         ('office', '办公用品'),
@@ -70,10 +76,22 @@ class PurchaseTaskItem(models.Model):
     material = models.ForeignKey(Material, on_delete=models.PROTECT, null=True, blank=True, verbose_name='物料')
     item_name = models.CharField(max_length=200, blank=True, verbose_name='物品名称')
     item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES, default='material', verbose_name='物品类型')
-    unit = models.CharField(max_length=20, blank=True, verbose_name='单位')
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='采购数量')
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)], verbose_name='采购数量（基础单位）')
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='单价（基础单位）')
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='小计')
+    display_unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='purchase_items',
+        verbose_name='采购业务单位',
+    )
+    display_quantity = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='采购业务数量',
+    )
     
     class Meta:
         verbose_name = '采购任务明细'

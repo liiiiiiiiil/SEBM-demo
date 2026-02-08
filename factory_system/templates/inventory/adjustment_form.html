@@ -20,65 +20,19 @@
                     {{ inventory.other_name }}
                 {% endif %}
             </p>
-            <p><strong>当前数量：</strong>{{ inventory.quantity|floatformat:2 }}{{ inventory.unit }}</p>
-            <p><strong>当前单价：</strong>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
+            <p><strong>当前数量：</strong>{{ inventory.get_display_quantity|floatformat:2 }} {{ inventory.get_display_unit_name }}</p>
+            <p><strong>当前单价：</strong>¥{{ inventory.get_display_unit_price|floatformat:2 }}/{{ inventory.get_display_unit_name }}</p>
         </div>
         
-        <!-- 单位管理入口 -->
-        {% if inventory.inventory_type == 'material' and inventory.material %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="bi bi-gear"></i> 单位管理 - 原料</h5>
-            </div>
-            <div class="card-body">
-                <div class="btn-group-vertical w-100" role="group">
-                    <a href="{% url 'inventory:packaging_unit_list' inventory.material.id %}" class="btn btn-outline-primary mb-2">
-                        <i class="bi bi-box-seam"></i> 包装单位管理
-                    </a>
-                    <a href="{% url 'inventory:unit_change_request' inventory.material.id %}" class="btn btn-outline-primary mb-2">
-                        <i class="bi bi-arrow-repeat"></i> 单位变更
-                    </a>
-                    <a href="{% url 'inventory:unit_change_history' inventory.material.id %}" class="btn btn-outline-primary">
-                        <i class="bi bi-clock-history"></i> 变更历史
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% elif inventory.inventory_type == 'product' and inventory.product %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="bi bi-gear"></i> 单位管理 - 成品</h5>
-            </div>
-            <div class="card-body">
-                <div class="btn-group-vertical w-100" role="group">
-                    <a href="{% url 'inventory:product_packaging_unit_list' inventory.product.id %}" class="btn btn-outline-primary mb-2">
-                        <i class="bi bi-box-seam"></i> 包装单位管理
-                    </a>
-                    <a href="{% url 'inventory:product_unit_change_request' inventory.product.id %}" class="btn btn-outline-primary mb-2">
-                        <i class="bi bi-arrow-repeat"></i> 单位变更
-                    </a>
-                    <a href="{% url 'inventory:product_unit_change_history' inventory.product.id %}" class="btn btn-outline-primary">
-                        <i class="bi bi-clock-history"></i> 变更历史
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% elif inventory.inventory_type == 'other' %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="bi bi-gear"></i> 单位管理 - 其它</h5>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-warning mb-0">
-                    <i class="bi bi-info-circle"></i> 其它类型库存暂不支持单位管理。
-                </div>
-            </div>
+        {% if inventory.inventory_type == 'other' %}
+        <div class="alert alert-warning mb-4">
+            <i class="bi bi-info-circle"></i> 其它类型库存仅支持数量/单价调整，不支持单位调整。
         </div>
         {% endif %}
         
         <hr class="my-4">
         
-        <h5 class="mb-3"><i class="bi bi-pencil"></i> 库存调整</h5>
+        <h5 class="mb-3"><i class="bi bi-pencil"></i> 库存调整（数量 / 单价 / 单位统一申请）</h5>
         
         <form method="post">
             {% csrf_token %}
@@ -97,21 +51,23 @@
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_quantity" value="quantity" checked onchange="toggleAdjustmentFields()">
                     <label class="form-check-label" for="adjustment_type_quantity">
-                        仅调整数量
+                        数量调整
                     </label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_price" value="price" onchange="toggleAdjustmentFields()">
                     <label class="form-check-label" for="adjustment_type_price">
-                        仅调整单价
+                        单价调整
                     </label>
                 </div>
+                {% if show_unit_option %}
                 <div class="form-check">
-                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_both" value="both" onchange="toggleAdjustmentFields()">
-                    <label class="form-check-label" for="adjustment_type_both">
-                        同时调整数量和单价
+                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_unit" value="unit" onchange="toggleAdjustmentFields()">
+                    <label class="form-check-label" for="adjustment_type_unit">
+                        单位调整
                     </label>
                 </div>
+                {% endif %}
                 {% if form.adjustment_type.errors %}
                 <div class="text-danger">{{ form.adjustment_type.errors }}</div>
                 {% endif %}
@@ -145,28 +101,76 @@
                 {% endif %}
             </div>
             
+            <div class="mb-3" id="unit_field" style="display: none;">
+                <label class="form-label">{{ form.new_unit.label }}</label>
+                {{ form.new_unit }}
+                {% if available_units %}
+                <small class="form-text text-muted">可选：{% for u in available_units %}{{ u.code }}{% if not forloop.last %}、{% endif %}{% endfor %}</small>
+                {% else %}
+                <small class="form-text text-muted">如：袋、箱、kg。新数量 = 当前数量 × 转换系数。</small>
+                {% endif %}
+                {% if form.new_unit.errors %}
+                <div class="text-danger">{{ form.new_unit.errors }}</div>
+                {% endif %}
+                <label class="form-label mt-2">{{ form.conversion_factor.label }}</label>
+                {{ form.conversion_factor }}
+                {% if form.conversion_factor.errors %}
+                <div class="text-danger">{{ form.conversion_factor.errors }}</div>
+                {% endif %}
+            </div>
+            
             <div class="mb-3">
                 <label class="form-label">{{ form.reason.label }} <span class="text-danger">*</span></label>
                 {{ form.reason }}
-                <small class="form-text text-muted">请详细说明库存调整的原因，此信息将提交给总经理审批。</small>
+                <small class="form-text text-muted">请详细说明调整原因，此信息将提交给总经理审批。</small>
                 {% if form.reason.errors %}
                 <div class="text-danger">{{ form.reason.errors }}</div>
                 {% endif %}
             </div>
             
             <div class="alert alert-warning">
-                <strong>注意：</strong>库存调整申请需要总经理审批后才能生效。调整后数量不能为负数。
+                <strong>注意：</strong>库存调整（含数量、单价、单位）均需总经理审批通过后生效。调整后数量不能为负数。
             </div>
             
             <div class="mt-4">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-send"></i> 提交申请
                 </button>
-                <a href="{% url 'inventory:inventory_list' %}" class="btn btn-secondary">取消</a>
+                <a href="{% url 'inventory:inventory_detail' inventory.pk %}" class="btn btn-secondary">取消</a>
             </div>
         </form>
     </div>
 </div>
+
+{% if inventory.inventory_type == 'material' and inventory.material %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> 单位换算与显示单位</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            管理物料的单位换算关系（如 1袋=100kg、1吨=1000kg），或修改当前显示单位。显示单位修改即时生效，无需审批。
+        </p>
+        <a href="{% url 'inventory:packaging_unit_list' inventory.material.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left-right"></i> 进入单位换算表
+        </a>
+    </div>
+</div>
+{% elif inventory.inventory_type == 'product' and inventory.product %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> 单位换算与显示单位</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            管理成品的单位换算关系（如 1箱=12件），或修改当前显示单位。显示单位修改即时生效，无需审批。
+        </p>
+        <a href="{% url 'inventory:product_packaging_unit_list' inventory.product.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left-right"></i> 进入单位换算表
+        </a>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -175,22 +179,28 @@ function toggleAdjustmentFields() {
     const adjustmentType = document.querySelector('input[name="adjustment_type"]:checked').value;
     const quantityField = document.getElementById('quantity_field');
     const priceField = document.getElementById('price_field');
+    const unitField = document.getElementById('unit_field');
+    
+    quantityField.style.display = adjustmentType === 'quantity' ? 'block' : 'none';
+    priceField.style.display = adjustmentType === 'price' ? 'block' : 'none';
+    if (unitField) {
+        unitField.style.display = adjustmentType === 'unit' ? 'block' : 'none';
+    }
     
     if (adjustmentType === 'quantity') {
-        quantityField.style.display = 'block';
-        priceField.style.display = 'none';
-        document.getElementById('id_adjust_unit_price').value = '';
+        if (document.getElementById('id_adjust_unit_price')) document.getElementById('id_adjust_unit_price').value = '';
+        if (document.getElementById('id_new_unit')) document.getElementById('id_new_unit').value = '';
+        if (document.getElementById('id_conversion_factor')) document.getElementById('id_conversion_factor').value = '';
     } else if (adjustmentType === 'price') {
-        quantityField.style.display = 'none';
-        priceField.style.display = 'block';
-        document.getElementById('id_adjust_quantity').value = '';
-    } else if (adjustmentType === 'both') {
-        quantityField.style.display = 'block';
-        priceField.style.display = 'block';
+        if (document.getElementById('id_adjust_quantity')) document.getElementById('id_adjust_quantity').value = '';
+        if (document.getElementById('id_new_unit')) document.getElementById('id_new_unit').value = '';
+        if (document.getElementById('id_conversion_factor')) document.getElementById('id_conversion_factor').value = '';
+    } else if (adjustmentType === 'unit') {
+        if (document.getElementById('id_adjust_quantity')) document.getElementById('id_adjust_quantity').value = '';
+        if (document.getElementById('id_adjust_unit_price')) document.getElementById('id_adjust_unit_price').value = '';
     }
 }
 
-// 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
     toggleAdjustmentFields();
 });

@@ -42,7 +42,7 @@
                             <small class="text-muted">{{ item.product.sku }}</small>
                         </td>
                         <td>
-                            <strong>{{ item.quantity }}{{ item.product.unit }}</strong>
+                            <strong>{{ item_data.item_qty_display|floatformat:2 }}{{ item.product.display_unit.name }}</strong>
                         </td>
                         <td>
                             {% if batches %}
@@ -72,10 +72,10 @@
                                                 {% endif %}
                                             </td>
                                             <td><small>{{ batch.batch_date|date:"Y-m-d" }}</small></td>
-                                            <td><small>{{ batch.quantity }}{{ item.product.unit }}</small></td>
+                                            <td><small>{{ batch.quantity_display|floatformat:2 }}{{ item.product.display_unit.name }}</small></td>
                                             <td>
                                                 {% if batch.id in order_batch_allocations %}
-                                                <small class="text-primary fw-bold">{{ order_batch_allocations|get_item:batch.id }}{{ item.product.unit }}</small>
+                                                <small class="text-primary fw-bold">{{ order_batch_allocations|get_item:batch.id }}{{ item.product.display_unit.name }}</small>
                                                 {% else %}
                                                 <small class="text-muted">-</small>
                                                 {% endif %}
@@ -85,11 +85,11 @@
                                                        name="batch_quantity_{{ item.product.id }}_{{ batch.id }}" 
                                                        class="form-control form-control-sm batch-qty-input {% if batch.id in order_batch_allocations %}border-primary{% endif %}" 
                                                        data-product-id="{{ item.product.id }}"
-                                                       data-required-qty="{{ item.quantity }}"
-                                                       data-unit="{{ item.product.unit }}"
+                                                       data-required-qty="{{ item_data.item_qty_display }}"
+                                                       data-unit="{{ item.product.display_unit.name }}"
                                                        step="0.01" 
                                                        min="0" 
-                                                       max="{{ batch.quantity }}"
+                                                       max="{{ batch.quantity_display }}"
                                                        value="{% if batch.id in order_batch_allocations %}{{ order_batch_allocations|get_item:batch.id }}{% else %}0{% endif %}"
                                                        onchange="updateAllocatedQty({{ item.product.id }})">
                                             </td>
@@ -103,7 +103,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span id="allocated_qty_{{ item.product.id }}" class="badge bg-info">0{{ item.product.unit }}</span>
+                            <span id="allocated_qty_{{ item.product.id }}" class="badge bg-info">0{{ item.product.display_unit.name }}</span>
                         </td>
                     </tr>
                     {% endwith %}

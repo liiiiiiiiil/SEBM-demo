@@ -9,6 +9,15 @@
         <a href="{% url 'inventory:adjustment_create' inventory.pk %}" class="btn btn-primary me-2">
             <i class="bi bi-pencil"></i> 调整
         </a>
+        {% if inventory.inventory_type == 'material' and inventory.material %}
+        <a href="{% url 'inventory:packaging_unit_list' inventory.material.id %}" class="btn btn-outline-secondary me-2" title="单位换算表、显示单位修改">
+            <i class="bi bi-arrow-left-right"></i> 单位换算
+        </a>
+        {% elif inventory.inventory_type == 'product' and inventory.product %}
+        <a href="{% url 'inventory:product_packaging_unit_list' inventory.product.id %}" class="btn btn-outline-secondary me-2" title="单位换算表、显示单位修改">
+            <i class="bi bi-arrow-left-right"></i> 单位换算
+        </a>
+        {% endif %}
         <a href="{% url 'inventory:inventory_list' %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> 返回库存列表
         </a>
@@ -34,11 +43,11 @@
             </div>
             <div class="col-md-3">
                 <strong>总数量：</strong>
-                <p><span class="badge bg-primary fs-6">{{ inventory.quantity|floatformat:2 }}</span> {{ inventory.unit }}</p>
+                <p><span class="badge bg-primary fs-6">{{ inventory.get_display_quantity|floatformat:2 }}</span> {{ inventory.get_display_unit_name }}</p>
             </div>
             <div class="col-md-3">
-                <strong>基础单价：</strong>
-                <p>¥{{ inventory.get_unit_price|floatformat:2 }}</p>
+                <strong>单价：</strong>
+                <p>¥{{ inventory.get_display_unit_price|floatformat:2 }}/{{ inventory.get_display_unit_name }}</p>
             </div>
             <div class="col-md-3">
                 <strong>总价值：</strong>
@@ -81,7 +90,7 @@
                     <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
                         <td>{{ batch.batch_no }}</td>
                         <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                        <td><strong>{{ batch.quantity|floatformat:2 }}{{ inventory.unit }}</strong></td>
+                        <td><strong>{{ batch.display_quantity|floatformat:2 }}{{ inventory.get_display_unit_name }}</strong></td>
                         <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
                         <td>
                             {% if batch.expiry_date %}
@@ -138,13 +147,15 @@
                             </span>
                         </td>
                         <td>
-                            {% if transaction.transaction_type == 'sale_out' or transaction.transaction_type == 'production_out' %}
-                                <span class="text-danger">-{{ transaction.quantity|floatformat:2 }}</span>
+                            {% if transaction.quantity_display < 0 %}
+                                <span class="text-danger">{{ transaction.quantity_display|floatformat:2 }}</span>
+                            {% elif transaction.quantity_display > 0 %}
+                                <span class="text-success">+{{ transaction.quantity_display|floatformat:2 }}</span>
                             {% else %}
-                                <span class="text-success">+{{ transaction.quantity|floatformat:2 }}</span>
+                                <span class="text-muted">0.00</span>
                             {% endif %}
                         </td>
-                        <td>{{ transaction.unit }}</td>
+                        <td>{{ transaction.unit_display }}</td>
                         <td>
                             {% if transaction.batch %}
                                 <small class="text-muted">{{ transaction.batch.batch_no }}</small>

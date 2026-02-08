@@ -149,12 +149,12 @@
                                     <small class="text-muted">{{ item_info.item.product.sku }}</small>
                                 </td>
                                 <td>
-                                    <strong>{{ item_info.item.quantity|floatformat:2 }}{{ item_info.item.product.unit }}</strong>
+                                    <strong>{{ item_info.item.get_display_quantity|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</strong>
                                 </td>
                                 <td>¥{{ item_info.item.unit_price|floatformat:2 }}</td>
                                 <td>
                                     {% if item_info.batch_allocated_qty > 0 %}
-                                    <span class="badge bg-info">{{ item_info.batch_allocated_qty|floatformat:2 }}{{ item_info.item.product.unit }}</span>
+                                    <span class="badge bg-info">{{ item_info.batch_allocated_qty|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</span>
                                     {% else %}
                                     <span class="badge bg-secondary">未分配</span>
                                     {% endif %}
@@ -177,7 +177,7 @@
                                 </td>
                                 <td>
                                     {% if item_info.shortage > 0 %}
-                                    <span class="badge bg-warning">{{ item_info.shortage|floatformat:2 }}{{ item_info.item.product.unit }}</span>
+                                    <span class="badge bg-warning">{{ item_info.shortage|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</span>
                                     <br><small class="text-muted">需生产</small>
                                     {% else %}
                                     <span class="badge bg-success">充足</span>

@@ -3,29 +3,25 @@
 {% block title %}物流管理{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-truck"></i> 物流管理</h2>
-    <a href="{% url 'logistics:driver_list' %}" class="btn btn-info">
-        <i class="bi bi-person-badge"></i> 司机信息
-    </a>
-</div>
-
 <div class="card">
     <div class="card-body">
-        <div class="mb-3">
-            <form method="get" class="d-flex gap-2">
-                <select name="status" class="form-select" style="width: auto;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <form method="get" class="d-flex align-items-center flex-wrap gap-2">
+                <select name="status" class="form-select form-select-sm" style="width: auto;">
                     <option value="">全部状态</option>
                     <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待发货</option>
                     <option value="loading" {% if status_filter == 'loading' %}selected{% endif %}>装车中</option>
                     <option value="shipped" {% if status_filter == 'shipped' %}selected{% endif %}>已发货/待回执</option>
                     <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>已送达</option>
                 </select>
-                <button type="submit" class="btn btn-outline-primary">筛选</button>
+                <button type="submit" class="btn btn-outline-primary btn-sm">筛选</button>
                 {% if status_filter %}
-                <a href="{% url 'logistics:shipment_list' %}" class="btn btn-outline-secondary">清除筛选</a>
+                <a href="{% url 'logistics:shipment_list' %}" class="btn btn-outline-secondary btn-sm">清除筛选</a>
                 {% endif %}
             </form>
+            <a href="{% url 'logistics:driver_list' %}" class="btn btn-info btn-sm">
+                <i class="bi bi-person-badge"></i> 司机信息
+            </a>
         </div>
         
         <div class="table-responsive">
