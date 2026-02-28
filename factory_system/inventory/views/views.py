@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from decimal import Decimal
 from accounts.decorators import role_required, permission_required, role_or_permission_required
 from inventory.models import Inventory, StockTransaction, Product, Material, ProductCategory, MaterialCategory, InventoryAdjustmentRequest, BOM, Unit
+from factory_system.utils import get_paginate_by
 
 
 @login_required
@@ -157,7 +158,8 @@ def inventory_list(request):
     all_records.sort(key=lambda x: x['created_at'], reverse=True)
     
     # 分页处理
-    paginator = Paginator(all_records, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(all_records, paginate_by)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
@@ -208,11 +210,16 @@ def inventory_list(request):
     for inv in inventories_list:
         inv.pending_adjustments = pending_adjustments.get(inv.pk, [])
     
+    extra_params = ''
+    if inventory_type:
+        extra_params = f'type={inventory_type}'
+    
     context = {
         'page_obj': page_obj,
         'inventories': inventories_list,
         'inventory_type': inventory_type,
         'can_approve': can_approve,
+        'extra_params': extra_params,
     }
     return render(request, 'inventory/inventory_list.html', context)
 
@@ -249,7 +256,8 @@ def inventory_detail(request, pk):
         inventory=inventory
     ).select_related('batch', 'operator', 'unit').order_by('-created_at')
     
-    paginator = Paginator(transactions_qs, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(transactions_qs, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -312,7 +320,8 @@ def product_list(request):
             Q(name__icontains=search)
         )
     
-    paginator = Paginator(products, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(products, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -452,7 +461,8 @@ def adjustment_list(request):
     if status_filter:
         adjustments = adjustments.filter(status=status_filter)
     
-    paginator = Paginator(adjustments, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(adjustments, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

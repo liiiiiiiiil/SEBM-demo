@@ -11,6 +11,7 @@ from .models import Shipment, Driver, Vehicle, ShipmentImage
 from sales.models import SalesOrder
 from .models import ShippingNotice
 from inventory.models import Inventory, StockTransaction
+from factory_system.utils import get_paginate_by
 
 
 @login_required
@@ -20,7 +21,8 @@ def shipping_notice_list(request):
     notices = ShippingNotice.objects.select_related('order').filter(status='pending')
     
     # 分页处理
-    paginator = Paginator(notices, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(notices, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -332,7 +334,8 @@ def driver_list(request):
     drivers = Driver.objects.prefetch_related('vehicles').all()
     
     # 分页处理
-    paginator = Paginator(drivers, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(drivers, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -549,7 +552,8 @@ def shipment_list(request):
     all_items.sort(key=lambda x: x.created_at if hasattr(x, 'created_at') else x.order.created_at, reverse=True)
     
     # 分页处理
-    paginator = Paginator(all_items, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(all_items, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -635,7 +639,8 @@ def vehicle_list(request):
     vehicles = Vehicle.objects.all()
     
     # 分页处理
-    paginator = Paginator(vehicles, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(vehicles, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

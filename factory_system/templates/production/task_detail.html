@@ -2,6 +2,138 @@
 
 {% block title %}生产任务详情 - {{ task.task_no }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .card-header {
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: stretch;
+            padding: 1rem;
+        }
+        
+        .card-header h4 {
+            text-align: center;
+            font-size: 1.125rem;
+            margin-bottom: 0;
+        }
+        
+        .card-header > div {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .card-header .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            min-height: 44px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        .card-body > .row > .col-md-6 {
+            margin-bottom: 1rem;
+        }
+        
+        .card-body h5 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #0d6efd;
+        }
+        
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-material-card {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-material-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-material-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #212529;
+            flex: 1;
+        }
+        
+        .mobile-material-sku {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .mobile-material-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .mobile-material-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-material-info-label {
+            color: #6c757d;
+        }
+        
+        .mobile-material-info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .mobile-material-total {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        
+        .mobile-material-shortage {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .card-body .mt-4 {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .card-body .mt-4 .btn {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-material-card {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header d-flex justify-content-between">
@@ -232,6 +364,38 @@
                                 </tr>
                             </tfoot>
                         </table>
+                        
+                        <div class="mobile-materials-list">
+                            {% for summary in total_materials_summary %}
+                            <div class="mobile-material-card">
+                                <div class="mobile-material-header">
+                                    <div>
+                                        <div class="mobile-material-name">{{ summary.material.name }}</div>
+                                        <div class="mobile-material-sku">{{ summary.material.sku }}</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mobile-material-info">
+                                    <div class="mobile-material-info-row">
+                                        <span class="mobile-material-info-label">总需求量</span>
+                                        <span class="mobile-material-total">{{ summary.total_quantity|floatformat:2 }} {{ summary.unit }}</span>
+                                    </div>
+                                    <div class="mobile-material-info-row">
+                                        <span class="mobile-material-info-label">当前库存</span>
+                                        <span class="mobile-material-info-value" id="material-available-mobile-{{ summary.material_id }}">{{ summary.available_quantity|floatformat:2 }}</span>
+                                    </div>
+                                    <div class="mobile-material-info-row">
+                                        <span class="mobile-material-info-label">缺口数量</span>
+                                        <span class="mobile-material-shortage">
+                                            <span id="material-shortage-mobile-{{ summary.material_id }}" class="badge {% if summary.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
+                                                {{ summary.shortage|floatformat:2 }} {{ summary.unit }}
+                                            </span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>

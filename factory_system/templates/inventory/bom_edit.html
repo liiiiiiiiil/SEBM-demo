@@ -2,6 +2,205 @@
 
 {% block title %}编辑BOM配方 - {{ product.name }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+        
+        .d-flex.justify-content-between h2 {
+            text-align: center;
+            font-size: 1.25rem;
+            margin-bottom: 0;
+        }
+        
+        .d-flex.justify-content-between a.btn {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .card-header {
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .card-header h5 {
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+        
+        .card-body .row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .card-body .row > div {
+            width: 100%;
+        }
+        
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-bom-items {
+            display: block;
+            padding: 0.5rem 0;
+        }
+        
+        .mobile-bom-item {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-bom-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-bom-item-info {
+            flex: 1;
+            padding-right: 0.75rem;
+        }
+        
+        .mobile-bom-item-sku {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .mobile-bom-item-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #212529;
+            line-height: 1.4;
+        }
+        
+        .mobile-bom-item-quantity {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0d6efd;
+            white-space: nowrap;
+        }
+        
+        .mobile-bom-item-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-bom-item-actions .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            font-size: 0.875rem;
+            padding: 0.625rem 0.75rem;
+            min-height: 44px;
+        }
+        
+        .mobile-bom-edit-form {
+            background: #fff3cd;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-top: 1rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ffc107;
+        }
+        
+        .mobile-bom-edit-form .form-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .mobile-bom-edit-form .form-control,
+        .mobile-bom-edit-form .form-select {
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            padding: 0.875rem;
+            border-radius: 0.5rem;
+            border: 2px solid #ffc107;
+            background: #fff;
+        }
+        
+        .mobile-bom-edit-form .form-control:focus,
+        .mobile-bom-edit-form .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        .mobile-bom-edit-form .btn {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-bom-edit-form .btn:last-child {
+            margin-bottom: 0;
+        }
+        
+        .card-body form .row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .card-body form .row > div {
+            width: 100%;
+        }
+        
+        .card-body form label {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .card-body form select,
+        .card-body form input {
+            font-size: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+        }
+        
+        .card-body form button {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+        }
+        
+        /* 确保移动端内容不被遮挡 */
+        main {
+            padding-bottom: 80px !important;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-bom-items {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-pencil-square"></i> 编辑BOM配方</h2>
@@ -116,6 +315,64 @@
             <i class="bi bi-info-circle"></i> 该产品暂无 BOM 配方，请在下方添加原料。
         </div>
         {% endif %}
+        
+        <div class="mobile-bom-items">
+            {% for item in bom_items %}
+            <div class="mobile-bom-item" id="mobile-bom-item-{{ item.pk }}">
+                <div class="mobile-bom-item-header">
+                    <div class="mobile-bom-item-info">
+                        <div class="mobile-bom-item-sku">{{ item.material.sku }}</div>
+                        <div class="mobile-bom-item-name">{{ item.material.name }}</div>
+                    </div>
+                    <div class="mobile-bom-item-quantity" id="mobile-quantity-{{ item.pk }}">
+                        {{ item.quantity|floatformat:2 }} {{ item.unit.name }}
+                    </div>
+                </div>
+                
+                <div class="mobile-bom-item-actions">
+                    <button type="button" class="btn btn-outline-primary" onclick="toggleEditRow({{ item.pk }})">
+                        <i class="bi bi-pencil"></i> 编辑
+                    </button>
+                    <form method="post" action="{% url 'inventory:bom_item_delete' product.pk item.pk %}"
+                          onsubmit="return confirm('确定要删除原料「{{ item.material.name }}」吗？')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="mobile-bom-edit-form" id="mobile-edit-form-{{ item.pk }}" style="display: none;">
+                    <form method="post" action="{% url 'inventory:bom_item_edit' product.pk item.pk %}">
+                        {% csrf_token %}
+                        <label class="form-label">用量</label>
+                        <input type="number" name="quantity" value="{{ item.quantity }}" class="form-control" step="0.0001" min="0.0001" required>
+                        
+                        <label class="form-label">单位</label>
+                        <select name="unit" class="form-select" required>
+                            <option value="{{ item.material.base_unit.pk }}" {% if item.unit_id == item.material.base_unit_id %}selected{% endif %}>
+                                {{ item.material.base_unit.name }}
+                            </option>
+                            {% for conv in item.material.unit_conversions.all %}
+                            {% if conv.is_active %}
+                            <option value="{{ conv.target_unit_id }}" {% if item.unit_id == conv.target_unit_id %}selected{% endif %}>
+                                {{ conv.target_unit.name }} (1{{ conv.target_unit.name }}={{ conv.factor|floatformat:2 }}{{ item.material.base_unit.name }})
+                            </option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check"></i> 保存
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="toggleEditRow({{ item.pk }})">
+                            取消
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 
@@ -172,12 +429,24 @@
 function toggleEditRow(bomId) {
     const displayRow = document.getElementById('bom-row-' + bomId);
     const editRow = document.getElementById('edit-row-' + bomId);
+    const mobileItem = document.getElementById('mobile-bom-item-' + bomId);
+    const mobileEditForm = document.getElementById('mobile-edit-form-' + bomId);
+    
     if (editRow.style.display === 'none') {
         editRow.style.display = '';
         displayRow.style.display = 'none';
+        if (mobileEditForm) {
+            mobileEditForm.style.display = 'block';
+            setTimeout(() => {
+                mobileEditForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
     } else {
         editRow.style.display = 'none';
         displayRow.style.display = '';
+        if (mobileEditForm) {
+            mobileEditForm.style.display = 'none';
+        }
     }
 }
 
@@ -196,14 +465,12 @@ function updateUnitOptions() {
     const baseUnitId = opt.dataset.baseUnitId;
     const baseUnitName = opt.dataset.baseUnitName;
 
-    // 添加基础单位
     const baseOption = document.createElement('option');
     baseOption.value = baseUnitId;
     baseOption.textContent = baseUnitName;
     baseOption.selected = true;
     unitSelect.appendChild(baseOption);
 
-    // 添加换算单位
     try {
         const conversions = JSON.parse(opt.dataset.conversions);
         conversions.forEach(function(conv) {
@@ -213,7 +480,6 @@ function updateUnitOptions() {
             unitSelect.appendChild(convOption);
         });
     } catch(e) {
-        // 无换算单位
     }
 }
 </script>

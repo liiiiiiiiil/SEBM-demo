@@ -11,6 +11,7 @@ from decimal import Decimal
 from accounts.decorators import role_required
 from .models import ProductionTask, MaterialRequisition, MaterialRequisitionItem, MaterialRequisitionItemBatch, QCRecord, FinishedProductInbound, TaskMaterialOverride
 from inventory.models import BOM, Inventory, StockTransaction, Product
+from factory_system.utils import get_paginate_by
 
 
 # ===== 公共工具函数 =====
@@ -76,7 +77,8 @@ def task_list(request):
     if status_filter:
         tasks = tasks.filter(status=status_filter)
     
-    paginator = Paginator(tasks, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(tasks, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     # 刷新本页中「原料不足」任务：若采购后原料已充足，则更新为「待接收」
@@ -473,7 +475,8 @@ def requisition_list(request):
     if status_filter:
         requisitions = requisitions.filter(status=status_filter)
     
-    paginator = Paginator(requisitions, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(requisitions, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

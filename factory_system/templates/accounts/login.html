@@ -3,10 +3,10 @@
 {% block title %}登录 - 工厂管理系统{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-4">
-        <div class="card shadow">
-            <div class="card-body">
+<div class="row justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="col-md-6 col-lg-4 col-sm-8 col-10">
+        <div class="card shadow-lg">
+            <div class="card-body p-4">
                 <h3 class="card-title text-center mb-4">
                     <i class="bi bi-box-arrow-in-right"></i> 用户登录
                 </h3>
@@ -14,13 +14,23 @@
                     {% csrf_token %}
                     <div class="mb-3">
                         <label for="id_username" class="form-label">用户名</label>
-                        <input type="text" class="form-control" id="id_username" name="username" required autofocus>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-person"></i>
+                            </span>
+                            <input type="text" class="form-control" id="id_username" name="username" required autofocus placeholder="请输入用户名">
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="id_password" class="form-label">密码 <small class="text-muted">(调试模式：可为空)</small></label>
-                        <input type="password" class="form-control" id="id_password" name="password">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="id_password" name="password" placeholder="请输入密码">
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100 py-2">
                         <i class="bi bi-box-arrow-in-right"></i> 登录
                     </button>
                 </form>
