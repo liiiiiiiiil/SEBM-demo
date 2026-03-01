@@ -1,6 +1,32 @@
+# 数值显示规则：有小数时最多精确到 4 位，整数不补零
+from decimal import Decimal, InvalidOperation
 from django import template
 
 register = template.Library()
+
+
+@register.filter
+def num(value, max_decimals=4):
+    """
+    格式化数值显示：整数不补零，有小数时最多 max_decimals 位并去掉尾零。
+    用法：{{ value|num }} 或 {{ value|num:1 }}
+    """
+    if value is None:
+        return ''
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return value
+    try:
+        max_d = int(max_decimals)
+        if max_d < 0:
+            max_d = 4
+    except (TypeError, ValueError):
+        max_d = 4
+    d = round(d, max_d)
+    if d == d.to_integral_value():
+        return str(int(d))
+    return format(d, f'.{max_d}f').rstrip('0').rstrip('.')
 
 
 @register.filter

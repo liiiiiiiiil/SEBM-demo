@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}编辑BOM配方 - {{ product.name }}{% endblock %}
 
@@ -58,7 +59,7 @@
                         <td>{{ item.material.sku }}</td>
                         <td>{{ item.material.name }}</td>
                         <td>
-                            <span class="display-value-{{ item.pk }}">{{ item.quantity|floatformat:2 }}</span>
+                            <span class="display-value-{{ item.pk }}">{{ item.quantity|num }}</span>
                         </td>
                         <td>
                             <span class="display-unit-{{ item.pk }}">{{ item.unit.name }}</span>
@@ -91,7 +92,7 @@
                                     {% for conv in item.material.unit_conversions.all %}
                                     {% if conv.is_active %}
                                     <option value="{{ conv.target_unit_id }}" {% if item.unit_id == conv.target_unit_id %}selected{% endif %}>
-                                        {{ conv.target_unit.name }} (1{{ conv.target_unit.name }}={{ conv.factor|floatformat:2 }}{{ item.material.base_unit.name }})
+                                        {{ conv.target_unit.name }} (1{{ conv.target_unit.name }}={{ conv.factor|num }}{{ item.material.base_unit.name }})
                                     </option>
                                     {% endif %}
                                     {% endfor %}

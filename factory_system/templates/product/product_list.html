@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}产品列表 - 产品管理{% endblock %}
+
+{% block extra_css %}
+<style>
+.product-list-table th,
+.product-list-table td { text-align: justify; }
+.product-list-table td:last-child { text-align: left; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <form method="get" class="d-flex align-items-center flex-wrap gap-2">
+                <input type="hidden" name="category" value="{{ category_filter }}">
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索 SKU 或名称" value="{{ search }}" style="width: 12rem;">
+                <button type="submit" class="btn btn-secondary btn-sm">搜索</button>
+            </form>
+            <div class="d-flex align-items-center gap-2">
+                {% if can_manage %}
+                <a href="{% url 'product:item_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> 创建物料</a>
+                <a href="{% url 'product:bom_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-list-check"></i> BOM 配方
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 分类标签页：成品、半成品、原料、辅料、工具、办公物品、其它 -->
+        <ul class="nav nav-tabs mb-3 flex-wrap" id="productCategoryTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '成品' %}active{% endif %}" href="?category=成品{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-box-seam"></i> 成品
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '半成品' %}active{% endif %}" href="?category=半成品{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-gear"></i> 半成品
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '原料' %}active{% endif %}" href="?category=原料{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-boxes"></i> 原料
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '辅料' %}active{% endif %}" href="?category=辅料{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-droplet"></i> 辅料
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '工具' %}active{% endif %}" href="?category=工具{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-wrench"></i> 工具
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '办公物品' %}active{% endif %}" href="?category=办公物品{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-briefcase"></i> 办公物品
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if category_filter == '其它' %}active{% endif %}" href="?category=其它{% if search %}&search={{ search }}{% endif %}" role="tab">
+                    <i class="bi bi-archive"></i> 其它
+                </a>
+            </li>
+        </ul>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-sm product-list-table">
+                <thead>
+                    <tr>
+                        <th>产品编码 / SKU</th>
+                        <th>产品名称</th>
+                        <th>产品分类</th>
+                        <th>单价</th>
+                        <th>单位</th>
+                        <th>BOM 配方</th>
+                        <th>创建时间</th>
+                        {% if can_manage %}
+                        <th>操作</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in product_rows %}
+                    <tr>
+                        <td>{{ row.sku }}</td>
+                        <td>{{ row.name }}</td>
+                        <td>{{ row.category_display }}</td>
+                        <td>¥{{ row.display_unit_price|num }}/{{ row.unit_display }}</td>
+                        <td>{{ row.unit_display }}</td>
+                        <td>
+                            {% if row.item_type == 'product' %}
+                                {% if row.has_bom %}
+                                    <a href="{% url 'product:bom_edit' row.pk %}">{{ row.bom_count }} 项</a>
+                                {% else %}
+                                    {% if can_manage_bom %}
+                                    <a href="{% url 'product:bom_edit' row.pk %}" class="text-muted">配置 BOM</a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.created_at|date:"Y-m-d" }}</td>
+                        {% if can_manage %}
+                        <td>
+                            {% if row.item_type == 'product' %}
+                            <a href="{% url 'product:item_edit' row.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                            <a href="{% url 'product:product_packaging_unit_list' row.pk %}" class="btn btn-sm btn-outline-secondary" title="单位换算">单位</a>
+                            <a href="{% url 'product:product_delete' row.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% elif row.item_type == 'material' %}
+                            <a href="{% url 'product:item_edit' row.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                            <a href="{% url 'product:material_packaging_unit_list' row.pk %}" class="btn btn-sm btn-outline-secondary" title="单位换算">单位</a>
+                            <a href="{% url 'product:material_delete' row.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% elif row.item_type == 'auxiliary' %}
+                            <a href="{% url 'product:item_edit' row.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                            <a href="{% url 'product:auxiliary_packaging_unit_list' row.pk %}" class="btn btn-sm btn-outline-secondary" title="单位换算">单位</a>
+                            <a href="{% url 'product:auxiliary_delete' row.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% else %}
+                            <a href="{% url 'product:item_edit' row.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                            <a href="{% url 'product:other_packaging_unit_list' row.pk %}" class="btn btn-sm btn-outline-secondary" title="单位换算">单位</a>
+                            <a href="{% url 'product:other_delete' row.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if can_manage %}9{% else %}8{% endif %}" class="text-center text-muted">暂无产品数据</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if product_rows.has_other_pages %}
+        <nav class="mt-2">
+            <ul class="pagination pagination-sm mb-0">
+                {% if product_rows.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ product_rows.previous_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}">上一页</a></li>
+                {% endif %}
+                {% if product_rows.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ product_rows.next_page_number }}{% if extra_params %}&{{ extra_params }}{% endif %}">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

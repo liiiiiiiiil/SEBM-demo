@@ -226,74 +226,75 @@ class Command(BaseCommand):
         flame_retardant = Material.objects.get(sku='MAT-302')
         vitrified_microsphere = Material.objects.get(sku='MAT-303')
         
+        # 每袋产品按 50kg 干混料计，配合比参考常见砌筑/抹灰/地面/保温砂浆工艺
         boms_data = [
-            # 普通砌筑砂浆 M5 (每袋50kg)
+            # 普通砌筑砂浆 M5（每袋50kg，水泥:砂约1:5，石灰石粉适量）
             {
                 'product_sku': 'PROD-001',
                 'items': [
-                    {'material': cement, 'quantity': 10, 'unit': 'kg'},
-                    {'material': medium_sand, 'quantity': 35, 'unit': 'kg'},
-                    {'material': lime_powder, 'quantity': 4, 'unit': 'kg'},
-                    {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 0.5, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 9, 'unit': 'kg'},
+                    {'material': medium_sand, 'quantity': 37.5, 'unit': 'kg'},
+                    {'material': lime_powder, 'quantity': 2.5, 'unit': 'kg'},
+                    {'material': water_reducer, 'quantity': 0.4, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 0.6, 'unit': 'kg'},
                 ],
             },
-            # 普通砌筑砂浆 M7.5
+            # 普通砌筑砂浆 M7.5（强度略高，水泥用量增加）
             {
                 'product_sku': 'PROD-002',
                 'items': [
-                    {'material': cement, 'quantity': 12, 'unit': 'kg'},
-                    {'material': medium_sand, 'quantity': 33, 'unit': 'kg'},
-                    {'material': lime_powder, 'quantity': 4, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 11, 'unit': 'kg'},
+                    {'material': medium_sand, 'quantity': 35.5, 'unit': 'kg'},
+                    {'material': lime_powder, 'quantity': 2.5, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
                     {'material': fly_ash, 'quantity': 0.5, 'unit': 'kg'},
                 ],
             },
-            # 普通砌筑砂浆 M10
+            # 普通砌筑砂浆 M10（承重砌筑，水泥:砂约1:4）
             {
                 'product_sku': 'PROD-003',
                 'items': [
-                    {'material': cement, 'quantity': 15, 'unit': 'kg'},
-                    {'material': medium_sand, 'quantity': 30, 'unit': 'kg'},
-                    {'material': lime_powder, 'quantity': 4, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 14, 'unit': 'kg'},
+                    {'material': medium_sand, 'quantity': 32.5, 'unit': 'kg'},
+                    {'material': lime_powder, 'quantity': 2.5, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
                     {'material': fly_ash, 'quantity': 0.5, 'unit': 'kg'},
                 ],
             },
-            # 抹灰砂浆
+            # 抹灰砂浆（细砂为主，增稠/减水微量）
             {
                 'product_sku': 'PROD-004',
                 'items': [
-                    {'material': cement, 'quantity': 12, 'unit': 'kg'},
-                    {'material': fine_sand, 'quantity': 33, 'unit': 'kg'},
-                    {'material': lime_powder, 'quantity': 4, 'unit': 'kg'},
-                    {'material': thickener, 'quantity': 0.3, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 11, 'unit': 'kg'},
+                    {'material': fine_sand, 'quantity': 35.5, 'unit': 'kg'},
+                    {'material': lime_powder, 'quantity': 2.5, 'unit': 'kg'},
+                    {'material': thickener, 'quantity': 0.25, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.4, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 0.3, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 0.35, 'unit': 'kg'},
                 ],
             },
-            # 地面找平砂浆
+            # 地面找平砂浆（水泥略多、粉煤灰改善和易性）
             {
                 'product_sku': 'PROD-005',
                 'items': [
-                    {'material': cement, 'quantity': 18, 'unit': 'kg'},
-                    {'material': fine_sand, 'quantity': 28, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 17, 'unit': 'kg'},
+                    {'material': fine_sand, 'quantity': 29, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.6, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 3, 'unit': 'kg'},
-                    {'material': lime_powder, 'quantity': 0.4, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 2.5, 'unit': 'kg'},
+                    {'material': lime_powder, 'quantity': 0.9, 'unit': 'kg'},
                 ],
             },
-            # 防火保温砂浆
+            # 防火保温砂浆（轻骨料为主，阻燃剂约2%）
             {
                 'product_sku': 'PROD-008',
                 'items': [
-                    {'material': cement, 'quantity': 15, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 14, 'unit': 'kg'},
                     {'material': expanded_pearlite, 'quantity': 20, 'unit': 'kg'},
                     {'material': vitrified_microsphere, 'quantity': 10, 'unit': 'kg'},
-                    {'material': flame_retardant, 'quantity': 2, 'unit': 'kg'},
-                    {'material': thickener, 'quantity': 0.5, 'unit': 'kg'},
+                    {'material': flame_retardant, 'quantity': 1.2, 'unit': 'kg'},
+                    {'material': thickener, 'quantity': 0.4, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.3, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 2.2, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 4.1, 'unit': 'kg'},
                 ],
             },
         ]

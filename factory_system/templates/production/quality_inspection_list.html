@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}质量检验{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-clipboard-check"></i> 质量检验</h2>
+    <a href="{% url 'production:task_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-gear"></i> 生产管理
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-hourglass-split"></i> 待质检任务</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-2">以下任务已完成生产并等待质检，请录入质检记录或直接成品入库。</p>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>任务单号</th>
+                        <th>产品</th>
+                        <th>需求数量</th>
+                        <th>完成数量</th>
+                        <th>更新时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks_pending_qc %}
+                    <tr>
+                        <td><a href="{% url 'production:task_detail' task.pk %}">{{ task.task_no }}</a></td>
+                        <td>{{ task.product.name }}</td>
+                        <td>{{ task.get_display_required_quantity|num }} {{ task.get_display_unit_name }}</td>
+                        <td>{{ task.get_display_completed_quantity|num }} {{ task.get_display_unit_name }}</td>
+                        <td>{{ task.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i> 查看</a>
+                            {% if user.profile.role == 'qc' or user.profile.role == 'production' or user.profile.role == 'ceo' %}
+                            <a href="{% url 'production:qc_create' task.pk %}" class="btn btn-sm btn-primary"><i class="bi bi-clipboard-check"></i> 录入质检</a>
+                            {% endif %}
+                            {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
+                            <a href="{% url 'production:inbound_create' task.pk %}" class="btn btn-sm btn-success"><i class="bi bi-box-arrow-in"></i> 成品入库</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">暂无待质检任务</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-journal-check"></i> 近期质检记录</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>任务单号</th>
+                        <th>产品</th>
+                        <th>批次号</th>
+                        <th>抽检数量</th>
+                        <th>合格数</th>
+                        <th>合格率</th>
+                        <th>结果</th>
+                        <th>质检员</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for qc in recent_qc_records %}
+                    <tr>
+                        <td><a href="{% url 'production:task_detail' qc.task_id %}">{{ qc.task.task_no }}</a></td>
+                        <td>{{ qc.task.product.name }}</td>
+                        <td>{{ qc.batch_no }}</td>
+                        <td>{{ qc.inspected_quantity|num }}</td>
+                        <td>{{ qc.qualified_quantity|num }}</td>
+                        <td>{{ qc.qualification_rate|num:1 }}%</td>
+                        <td>
+                            {% if qc.result == 'qualified' %}<span class="badge bg-success">合格</span>
+                            {% elif qc.result == 'unqualified' %}<span class="badge bg-danger">不合格</span>
+                            {% else %}<span class="badge bg-warning">返工</span>{% endif %}
+                        </td>
+                        <td>{{ qc.inspector.username }}</td>
+                        <td>{{ qc.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">暂无质检记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

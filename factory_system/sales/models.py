@@ -109,6 +109,7 @@ class SalesOrder(models.Model):
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='订单总额')
     delivery_date = models.DateField(null=True, blank=True, verbose_name='交付日期')
     reserve_inventory = models.BooleanField(default=True, verbose_name='锁定库存')
+    manual_batch_allocation = models.BooleanField(default=False, verbose_name='手动分配批次')
     approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_orders', verbose_name='审批人')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
     ceo_approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='ceo_approved_orders', verbose_name='总经理审批人')
@@ -131,6 +132,17 @@ class SalesOrder(models.Model):
     def __str__(self):
         return f"{self.order_no} - {self.customer.name} - {self.get_status_display()}"
 
+    def snapshot_order_items(self):
+        """将当前订单明细的产品信息写入快照（名称、规格、单位），提交后修改产品不影响订单展示。"""
+        for item in self.items.select_related('product').all():
+            if not item.product_id:
+                continue
+            p = item.product
+            item.product_name_snapshot = (p.name or '')[:200]
+            item.product_specification_snapshot = getattr(p, 'specification', None) or ''
+            item.display_unit_id = p.display_unit_id or p.base_unit_id
+            item.save(update_fields=['product_name_snapshot', 'product_specification_snapshot', 'display_unit_id'])
+
 
 class SalesOrderItem(models.Model):
     """订单明细
@@ -138,6 +150,7 @@ class SalesOrderItem(models.Model):
     变更说明（双单位体系重构）：
     - quantity / unit_price 始终是「成品基础单位」口径
     - 新增 display_unit / display_quantity 记录销售时使用的业务单位和数量
+    - 提交审批时写入产品快照（名称、规格、单位），后续修改产品不影响已提交订单展示
     """
     order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name='items', verbose_name='订单')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='产品')
@@ -157,20 +170,87 @@ class SalesOrderItem(models.Model):
         null=True, blank=True,
         verbose_name='销售业务数量',
     )
-    
+    manual_batch_allocation = models.BooleanField(default=False, verbose_name='手动分配批次')
+    # 产品快照：销售经理审批通过时写入，后续修改产品不影响已提交订单的展示
+    product_name_snapshot = models.CharField(max_length=200, blank=True, verbose_name='产品名称快照')
+    product_specification_snapshot = models.TextField(blank=True, verbose_name='产品规格快照')
+
     class Meta:
         verbose_name = '订单明细'
         verbose_name_plural = '订单明细'
-    
+
+    def _has_snapshot(self):
+        return bool(self.product_name_snapshot.strip())
+
+    def get_product_display_name(self):
+        """展示用产品名称：有快照用快照，否则用当前产品"""
+        return self.product_name_snapshot.strip() or (self.product.name if self.product_id else '')
+
+    def get_product_display_specification(self):
+        """展示用规格：有快照用快照，否则用当前产品"""
+        if self._has_snapshot():
+            return self.product_specification_snapshot or ''
+        return (getattr(self.product, 'specification', None) or '') if self.product_id else ''
+
+    def get_effective_display_unit(self):
+        """展示用单位：有快照时用审批时锁定的 display_unit，否则用当前产品的 display_unit"""
+        if self._has_snapshot() and self.display_unit_id:
+            return self.display_unit
+        return self.product.display_unit if self.product_id and getattr(self.product, 'display_unit', None) else None
+
+    def get_display_unit_name(self):
+        """展示用单位名称（用于模板）"""
+        unit = self.get_effective_display_unit()
+        return unit.name if unit else ''
+
     def __str__(self):
-        return f"{self.order.order_no} - {self.product.name} x {self.quantity}"
+        return f"{self.order.order_no} - {self.get_product_display_name()} x {self.quantity}"
+
+    def quantity_base_to_display(self, base_quantity):
+        """将任意基础单位数量转为当前展示用的显示单位数量（与 get_display_quantity 一致）"""
+        from decimal import Decimal
+        if not self.product_id:
+            return base_quantity
+        effective_unit = self.get_effective_display_unit()
+        if effective_unit and hasattr(self.product, 'base_unit') and self.product.base_unit_id:
+            try:
+                from inventory.services.unit_conversion import UnitConversionService
+                return UnitConversionService.from_base(
+                    self.product, Decimal(str(base_quantity)), effective_unit
+                )
+            except (ValueError, Exception):
+                pass
+        if hasattr(self.product, 'to_display'):
+            qty, _ = self.product.to_display(base_quantity)
+            return qty
+        return base_quantity
 
     def get_display_quantity(self):
         """返回显示单位数量（quantity 存基础单位）"""
-        if self.product_id and hasattr(self.product, 'to_display'):
-            qty, _ = self.product.to_display(self.quantity)
-            return qty
-        return self.quantity
+        return self.quantity_base_to_display(self.quantity)
+
+    def get_display_unit_price(self):
+        """返回显示单位对应的单价。显示单位单价 = 基础单价 × factor"""
+        from decimal import Decimal
+        base_price = Decimal(str(self.unit_price or 0))
+        if not self.product_id:
+            return float(base_price)
+        effective_unit = self.get_effective_display_unit()
+        if effective_unit and effective_unit.pk != getattr(self.product, 'base_unit_id', None):
+            try:
+                from inventory.services.unit_conversion import UnitConversionService
+                factor = UnitConversionService.get_factor(self.product, effective_unit)
+                return float(base_price * factor)
+            except (ValueError, Exception):
+                pass
+        if hasattr(self.product, 'display_unit') and self.product.display_unit_id and self.product.display_unit_id != self.product.base_unit_id:
+            try:
+                from inventory.services.unit_conversion import UnitConversionService
+                factor = UnitConversionService.get_factor(self.product, self.product.display_unit)
+                return float(base_price * factor)
+            except (ValueError, Exception):
+                pass
+        return float(base_price)
 
 
 class SalesOrderItemBatch(models.Model):
@@ -188,9 +268,21 @@ class SalesOrderItemBatch(models.Model):
         return f"{self.order_item.order.order_no} - {self.batch.batch_no} x {self.quantity}"
 
     def get_display_quantity(self):
-        """返回显示单位数量（quantity 存基础单位）"""
-        product = getattr(self.order_item, 'product', None)
-        if product and hasattr(product, 'to_display'):
-            qty, _ = product.to_display(self.quantity)
+        """返回显示单位数量（quantity 存基础单位），与订单明细展示单位一致（含快照）"""
+        order_item = getattr(self, 'order_item', None)
+        if not order_item or not order_item.product_id:
+            return self.quantity
+        effective_unit = order_item.get_effective_display_unit()
+        if effective_unit and hasattr(order_item.product, 'base_unit') and order_item.product.base_unit_id:
+            try:
+                from decimal import Decimal
+                from inventory.services.unit_conversion import UnitConversionService
+                return UnitConversionService.from_base(
+                    order_item.product, Decimal(str(self.quantity)), effective_unit
+                )
+            except (ValueError, Exception):
+                pass
+        if hasattr(order_item.product, 'to_display'):
+            qty, _ = order_item.product.to_display(self.quantity)
             return qty
         return self.quantity

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}订单列表 - 销售管理{% endblock %}
 
@@ -73,7 +74,7 @@
                             <span class="badge bg-danger">已终结</span>
                             {% endif %}
                         </td>
-                        <td>¥{{ order.total_amount|floatformat:2 }}</td>
+                        <td>¥{{ order.total_amount|num }}</td>
                         <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
                         <td>
                             <a href="{% url 'sales:order_detail' order.pk %}" class="btn btn-sm btn-info">

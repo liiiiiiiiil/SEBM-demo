@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}审核领料单 - {{ requisition.requisition_no }}{% endblock %}
 
@@ -33,7 +34,7 @@
                     {% for item in requisition_display_items %}
                     <tr>
                         <td>{{ item.material.name }}</td>
-                        <td>{{ item.display_quantity|floatformat:2 }}</td>
+                        <td>{{ item.display_quantity|num }}</td>
                         <td>{{ item.unit }}</td>
                     </tr>
                     {% endfor %}

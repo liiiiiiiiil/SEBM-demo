@@ -85,7 +85,7 @@
                                 <tr>
                                     <td>{{ bom_item.material.sku }}</td>
                                     <td>{{ bom_item.material.name }}</td>
-                                    <td>{{ bom_item.quantity|floatformat:2 }} {{ bom_item.unit.name }}</td>
+                                    <td>{{ bom_item.quantity|num }} {{ bom_item.unit.name }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

@@ -10,7 +10,50 @@ from accounts.decorators import role_required, role_or_permission_required
 from django.db.models import Q
 from .models import SalesOrder, SalesOrderItem, SalesOrderItemBatch, Customer, CustomerTransfer
 from inventory.models import Product, Inventory, Batch
+from inventory.services.unit_conversion import UnitConversionService
 from production.models import ProductionTask, MaterialRequisition
+
+# 有效订单状态（用于计算批次被其他订单锁定的数量）
+_VALID_ORDER_STATUSES = ['pending', 'approved', 'ceo_pending', 'ceo_approved', 'in_production', 'ready_to_ship']
+
+
+def _auto_allocate_item_fifo(order, item):
+    """按 FIFO 为订单明细自动分配批次。仅分配当前可用的批次（扣除已被其他订单锁定的数量）。"""
+    product = item.product
+    remaining_base = item.quantity
+    if remaining_base <= 0:
+        return
+    try:
+        inventory = Inventory.objects.get(inventory_type='product', product=product)
+    except Inventory.DoesNotExist:
+        return
+    batches = inventory.get_batches().filter(quantity__gt=0).order_by('batch_date', 'created_at')
+    if not batches:
+        return
+    # 按批次汇总被「其他」订单锁定的数量（排除本订单）
+    reserved_qty = {}
+    for ob in SalesOrderItemBatch.objects.filter(
+        order_item__order__reserve_inventory=True,
+        order_item__order__status__in=_VALID_ORDER_STATUSES,
+    ).exclude(order_item__order=order).filter(batch__in=batches):
+        bid = ob.batch_id
+        reserved_qty[bid] = reserved_qty.get(bid, Decimal('0')) + ob.quantity
+    for batch in batches:
+        if remaining_base <= 0:
+            break
+        reserved = reserved_qty.get(batch.id, Decimal('0'))
+        available_base = batch.quantity - reserved
+        if available_base <= 0:
+            continue
+        allocate_base = min(remaining_base, available_base)
+        if allocate_base <= 0:
+            continue
+        SalesOrderItemBatch.objects.create(
+            order_item=item,
+            batch=batch,
+            quantity=allocate_base,
+        )
+        remaining_base -= allocate_base
 
 
 @login_required
@@ -112,6 +155,14 @@ def order_create(request, order_pk=None):
                     # 用户输入为显示单位，转为基础单位
                     qty_display = item.quantity
                     item.quantity = item.product.from_display(qty_display)
+                    # 表单单价为显示单位单价，转为基础单位单价存储
+                    display_unit_price = formset_forms[idx].cleaned_data.get('unit_price')
+                    if display_unit_price is not None and item.product_id:
+                        try:
+                            factor = UnitConversionService.get_factor(item.product, item.product.display_unit)
+                            item.unit_price = Decimal(str(display_unit_price)) / factor
+                        except (ValueError, Exception):
+                            item.unit_price = display_unit_price
                     item.subtotal = item.quantity * item.unit_price
                     item.save()
                     total += item.subtotal
@@ -120,26 +171,29 @@ def order_create(request, order_pk=None):
                     # 删除该订单项的所有旧批次分配
                     SalesOrderItemBatch.objects.filter(order_item=item).delete()
                     
-                    # 获取该form在formset中的实际索引（通过prefix匹配）
-                    if idx < len(formset_forms):
-                        form_prefix = formset_forms[idx].prefix
-                        # 获取批次分配数据（格式：items-{form_index}-batch_{batch_id}）
-                        batch_keys = [key for key in request.POST.keys() if key.startswith(f'{form_prefix}-batch_')]
-                        for batch_key in batch_keys:
-                            batch_id = batch_key.replace(f'{form_prefix}-batch_', '')
-                            batch_qty_str = request.POST.get(batch_key, '0')
-                            try:
-                                batch_qty_display = Decimal(batch_qty_str)
-                                if batch_qty_display > 0:
-                                    batch = Batch.objects.get(pk=batch_id, inventory__inventory_type='product', inventory__product=item.product)
-                                    batch_qty_base = item.product.from_display(batch_qty_display)
-                                    SalesOrderItemBatch.objects.create(
-                                        order_item=item,
-                                        batch=batch,
-                                        quantity=batch_qty_base,
-                                    )
-                            except (ValueError, Batch.DoesNotExist, InvalidOperation):
-                                pass
+                    if item.manual_batch_allocation:
+                        # 手动分配：按表单提交的批次数据写入
+                        if idx < len(formset_forms):
+                            form_prefix = formset_forms[idx].prefix
+                            batch_keys = [key for key in request.POST.keys() if key.startswith(f'{form_prefix}-batch_')]
+                            for batch_key in batch_keys:
+                                batch_id = batch_key.replace(f'{form_prefix}-batch_', '')
+                                batch_qty_str = request.POST.get(batch_key, '0')
+                                try:
+                                    batch_qty_display = Decimal(batch_qty_str)
+                                    if batch_qty_display > 0:
+                                        batch = Batch.objects.get(pk=batch_id, inventory__inventory_type='product', inventory__product=item.product)
+                                        batch_qty_base = item.product.from_display(batch_qty_display)
+                                        SalesOrderItemBatch.objects.create(
+                                            order_item=item,
+                                            batch=batch,
+                                            quantity=batch_qty_base,
+                                        )
+                                except (ValueError, Batch.DoesNotExist, InvalidOperation):
+                                    pass
+                    else:
+                        # 未勾选「手动分配批次」：按 FIFO 自动分配
+                        _auto_allocate_item_fifo(order, item)
                 
                 # 删除标记为删除的明细（会自动删除关联的批次分配）
                 for item in formset.deleted_objects:
@@ -173,11 +227,16 @@ def order_create(request, order_pk=None):
         from .forms import SalesOrderItemFormSet, SalesOrderItemFormSetEdit
         if order_pk:
             formset = SalesOrderItemFormSetEdit(instance=order, queryset=order.items.select_related('product'))
-            # 编辑时 quantity 存基础单位，表单需显示显示单位
+            # 编辑时 quantity/unit_price 存基础单位，表单需显示显示单位及显示单位单价
             for f in formset.forms:
                 if f.instance and f.instance.pk and f.instance.product_id:
                     disp, _ = f.instance.product.to_display(f.instance.quantity)
                     f.initial['quantity'] = disp
+                    try:
+                        factor = UnitConversionService.get_factor(f.instance.product, f.instance.product.display_unit)
+                        f.initial['unit_price'] = float(f.instance.unit_price * factor)
+                    except (ValueError, Exception):
+                        f.initial['unit_price'] = float(f.instance.unit_price or 0)
         else:
             formset = SalesOrderItemFormSet(instance=None)
     
@@ -221,7 +280,7 @@ def order_create(request, order_pk=None):
             product_inventory_data[str(product.pk)] = {
                 'quantity': float(inv_disp),
                 'unit': product.display_unit.name if product.display_unit else '',
-                'unit_price': float(product.unit_price) if product.unit_price else 0.0
+                'unit_price': product.get_display_unit_price()
             }
             product_batches_data[str(product.pk)] = []
             
@@ -251,7 +310,7 @@ def order_create(request, order_pk=None):
             product_inventory_data[str(product.pk)] = {
                 'quantity': 0,
                 'unit': product.display_unit.name if product.display_unit else '',
-                'unit_price': float(product.unit_price) if product.unit_price else 0.0
+                'unit_price': product.get_display_unit_price()
             }
             product_batches_data[str(product.pk)] = []
     
@@ -279,10 +338,9 @@ def order_detail(request, pk):
         messages.error(request, '您没有权限查看此订单')
         return redirect('sales:order_list')
     
-    # 准备批次分配和缺口信息（quantity 均为基础单位，转为显示单位用于展示）
+    # 准备批次分配和缺口信息（quantity 均为基础单位，转为显示单位用于展示；单位与数量用订单快照一致）
     items_with_batch_info = []
-    for item in order.items.select_related('product', 'product__display_unit'):
-        product = item.product
+    for item in order.items.select_related('product', 'product__display_unit', 'display_unit'):
         batch_allocated_qty_base = Decimal('0')
         batch_allocations = []
         for order_batch in SalesOrderItemBatch.objects.filter(order_item=item).select_related('batch'):
@@ -292,12 +350,12 @@ def order_detail(request, pk):
                 'batch_no': order_batch.batch.batch_no or f'批次-{order_batch.batch.id}',
                 'batch_date': order_batch.batch.batch_date,
                 'quantity': qty_disp,
-                'unit': product.display_unit.name if product.display_unit else '',
+                'unit': item.get_display_unit_name(),
             })
         
         shortage_base = max(Decimal('0'), item.quantity - batch_allocated_qty_base)
-        alloc_disp = product.to_display(batch_allocated_qty_base)[0]
-        shortage_disp = product.to_display(shortage_base)[0]
+        alloc_disp = item.quantity_base_to_display(batch_allocated_qty_base)
+        shortage_disp = item.quantity_base_to_display(shortage_base)
         
         items_with_batch_info.append({
             'item': item,
@@ -361,14 +419,15 @@ def order_approve(request, pk):
             order.rejected_at = None
             order.reject_reason = ''
             order.save()
+            # 写入订单明细产品快照，后续修改产品不影响本订单展示
+            order.snapshot_order_items()
             
             messages.success(request, f'订单 {order.order_no} 审批通过，已提交至总经理审批')
             return redirect('sales:order_detail', pk=pk)
     
-    # 准备批次分配和缺口信息（quantity 为基础单位，转为显示单位展示）
+    # 准备批次分配和缺口信息（quantity 为基础单位，转为显示单位展示；单位与数量用订单快照一致）
     items_with_batch_info = []
-    for item in order.items.select_related('product', 'product__display_unit'):
-        product = item.product
+    for item in order.items.select_related('product', 'product__display_unit', 'display_unit'):
         batch_allocated_qty_base = Decimal('0')
         batch_allocations = []
         for order_batch in SalesOrderItemBatch.objects.filter(order_item=item).select_related('batch'):
@@ -378,12 +437,12 @@ def order_approve(request, pk):
                 'batch_no': order_batch.batch.batch_no or f'批次-{order_batch.batch.id}',
                 'batch_date': order_batch.batch.batch_date,
                 'quantity': qty_disp,
-                'unit': product.display_unit.name if product.display_unit else '',
+                'unit': item.get_display_unit_name(),
             })
         
         shortage_base = max(Decimal('0'), item.quantity - batch_allocated_qty_base)
-        alloc_disp = product.to_display(batch_allocated_qty_base)[0]
-        shortage_disp = product.to_display(shortage_base)[0]
+        alloc_disp = item.quantity_base_to_display(batch_allocated_qty_base)
+        shortage_disp = item.quantity_base_to_display(shortage_base)
         
         items_with_batch_info.append({
             'item': item,

@@ -9,6 +9,7 @@ from decimal import Decimal
 from accounts.decorators import role_required
 from .models import PurchaseTask, PurchaseTaskItem, Supplier
 from inventory.models import Material, Inventory, StockTransaction, Batch, BOM
+from inventory.services.unit_conversion import UnitConversionService
 from production.models import ProductionTask
 from django.db.models import Q
 
@@ -66,7 +67,7 @@ def task_create_from_production(request, production_task_pk):
             insufficient_materials.append({
                 'material': mat,
                 'shortage': shortage_disp,
-                'unit': mat.display_unit.name,
+                'unit': mat.display_unit.name if mat.display_unit else mat.base_unit.name,
             })
     
     if not insufficient_materials:
@@ -103,7 +104,7 @@ def task_create(request):
                         prefill_materials.append({
                             'material': material,
                             'quantity': quantity,
-                            'unit': material.display_unit.name,
+                            'unit': material.display_unit.name if material.display_unit else material.base_unit.name,
                         })
                     except Material.DoesNotExist:
                         pass
@@ -170,27 +171,46 @@ def task_create(request):
                 if not material_id and not item_name:
                     continue
                 
-                quantity = Decimal(quantity_str)
-                unit_price = Decimal(unit_price_str)
-                subtotal = quantity * unit_price
-                
+                quantity_input = Decimal(quantity_str)
+                unit_price_input = Decimal(unit_price_str)
                 material = None
                 if material_id:
                     material = Material.objects.select_related('base_unit', 'display_unit').get(pk=material_id)
                     item_name = material.name
                     item_type = 'material'
                 
+                # 有物料且存在显示单位时：表单按「显示单位」录入，换算为基础单位存储
+                display_unit = None
+                display_quantity = None
+                quantity_base = quantity_input
+                unit_price_base = unit_price_input
+                if material and material.display_unit_id:
+                    display_unit = material.display_unit
+                    display_quantity = quantity_input
+                    if material.display_unit_id != material.base_unit_id:
+                        try:
+                            quantity_base = UnitConversionService.to_base(material, quantity_input, material.display_unit)
+                            factor = UnitConversionService.get_factor(material, material.display_unit)
+                            # 1 显示单位 = factor 基础单位，单价(基础) = 单价(显示) / factor
+                            unit_price_base = unit_price_input / factor
+                        except (ValueError, Exception):
+                            quantity_base = quantity_input
+                            unit_price_base = unit_price_input
+                
+                subtotal = quantity_base * unit_price_base
+                total_amount += subtotal
+                
                 PurchaseTaskItem.objects.create(
                     task=task,
                     material=material,
                     item_name=item_name,
                     item_type=item_type,
-                    quantity=quantity,
-                    unit_price=unit_price,
+                    quantity=quantity_base,
+                    unit_price=unit_price_base,
                     subtotal=subtotal,
-                    # display_unit / display_quantity 可在后续扩展中由前端传入
+                    display_unit=display_unit,
+                    display_quantity=display_quantity,
                 )
-                total_amount += subtotal
             
             task.total_amount = total_amount
             task.save()
@@ -201,6 +221,40 @@ def task_create(request):
     materials = Material.objects.select_related('base_unit', 'display_unit').all().order_by('sku')
     suppliers = Supplier.objects.all().order_by('name')
     
+    def _format_price_for_display(value, max_decimals=4):
+        """与数值管理一致：小数部分全为 0 则不显示小数部分，否则去掉尾零"""
+        if value is None:
+            return ''
+        try:
+            d = Decimal(str(value))
+        except (Exception, TypeError):
+            return str(value)
+        d = round(d, max_decimals)
+        if d == d.to_integral_value():
+            return str(int(d))
+        s = format(d, f'.{max_decimals}f').rstrip('0').rstrip('.')
+        return s
+
+    def _material_display_unit_price(material):
+        """物料在显示单位下的单价，用于表单展示与预填（返回已格式化的字符串，避免 500.00000000）"""
+        base_price = material.unit_price or 0
+        if not material.display_unit_id or material.display_unit_id == material.base_unit_id:
+            return _format_price_for_display(base_price)
+        try:
+            factor = UnitConversionService.get_factor(material, material.display_unit)
+            return _format_price_for_display(Decimal(str(base_price)) * factor)
+        except (ValueError, Exception):
+            return _format_price_for_display(base_price)
+    
+    materials_for_form = [
+        {
+            'material': m,
+            'display_unit_name': (m.display_unit or m.base_unit).name,
+            'display_unit_price': _material_display_unit_price(m),
+        }
+        for m in materials
+    ]
+    
     import json
     prefill_materials_json = json.dumps([
         {
@@ -208,13 +262,14 @@ def task_create(request):
             'material_name': item['material'].name,
             'quantity': str(item['quantity']),
             'unit': item['unit'],
-            'unit_price': str(item['material'].unit_price or 0),
+            'unit_price': _material_display_unit_price(item['material']),
         }
         for item in prefill_materials
     ])
     
     context = {
         'materials': materials,
+        'materials_for_form': materials_for_form,
         'suppliers': suppliers,
         'prefill_materials': prefill_materials_json,
         'production_task': production_task,
@@ -227,7 +282,10 @@ def task_create(request):
 def task_detail(request, pk):
     """采购任务详情"""
     task = get_object_or_404(
-        PurchaseTask.objects.prefetch_related('items__material', 'items__material__base_unit'),
+        PurchaseTask.objects.prefetch_related(
+            'items__material', 'items__material__base_unit', 'items__material__display_unit',
+            'items__display_unit',
+        ),
         pk=pk,
     )
     
@@ -241,7 +299,13 @@ def task_detail(request, pk):
 @role_required('ceo')
 def task_approve(request, pk):
     """总经理审批采购任务"""
-    task = get_object_or_404(PurchaseTask.objects.prefetch_related('items__material'), pk=pk)
+    task = get_object_or_404(
+        PurchaseTask.objects.prefetch_related(
+            'items__material', 'items__material__base_unit', 'items__material__display_unit',
+            'items__display_unit',
+        ),
+        pk=pk,
+    )
     
     if task.status != 'pending':
         messages.error(request, '只能审批待审批状态的采购任务')
@@ -265,7 +329,10 @@ def task_approve(request, pk):
 def task_complete(request, pk):
     """完成采购任务（直接入库）"""
     task = get_object_or_404(
-        PurchaseTask.objects.prefetch_related('items__material', 'items__material__base_unit'),
+        PurchaseTask.objects.prefetch_related(
+            'items__material', 'items__material__base_unit', 'items__material__display_unit',
+            'items__display_unit',
+        ),
         pk=pk,
     )
     
@@ -320,11 +387,20 @@ def task_complete(request, pk):
                             else:
                                 batch_no = f"{item.item_name[:10]}-{batch_date.strftime('%Y%m%d')}-{timezone.now().strftime('%H%M%S')}"
                         
+                        # 表单中批次单价为显示单位；存储需为基础单位
                         batch_unit_price = None
                         if batch_unit_price_str:
                             try:
-                                batch_unit_price = Decimal(batch_unit_price_str)
-                            except:
+                                price_from_form = Decimal(batch_unit_price_str)
+                                if mat and mat.display_unit_id and mat.display_unit_id != mat.base_unit_id:
+                                    try:
+                                        factor = UnitConversionService.get_factor(mat, mat.display_unit)
+                                        batch_unit_price = price_from_form / factor
+                                    except (ValueError, Exception):
+                                        batch_unit_price = price_from_form
+                                else:
+                                    batch_unit_price = price_from_form
+                            except Exception:
                                 batch_unit_price = item.unit_price
                         else:
                             batch_unit_price = item.unit_price

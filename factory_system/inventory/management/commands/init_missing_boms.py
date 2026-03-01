@@ -89,46 +89,42 @@ class Command(BaseCommand):
         
         bom_items = []
         
-        if sku == 'PROD-006':  # 普通硅酸盐水泥 P.O 42.5
-            # 高标号水泥，需要更多添加剂
+        if sku == 'PROD-006':  # 普通硅酸盐水泥 P.O 42.5（50kg袋装，以水泥为主+少量助磨/调凝）
             if cement and water_reducer and fly_ash:
                 bom_items = [
-                    {'material': cement, 'quantity': 48, 'unit': 'kg'},
-                    {'material': water_reducer, 'quantity': 0.8, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 1.2, 'unit': 'kg'},
-                ]
-        
-        elif sku == 'PROD-007':  # 普通硅酸盐水泥 P.O 32.5
-            # 低标号水泥，添加剂较少
-            if cement and water_reducer and fly_ash:
-                bom_items = [
-                    {'material': cement, 'quantity': 48, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 49, 'unit': 'kg'},
                     {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 1.5, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 0.5, 'unit': 'kg'},
                 ]
         
-        elif sku == 'PROD-009':  # 防火涂料
-            # 防火涂料需要阻燃剂、增稠剂等
-            if cement and flame_retardant and thickener and expanded_pearlite:
+        elif sku == 'PROD-007':  # 普通硅酸盐水泥 P.O 32.5（50kg袋装）
+            if cement and water_reducer and fly_ash:
                 bom_items = [
-                    {'material': cement, 'quantity': 15, 'unit': 'kg'},
+                    {'material': cement, 'quantity': 49.2, 'unit': 'kg'},
+                    {'material': water_reducer, 'quantity': 0.4, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 0.4, 'unit': 'kg'},
+                ]
+        
+        elif sku == 'PROD-009':  # 防火涂料（每桶约25kg，基料+阻燃剂+轻骨料+填料）
+            if cement and flame_retardant and thickener and expanded_pearlite and water_reducer and fly_ash:
+                bom_items = [
+                    {'material': cement, 'quantity': 8, 'unit': 'kg'},
+                    {'material': flame_retardant, 'quantity': 5, 'unit': 'kg'},
+                    {'material': thickener, 'quantity': 1, 'unit': 'kg'},
+                    {'material': expanded_pearlite, 'quantity': 6, 'unit': 'kg'},
+                    {'material': water_reducer, 'quantity': 0.3, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 4.7, 'unit': 'kg'},
+                ]
+        
+        elif sku == 'PROD-010':  # 防火密封胶（按50kg批次计，填料+阻燃剂为主）
+            if cement and flame_retardant and thickener and fine_sand and water_reducer and fly_ash:
+                bom_items = [
+                    {'material': cement, 'quantity': 10, 'unit': 'kg'},
                     {'material': flame_retardant, 'quantity': 8, 'unit': 'kg'},
-                    {'material': thickener, 'quantity': 1.5, 'unit': 'kg'},
-                    {'material': expanded_pearlite, 'quantity': 12, 'unit': 'kg'},
-                    {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 3, 'unit': 'kg'},
-                ]
-        
-        elif sku == 'PROD-010':  # 防火密封胶
-            # 防火密封胶需要阻燃剂、增稠剂等
-            if cement and flame_retardant and thickener:
-                bom_items = [
-                    {'material': cement, 'quantity': 20, 'unit': 'kg'},
-                    {'material': flame_retardant, 'quantity': 10, 'unit': 'kg'},
                     {'material': thickener, 'quantity': 2, 'unit': 'kg'},
-                    {'material': fine_sand, 'quantity': 15, 'unit': 'kg'},
-                    {'material': water_reducer, 'quantity': 0.6, 'unit': 'kg'},
-                    {'material': fly_ash, 'quantity': 2.4, 'unit': 'kg'},
+                    {'material': fine_sand, 'quantity': 24, 'unit': 'kg'},
+                    {'material': water_reducer, 'quantity': 0.5, 'unit': 'kg'},
+                    {'material': fly_ash, 'quantity': 5.5, 'unit': 'kg'},
                 ]
         
         return bom_items

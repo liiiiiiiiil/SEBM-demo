@@ -109,3 +109,37 @@ class PurchaseTaskItem(models.Model):
             return self.material.name
         else:
             return self.item_name or '-'
+
+    def get_display_unit(self):
+        """采购明细展示用：显示单位。优先用行上的 display_unit，否则用物料的显示单位/基础单位。"""
+        if self.display_unit_id:
+            return self.display_unit
+        if self.material:
+            return self.material.display_unit or self.material.base_unit
+        return None
+
+    def get_display_quantity(self):
+        """采购明细展示用：显示单位下的数量。有 display_quantity 用行上的，否则由 quantity(基础) 转为显示单位。"""
+        if self.display_quantity is not None:
+            return self.display_quantity
+        if self.material and self.quantity is not None:
+            from inventory.services.unit_conversion import UnitConversionService
+            disp_unit = self.material.display_unit or self.material.base_unit
+            if disp_unit.pk == self.material.base_unit_id:
+                return self.quantity
+            return UnitConversionService.from_base(self.material, self.quantity, disp_unit)
+        return self.quantity
+
+    def get_display_unit_price(self):
+        """采购明细展示用：显示单位下的单价（单位换算后的单价）。基础单位单价 × 显示单位换算系数。"""
+        if not self.material or self.unit_price is None:
+            return self.unit_price
+        from inventory.services.unit_conversion import UnitConversionService
+        disp_unit = self.material.display_unit or self.material.base_unit
+        if disp_unit.pk == self.material.base_unit_id:
+            return self.unit_price
+        try:
+            factor = UnitConversionService.get_factor(self.material, disp_unit)
+            return self.unit_price * factor
+        except (ValueError, Exception):
+            return self.unit_price

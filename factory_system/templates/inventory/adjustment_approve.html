@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}审批库存调整申请 - {{ adjustment.request_no }}{% endblock %}
 
@@ -41,32 +42,32 @@
                     </tr>
                     <tr>
                         <th>当前数量</th>
-                        <td>{{ adjustment.current_quantity|floatformat:2 }}{{ adjustment.inventory.get_display_unit_name }}</td>
+                        <td>{{ adjustment.current_quantity|num }}{{ adjustment.inventory.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>调整数量</th>
                         <td>
                             {% if adjustment.adjust_quantity >= 0 %}
-                            <span class="text-success">+{{ adjustment.adjust_quantity|floatformat:2 }}</span>
+                            <span class="text-success">+{{ adjustment.adjust_quantity|num }}</span>
                             {% else %}
-                            <span class="text-danger">{{ adjustment.adjust_quantity|floatformat:2 }}</span>
+                            <span class="text-danger">{{ adjustment.adjust_quantity|num }}</span>
                             {% endif %}
                             {{ adjustment.inventory.get_display_unit_name }}
                         </td>
                     </tr>
                     <tr>
                         <th>调整后数量</th>
-                        <td><strong>{{ adjustment.new_quantity|floatformat:2 }}{{ adjustment.inventory.get_display_unit_name }}</strong></td>
+                        <td><strong>{{ adjustment.new_quantity|num }}{{ adjustment.inventory.get_display_unit_name }}</strong></td>
                     </tr>
                     <tr>
                         <th>当前单价</th>
-                        <td>¥{{ adjustment.current_unit_price|default:"0.00"|floatformat:2 }}</td>
+                        <td>¥{{ adjustment.current_unit_price|default:"0.00"|num }}</td>
                     </tr>
                     {% if adjustment.adjust_unit_price is not None %}
                     <tr>
                         <th>调整单价</th>
                         <td>
-                            <span class="text-primary">¥{{ adjustment.new_unit_price|floatformat:2 }}</span>
+                            <span class="text-primary">¥{{ adjustment.new_unit_price|num }}</span>
                             {% if adjustment.new_unit_price != adjustment.current_unit_price %}
                             <span class="badge bg-info ms-2">单价将更新</span>
                             {% endif %}
@@ -115,7 +116,7 @@
                     </button>
                     <div class="alert alert-success mt-2 mb-0">
                         <small>
-                            审批通过后，库存将立即更新为调整后数量{% if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price %}，单价将更新为¥{{ adjustment.new_unit_price|floatformat:2 }}{% endif %}，并创建库存变动记录。
+                            审批通过后，库存将立即更新为调整后数量{% if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price %}，单价将更新为¥{{ adjustment.new_unit_price|num }}{% endif %}，并创建库存变动记录。
                         </small>
                     </div>
                 </div>

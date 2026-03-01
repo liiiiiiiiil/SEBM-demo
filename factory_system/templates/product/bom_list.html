@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}BOM 配方列表 - 产品管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-list-check"></i> BOM 配方列表</h2>
+    <div>
+        {% if can_manage %}
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-plus-circle"></i> 创建/编辑配方
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                {% for product in products %}
+                <li><a class="dropdown-item" href="{% url 'product:bom_edit' product.pk %}">{{ product.sku }} - {{ product.name }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <a href="{% url 'product:product_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回产品列表</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="mb-3">
+            <div class="row">
+                <div class="col-md-4">
+                    <select name="product" class="form-select">
+                        <option value="">全部产品</option>
+                        {% for product in products %}
+                        <option value="{{ product.id }}" {% if product_filter == product.id|stringformat:"s" %}selected{% endif %}>{{ product.sku }} - {{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2"><button type="submit" class="btn btn-secondary">筛选</button></div>
+            </div>
+        </form>
+        {% if bom_by_product %}
+        {% for product_id, bom_data in bom_by_product.items %}
+        <div class="card mb-3">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <span class="bom-product-toggle d-inline-flex align-items-center" role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#bom-detail-{{ product_id }}" aria-expanded="false" aria-controls="bom-detail-{{ product_id }}" style="cursor: pointer;"><i class="bi bi-box"></i> {{ bom_data.product.sku }} - {{ bom_data.product.name }}</span>
+                </h5>
+                <div>
+                    {% if can_manage %}
+                    <a href="{% url 'product:bom_edit' bom_data.product.pk %}" class="btn btn-sm btn-outline-warning me-1"><i class="bi bi-pencil-square"></i> 编辑配方</a>
+                    {% endif %}
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#bom-detail-{{ product_id }}" aria-expanded="false"><i class="bi bi-chevron-down"></i> 详情</button>
+                </div>
+            </div>
+            <div class="collapse" id="bom-detail-{{ product_id }}">
+                <div class="card-body">
+                    <table class="table table-bordered table-sm">
+                        <thead><tr><th>原料SKU</th><th>原料名称</th><th>用量</th></tr></thead>
+                        <tbody>
+                            {% for bom_item in bom_data.items %}
+                                <tr><td>{{ bom_item.component.sku }}</td><td>{{ bom_item.component.name }}</td><td>{{ bom_item.quantity|num }} {{ bom_item.unit.name }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="alert alert-info"><i class="bi bi-info-circle"></i> 暂无 BOM 配方数据。仅成品可配置 BOM，请在产品列表中进入对应成品的「配置 BOM」。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

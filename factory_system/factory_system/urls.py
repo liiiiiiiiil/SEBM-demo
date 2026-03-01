@@ -24,6 +24,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', lambda request: redirect('dashboard'), name='home'),
     path('accounts/', include('accounts.urls')),
+    path('product/', include('product.urls')),
     path('sales/', include('sales.urls')),
     path('purchase/', include('purchase.urls')),
     path('inventory/', include('inventory.urls')),

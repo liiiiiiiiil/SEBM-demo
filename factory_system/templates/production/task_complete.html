@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}完成生产 - {{ task.task_no }}{% endblock %}
 
@@ -12,13 +13,23 @@
             <h5><i class="bi bi-info-circle"></i> 确认完成生产</h5>
             <p>任务单号：<strong>{{ task.task_no }}</strong></p>
             <p>产品：<strong>{{ task.product.name }}</strong></p>
-            <p>需求数量：<strong>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</strong></p>
-            <p>完成数量：<strong>{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</strong></p>
-            <p class="mb-0">完成生产后，任务将进入<strong>质检环节</strong>。</p>
+            <p>需求数量：<strong>{{ task.get_display_required_quantity|num }}{{ task.get_display_unit_name }}</strong></p>
+            <p>完成数量：<strong>{{ task.get_display_completed_quantity|num }}{{ task.get_display_unit_name }}</strong></p>
         </div>
-        
+
         <form method="post">
             {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label fw-bold">是否进入质检环节？</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="need_qc" id="need_qc_yes" value="yes" checked>
+                    <label class="form-check-label" for="need_qc_yes">是，进入质量检验</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="need_qc" id="need_qc_no" value="no">
+                    <label class="form-check-label" for="need_qc_no">否，直接完成（不质检）</label>
+                </div>
+            </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check2-circle"></i> 确认完成生产

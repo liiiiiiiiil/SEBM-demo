@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}库存审批订单 - {{ order.order_no }}{% endblock %}
 
@@ -13,7 +14,7 @@
             <p><strong>订单号：</strong>{{ order.order_no }}</p>
             <p><strong>客户：</strong>{{ order.customer.name }}</p>
             <p><strong>销售员：</strong>{{ order.salesperson.username }}</p>
-            <p><strong>订单总额：</strong>¥{{ order.total_amount|floatformat:2 }}</p>
+            <p><strong>订单总额：</strong>¥{{ order.total_amount|num }}</p>
             <p><strong>状态：</strong><span class="badge bg-warning">待库存审批</span></p>
         </div>
         
@@ -31,9 +32,9 @@
                 {% for item in order.items.all %}
                 <tr>
                     <td>{{ item.product.name }}</td>
-                    <td>{{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }}</td>
-                    <td>¥{{ item.unit_price|floatformat:2 }}</td>
-                    <td>¥{{ item.subtotal|floatformat:2 }}</td>
+                    <td>{{ item.get_display_quantity|num }}{{ item.product.display_unit.name }}</td>
+                    <td>¥{{ item.unit_price|num }}</td>
+                    <td>¥{{ item.subtotal|num }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -56,11 +57,11 @@
                     {% for item_check in inventory_check.items %}
                     <tr>
                         <td>{{ item_check.product.name }}</td>
-                        <td>{{ item_check.required_quantity|floatformat:2 }}{{ item_check.product.display_unit.name }}</td>
-                        <td>{{ item_check.available_quantity|floatformat:2 }}{{ item_check.product.display_unit.name }}</td>
+                        <td>{{ item_check.required_quantity|num }}{{ item_check.product.display_unit.name }}</td>
+                        <td>{{ item_check.available_quantity|num }}{{ item_check.product.display_unit.name }}</td>
                         <td>
                             {% if item_check.shortage > 0 %}
-                            <span class="text-danger">{{ item_check.shortage|floatformat:2 }}{{ item_check.product.display_unit.name }}</span>
+                            <span class="text-danger">{{ item_check.shortage|num }}{{ item_check.product.display_unit.name }}</span>
                             {% else %}
                             <span class="text-success">0{{ item_check.product.display_unit.name }}</span>
                             {% endif %}

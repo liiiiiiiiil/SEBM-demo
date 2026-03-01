@@ -42,7 +42,7 @@
                             <small class="text-muted">{{ item.product.sku }}</small>
                         </td>
                         <td>
-                            <strong>{{ item_data.item_qty_display|floatformat:2 }}{{ item.product.display_unit.name }}</strong>
+                            <strong>{{ item_data.item_qty_display|num }}{{ item.product.display_unit.name }}</strong>
                         </td>
                         <td>
                             {% if batches %}
@@ -72,7 +72,7 @@
                                                 {% endif %}
                                             </td>
                                             <td><small>{{ batch.batch_date|date:"Y-m-d" }}</small></td>
-                                            <td><small>{{ batch.quantity_display|floatformat:2 }}{{ item.product.display_unit.name }}</small></td>
+                                            <td><small>{{ batch.quantity_display|num }}{{ item.product.display_unit.name }}</small></td>
                                             <td>
                                                 {% if batch.id in order_batch_allocations %}
                                                 <small class="text-primary fw-bold">{{ order_batch_allocations|get_item:batch.id }}{{ item.product.display_unit.name }}</small>

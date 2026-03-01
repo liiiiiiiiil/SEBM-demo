@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}发起采购任务{% endblock %}
 
@@ -58,12 +59,16 @@
                             <label class="form-label">物料 <span class="text-danger">*</span></label>
                             <select name="material_id" class="form-select material-select">
                                 <option value="">请选择物料</option>
-                                {% for material in materials %}
-                                <option value="{{ material.id }}" data-unit-price="{{ material.unit_price|default:0 }}">
-                                    {{ material.sku }} - {{ material.name }} ({{ material.get_material_type_display }})
+                                {% for m in materials_for_form %}
+                                <option value="{{ m.material.id }}" data-unit-price="{{ m.display_unit_price|num }}" data-display-unit="{{ m.display_unit_name }}" data-material-type="{{ m.material.get_material_type_display }}">
+                                    {{ m.material.sku }} - {{ m.material.name }}
                                 </option>
                                 {% endfor %}
                             </select>
+                        </div>
+                        <div class="col-md-1 material-select-group">
+                            <label class="form-label">类型</label>
+                            <span class="form-control-plaintext type-display text-muted">-</span>
                         </div>
                         <div class="col-md-3 custom-input-group" style="display: none;">
                             <label class="form-label">物品名称 <span class="text-danger">*</span></label>
@@ -73,13 +78,17 @@
                             <label class="form-label">物品类型 <span class="text-danger">*</span></label>
                             <select name="item_type" class="form-select custom-item-type">
                                 <option value="material">原料</option>
-                                <option value="office">办公用品</option>
+                                <option value="office">办公物品</option>
                                 <option value="other">其它</option>
                             </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">数量 <span class="text-danger">*</span></label>
                             <input type="number" name="quantity" class="form-control quantity-input" step="0.01" min="0.01">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">单位</label>
+                            <span class="form-control-plaintext unit-display text-muted">-</span>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">单价 <span class="text-danger">*</span></label>
@@ -176,6 +185,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.value = '';
             }
         });
+        const newUnitDisplay = newRow.querySelector('.unit-display');
+        if (newUnitDisplay) newUnitDisplay.textContent = '-';
+        const newTypeDisplay = newRow.querySelector('.type-display');
+        if (newTypeDisplay) newTypeDisplay.textContent = '-';
         newRow.querySelector('.subtotal-display').value = '';
         
         // 重置显示状态
@@ -212,13 +225,21 @@ document.addEventListener('DOMContentLoaded', function() {
             calculateSubtotal(row);
         });
         
-        // 选择物料时，自动填充单价并计算小计
+        // 选择物料时，自动填充类型、单位与单价并计算小计
         row.querySelector('.material-select').addEventListener('change', function() {
             const opt = this.options[this.selectedIndex];
+            const typeDisplay = row.querySelector('.type-display');
+            const unitDisplay = row.querySelector('.unit-display');
             const unitPriceInput = row.querySelector('.unit-price-input');
+            if (typeDisplay) {
+                typeDisplay.textContent = (opt && opt.dataset.materialType) ? opt.dataset.materialType : '-';
+            }
+            if (unitDisplay) {
+                unitDisplay.textContent = (opt && opt.dataset.displayUnit) ? opt.dataset.displayUnit : '-';
+            }
             if (this.value && opt && opt.dataset.unitPrice) {
                 const unitPrice = parseFloat(opt.dataset.unitPrice);
-                if (!isNaN(unitPrice) && unitPrice > 0) {
+                if (!isNaN(unitPrice) && unitPrice >= 0) {
                     unitPriceInput.value = unitPrice;
                 }
             }
@@ -272,12 +293,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 attachEventListeners(row);
             }
             
-            // 填充数据（含单价）
+            // 填充数据（含类型、单位、单价）
             const materialSelect = row.querySelector('.material-select');
             const quantityInput = row.querySelector('.quantity-input');
+            const typeDisplay = row.querySelector('.type-display');
+            const unitDisplay = row.querySelector('.unit-display');
             const unitPriceInput = row.querySelector('.unit-price-input');
             
             materialSelect.value = prefill.material_id;
+            if (typeDisplay && materialSelect.selectedIndex >= 0) {
+                const opt = materialSelect.options[materialSelect.selectedIndex];
+                typeDisplay.textContent = (opt && opt.dataset.materialType) ? opt.dataset.materialType : '-';
+            }
+            if (unitDisplay) unitDisplay.textContent = prefill.unit || '-';
             quantityInput.value = prefill.quantity;
             if (prefill.unit_price) {
                 unitPriceInput.value = prefill.unit_price;

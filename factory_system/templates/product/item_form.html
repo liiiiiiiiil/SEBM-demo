@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - 产品管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4><i class="bi bi-plus-circle"></i> {{ title }}</h4>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">选择类别（成品/原料/其他）并填写信息，保存后将同步到库存。</p>
+        <form method="post">
+            {% csrf_token %}
+            {% if form.errors %}
+            <div class="alert alert-danger">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                    <p>{{ field }}: {{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="mb-3">
+                <label class="form-label">{{ form.category.label }} <span class="text-danger">*</span></label>
+                {{ form.category }}
+                {% if form.category.errors %}<div class="text-danger">{{ form.category.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.sku.label }} <span class="text-danger">*</span></label>
+                {{ form.sku }}
+                {% if form.sku.errors %}<div class="text-danger">{{ form.sku.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.name.label }} <span class="text-danger">*</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<div class="text-danger">{{ form.name.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.base_unit.label }} <span class="text-danger">*</span></label>
+                {{ form.base_unit }}
+                <small class="form-text text-muted">未单独设置显示单位时，将使用基础单位作为显示单位。</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.unit_price.label }}</label>
+                <div class="input-group">
+                    <span class="input-group-text">¥</span>
+                    {{ form.unit_price }}
+                </div>
+                {% if form.unit_price.errors %}<div class="text-danger">{{ form.unit_price.errors }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.safety_stock.label }}</label>
+                {{ form.safety_stock }}
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存</button>
+                <a href="{% url 'product:product_list' %}" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

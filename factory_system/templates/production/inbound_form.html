@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}成品入库{% endblock %}
 
@@ -14,9 +15,9 @@
                 <label class="form-label">入库数量 <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" name="quantity" step="0.01" value="{{ remaining_quantity }}" required>
                 <small class="text-muted">
-                    需求数量：{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }} | 
-                    已完成：{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }} | 
-                    剩余：{{ remaining_quantity|floatformat:2 }}{{ task.get_display_unit_name }}
+                    需求数量：{{ task.get_display_required_quantity|num }}{{ task.get_display_unit_name }} | 
+                    已完成：{{ task.get_display_completed_quantity|num }}{{ task.get_display_unit_name }} | 
+                    剩余：{{ remaining_quantity|num }}{{ task.get_display_unit_name }}
                 </small>
             </div>
             <div class="row mb-3">
@@ -32,8 +33,9 @@
             </div>
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label class="form-label">批次单价</label>
-                    <input type="number" class="form-control" name="batch_unit_price" step="0.01" min="0" value="{{ task.product.unit_price }}">
+                    <label class="form-label">批次单价（{{ task.get_display_unit_name }}）</label>
+                    <input type="number" class="form-control" name="batch_unit_price" step="0.01" min="0" value="{{ batch_unit_price_display }}">
+                    <small class="text-muted">默认按显示单位换算后的单价</small>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">过期日期（可选）</label>

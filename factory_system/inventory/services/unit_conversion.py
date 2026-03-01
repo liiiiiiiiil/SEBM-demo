@@ -44,19 +44,43 @@ class UnitConversionService:
         if unit_obj.pk == item.base_unit_id:
             return Decimal('1')
 
-        # 查换算表
-        content_type = 'material' if hasattr(item, 'material_type') else 'product'
-        filters = {
-            'content_type': content_type,
-            'target_unit': unit_obj,
-            'is_active': True,
-        }
-        if content_type == 'material':
-            filters['material'] = item
+        # 仅物料主数据（product.Product）按 master_product 查；若无则按对应 inventory.Product 查（兼容旧数据）
+        is_master_product = (
+            type(item).__name__ == 'Product'
+            and getattr(type(item), '__module__', '').startswith('product.')
+        )
+        if is_master_product:
+            conversion = ItemUnitConversion.objects.filter(
+                master_product=item,
+                target_unit=unit_obj,
+                is_active=True,
+            ).first()
+            if not conversion and item.category == 'finished':
+                inv = getattr(item, 'inventory_product', None)
+                if inv:
+                    conversion = ItemUnitConversion.objects.filter(
+                        content_type='product', product=inv,
+                        target_unit=unit_obj, is_active=True,
+                    ).first()
+            if not conversion and item.category == 'raw':
+                inv = getattr(item, 'inventory_material', None)
+                if inv:
+                    conversion = ItemUnitConversion.objects.filter(
+                        content_type='material', material=inv,
+                        target_unit=unit_obj, is_active=True,
+                    ).first()
         else:
-            filters['product'] = item
-
-        conversion = ItemUnitConversion.objects.filter(**filters).first()
+            content_type = 'material' if hasattr(item, 'material_type') else 'product'
+            filters = {
+                'content_type': content_type,
+                'target_unit': unit_obj,
+                'is_active': True,
+            }
+            if content_type == 'material':
+                filters['material'] = item
+            else:
+                filters['product'] = item
+            conversion = ItemUnitConversion.objects.filter(**filters).first()
         if conversion:
             return conversion.factor
 
@@ -153,18 +177,23 @@ class UnitConversionService:
                 'display_text': item.base_unit.name,
             })
 
-        # 添加换算表中的单位
-        content_type = 'material' if hasattr(item, 'material_type') else 'product'
-        filters = {
-            'content_type': content_type,
-            'is_active': True,
-        }
-        if content_type == 'material':
-            filters['material'] = item
+        # 仅物料主数据（product.Product）按 master_product 查
+        is_master_product = (
+            type(item).__name__ == 'Product'
+            and getattr(type(item), '__module__', '').startswith('product.')
+        )
+        if is_master_product:
+            conversions = ItemUnitConversion.objects.filter(
+                master_product=item, is_active=True
+            ).select_related('target_unit')
         else:
-            filters['product'] = item
-
-        conversions = ItemUnitConversion.objects.filter(**filters).select_related('target_unit')
+            content_type = 'material' if hasattr(item, 'material_type') else 'product'
+            filters = {'content_type': content_type, 'is_active': True}
+            if content_type == 'material':
+                filters['material'] = item
+            else:
+                filters['product'] = item
+            conversions = ItemUnitConversion.objects.filter(**filters).select_related('target_unit')
         for conv in conversions:
             units.append({
                 'unit': conv.target_unit,

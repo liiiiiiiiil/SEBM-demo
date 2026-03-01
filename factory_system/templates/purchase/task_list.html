@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}采购任务列表{% endblock %}
 
@@ -45,7 +46,7 @@
                     <tr>
                         <td>{{ task.task_no }}</td>
                         <td>{{ task.supplier.name }}</td>
-                        <td>¥{{ task.total_amount|floatformat:2 }}</td>
+                        <td>¥{{ task.total_amount|num }}</td>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-warning">待审批</span>

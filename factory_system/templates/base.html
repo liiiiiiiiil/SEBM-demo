@@ -84,13 +84,11 @@
                             <i class="bi bi-speedometer2"></i> 仪表板
                         </a>
                     </li>
-                    {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'sales.order.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'sales' and request.resolver_match.url_name|slice:':5' == 'order' %}active{% endif %}" href="{% url 'sales:order_list' %}">
-                            <i class="bi bi-cart"></i> 产品订单
+                        <a class="nav-link {% if request.resolver_match.app_name == 'product' %}active{% endif %}" href="{% url 'product:product_list' %}">
+                            <i class="bi bi-box-seam"></i> 产品管理
                         </a>
                     </li>
-                    {% endif %}
                     {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'ceo' or user|has_permission:'inventory.customer.view' %}
                     <li class="nav-item mb-2">
                         <a class="nav-link {% if request.resolver_match.app_name == 'sales' and request.resolver_match.url_name|slice:':8' == 'customer' %}active{% endif %}" href="{% url 'sales:customer_list' %}">
@@ -98,24 +96,38 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.profile.role == 'sales' or user.profile.role == 'sales_mgr' or user.profile.role == 'warehouse' or user.profile.role == 'ceo' or user|has_permission:'sales.order.view' %}
+                    <li class="nav-item mb-2">
+                        <a class="nav-link {% if request.resolver_match.app_name == 'sales' and request.resolver_match.url_name|slice:':5' == 'order' %}active{% endif %}" href="{% url 'sales:order_list' %}">
+                            <i class="bi bi-cart"></i> 产品订单
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'purchase' %}active{% endif %}" href="{% url 'purchase:task_list' %}">
-                            <i class="bi bi-cart"></i> 物料采购
+                        <a class="nav-link {% if request.resolver_match.app_name == 'purchase' and request.resolver_match.url_name|slice:':4' == 'task' %}active{% endif %}" href="{% url 'purchase:task_list' %}">
+                            <i class="bi bi-cart-check"></i> 物料采购
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'warehouse' or user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'inventory.view' or user|has_permission:'inventory.view_product' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name|slice:':8' != 'customer' and request.resolver_match.url_name != 'bom_list' %}active{% endif %}" href="{% url 'inventory:inventory_list' %}">
-                            <i class="bi bi-box-seam"></i> 库存管理
+                        <a class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}" href="{% url 'inventory:inventory_list' %}">
+                            <i class="bi bi-boxes"></i> 库存管理
                         </a>
                     </li>
                     {% endif %}
                     {% if user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'production.task.view' or user|has_permission:'inventory.bom.view' %}
                     <li class="nav-item mb-2">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'production' or request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name == 'bom_list' %}active{% endif %}" href="{% url 'production:task_list' %}">
+                        <a class="nav-link {% if request.resolver_match.app_name == 'production' and request.resolver_match.url_name != 'quality_inspection_list' %}active{% endif %}" href="{% url 'production:task_list' %}">
                             <i class="bi bi-gear"></i> 生产管理
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.profile.role == 'qc' or user.profile.role == 'production' or user.profile.role == 'ceo' or user|has_permission:'production.task.view' %}
+                    <li class="nav-item mb-2">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'quality_inspection_list' %}active{% endif %}" href="{% url 'production:quality_inspection_list' %}">
+                            <i class="bi bi-clipboard-check"></i> 质量检验
                         </a>
                     </li>
                     {% endif %}

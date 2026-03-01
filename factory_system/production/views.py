@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from decimal import Decimal
-from accounts.decorators import role_required
+from accounts.decorators import role_required, role_or_permission_required
 from .models import ProductionTask, MaterialRequisition, MaterialRequisitionItem, MaterialRequisitionItemBatch, QCRecord, FinishedProductInbound, TaskMaterialOverride
 from inventory.models import BOM, Inventory, StockTransaction, Product
 
@@ -118,7 +118,7 @@ def task_detail(request, pk):
     total_materials_summary = {}
     
     # 任务是否允许编辑用量（未完成/未终结的任务可以调整）
-    can_edit_qty = task.status not in ('completed', 'cancelled', 'terminated')
+    can_edit_qty = task.status not in ('completed', 'cancelled', 'terminated', 'pending_inbound')
     
     # required_quantity 已是成品基础单位，无需额外换算
     for bom_item in bom_items:
@@ -187,7 +187,7 @@ def task_detail(request, pk):
     shortage_quantity = task.get_display_shortage_quantity()
     
     # 入库成功跳转或任务已完成时，显示「已消耗原料汇总」（不显示当前库存、缺口）
-    show_consumed_summary = request.GET.get('from_inbound') == '1' or task.status == 'completed'
+    show_consumed_summary = request.GET.get('from_inbound') == '1' or task.status in ('completed', 'pending_inbound')
     consumed_materials_summary = []
     if show_consumed_summary:
         inbound_nos = list(task.inbounds.values_list('inbound_no', flat=True))
@@ -209,11 +209,55 @@ def task_detail(request, pk):
                 if not mat:
                     continue
                 disp, _ = mat.to_display(consumed_base)
+                unit_name = (mat.display_unit.name if mat.display_unit else mat.base_unit.name) if mat else ''
                 consumed_materials_summary.append({
                     'material': mat,
                     'material_id': mid,
                     'consumed_quantity': disp,
-                    'unit': mat.display_unit.name,
+                    'unit': unit_name,
+                })
+            consumed_materials_summary.sort(key=lambda x: x['material'].name)
+        else:
+            # 无入库单时（如备货任务选择「不质检」直接完成），从该任务的已批准领料单汇总已领料数量
+            from inventory.models import Material
+            req_qs = MaterialRequisitionItem.objects.filter(
+                requisition__task=task,
+                requisition__status='approved',
+            ).values('material_id').annotate(consumed_base=Sum('required_quantity'))
+            material_ids = [r['material_id'] for r in req_qs]
+            materials = {m.id: m for m in Material.objects.filter(pk__in=material_ids).select_related('base_unit', 'display_unit')}
+            for row in req_qs:
+                mid = row['material_id']
+                consumed_base = row['consumed_base'] or Decimal('0')
+                if consumed_base <= 0:
+                    continue
+                mat = materials.get(mid)
+                if not mat:
+                    continue
+                disp, _ = mat.to_display(consumed_base)
+                unit_name = (mat.display_unit.name if mat.display_unit else mat.base_unit.name) if mat else ''
+                consumed_materials_summary.append({
+                    'material': mat,
+                    'material_id': mid,
+                    'consumed_quantity': disp,
+                    'unit': unit_name,
+                })
+            consumed_materials_summary.sort(key=lambda x: x['material'].name)
+        # 若仍无数据（如无领料单或领料单未审批），按 BOM × 任务需求数量 显示预计消耗，确保已完成任务总有汇总
+        if not consumed_materials_summary and total_materials_summary:
+            from inventory.models import Material
+            for mid, summary in total_materials_summary.items():
+                mat = summary['material']
+                consumed_base = summary['total_quantity_base']
+                if consumed_base <= 0:
+                    continue
+                disp, _ = mat.to_display(consumed_base)
+                unit_name = (mat.display_unit.name if mat.display_unit else mat.base_unit.name) if mat else ''
+                consumed_materials_summary.append({
+                    'material': mat,
+                    'material_id': mid,
+                    'consumed_quantity': disp,
+                    'unit': unit_name,
                 })
             consumed_materials_summary.sort(key=lambda x: x['material'].name)
     
@@ -285,8 +329,8 @@ def task_material_override_api(request, pk):
         return JsonResponse({'ok': False, 'error': '仅支持 POST'}, status=405)
 
     task = get_object_or_404(ProductionTask.objects.select_related('product'), pk=pk)
-    if task.status in ('completed', 'cancelled', 'terminated'):
-        return JsonResponse({'ok': False, 'error': '任务已结束，无法调整'}, status=400)
+    if task.status in ('completed', 'cancelled', 'terminated', 'pending_inbound'):
+        return JsonResponse({'ok': False, 'error': '任务已结束或待入库，无法调整'}, status=400)
 
     try:
         body = _json.loads(request.body)
@@ -592,7 +636,7 @@ def requisition_approve(request, pk):
 @login_required
 @role_required('production', 'ceo')
 def task_complete(request, pk):
-    """完成生产，进入质检环节"""
+    """完成生产：可选择进入质检环节或直接完成"""
     task = get_object_or_404(ProductionTask, pk=pk)
     
     if task.status != 'in_production':
@@ -600,12 +644,34 @@ def task_complete(request, pk):
         return redirect('production:task_detail', pk=pk)
     
     if request.method == 'POST':
-        task.status = 'qc_checking'
-        task.save()
-        messages.success(request, f'任务 {task.task_no} 已完成生产，已进入质检环节')
-        return redirect('production:task_detail', pk=pk)
+        need_qc = request.POST.get('need_qc') == 'yes'
+        if need_qc:
+            task.status = 'qc_checking'
+            task.save()
+            messages.success(request, f'任务 {task.task_no} 已完成生产，已进入质检环节')
+            return redirect('production:quality_inspection_list')
+        else:
+            task.status = 'pending_inbound'
+            task.save()
+            messages.success(request, f'任务 {task.task_no} 生产已完成（未走质检），请进行成品入库后任务将变为「已完成」')
+            return redirect('production:task_detail', pk=pk)
     
     return render(request, 'production/task_complete.html', {'task': task})
+
+
+@login_required
+@role_or_permission_required('qc', 'production', 'ceo', permission_code='production.task.view')
+def quality_inspection_list(request):
+    """质量检验列表：待质检任务（status=质检中）及近期质检记录"""
+    tasks_qc = ProductionTask.objects.filter(status='qc_checking').select_related(
+        'product', 'product__base_unit', 'product__display_unit'
+    ).order_by('-updated_at')
+    recent_qc = QCRecord.objects.select_related('task', 'task__product', 'inspector').order_by('-created_at')[:20]
+    context = {
+        'tasks_pending_qc': tasks_qc,
+        'recent_qc_records': recent_qc,
+    }
+    return render(request, 'production/quality_inspection_list.html', context)
 
 
 @login_required
@@ -656,6 +722,10 @@ def inbound_create(request, task_pk):
         ProductionTask.objects.select_related('product', 'product__base_unit', 'product__display_unit'),
         pk=task_pk,
     )
+    # 已足量入库后不允许再次入库
+    if task.completed_quantity >= task.required_quantity:
+        messages.info(request, '该任务已足量入库，无需再次入库')
+        return redirect('production:task_detail', pk=task_pk)
     
     if request.method == 'POST':
         try:
@@ -730,32 +800,8 @@ def inbound_create(request, task_pk):
                     expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%d').date()
                 
                 from inventory.models import Batch
-                batch = Batch.objects.create(
-                    batch_no=batch_no,
-                    inventory=inventory,
-                    batch_date=batch_date,
-                    quantity=quantity,
-                    unit_price=batch_unit_price,
-                    expiry_date=expiry_date,
-                    remark=f"生产任务：{task.task_no}，入库单：{inbound.inbound_no}",
-                )
-                
-                inventory.update_quantity_from_batches()
-                
-                # 库存变动记录使用成品基础单位
-                StockTransaction.objects.create(
-                    transaction_type='production_in',
-                    inventory=inventory,
-                    batch=batch,
-                    quantity=quantity,
-                    unit=task.product.base_unit,
-                    base_quantity=quantity,
-                    reference_no=inbound.inbound_no,
-                    operator=request.user,
-                )
-                
-                # 按 BOM（考虑任务覆盖）扣减原料
-                from inventory.models import Batch
+                # 先按 BOM 扣减原料并写入「生产领料出库」流水，再创建成品批次并写入「生产完工入库」流水，
+                # 保证库存记录中同一单号下先显示领料出库、后显示完工入库（与业务顺序一致）
                 bom_items = BOM.objects.filter(product=task.product).select_related('material', 'material__base_unit', 'material__display_unit', 'unit')
                 inbound_overrides = _load_overrides(task)
                 for bom_item in bom_items:
@@ -857,6 +903,28 @@ def inbound_create(request, task_pk):
                     except Inventory.DoesNotExist:
                         pass
                 
+                # 原料出库流水已全部写入，再创建成品批次及「生产完工入库」流水
+                batch = Batch.objects.create(
+                    batch_no=batch_no,
+                    inventory=inventory,
+                    batch_date=batch_date,
+                    quantity=quantity,
+                    unit_price=batch_unit_price,
+                    expiry_date=expiry_date,
+                    remark=f"生产任务：{task.task_no}，入库单：{inbound.inbound_no}",
+                )
+                inventory.update_quantity_from_batches()
+                StockTransaction.objects.create(
+                    transaction_type='production_in',
+                    inventory=inventory,
+                    batch=batch,
+                    quantity=quantity,
+                    unit=task.product.base_unit,
+                    base_quantity=quantity,
+                    reference_no=inbound.inbound_no,
+                    operator=request.user,
+                )
+                
                 task.completed_quantity += quantity
                 task_was_completed = False
                 if task.completed_quantity >= task.required_quantity and task.status != 'completed':
@@ -951,7 +1019,7 @@ def task_terminate(request, pk):
     """总经理终结生产任务"""
     task = get_object_or_404(ProductionTask, pk=pk)
     
-    active_statuses = ['pending', 'material_insufficient', 'received', 'material_preparing', 'in_production', 'qc_checking']
+    active_statuses = ['pending', 'material_insufficient', 'received', 'material_preparing', 'in_production', 'qc_checking', 'pending_inbound']
     if task.status not in active_statuses:
         messages.error(request, '只能终结未完成的任务')
         return redirect('production:task_detail', pk=pk)

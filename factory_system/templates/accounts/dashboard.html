@@ -87,7 +87,7 @@
                 <div class="card border-success h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">订单总金额</h6>
-                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ order_status.total_order_amount|floatformat:2 }}</h4>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ order_status.total_order_amount|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">累计订单金额</small>
                     </div>
                 </div>
@@ -194,7 +194,7 @@
                 <div class="card border-success h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">库存总数量</h6>
-                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ inventory_status.total_quantity|floatformat:2 }}</h4>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">{{ inventory_status.total_quantity|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">所有物料数量之和</small>
                     </div>
                 </div>
@@ -203,7 +203,7 @@
                 <div class="card border-warning h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">库存总金额</h6>
-                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ inventory_status.total_inventory_value|floatformat:2 }}</h4>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ inventory_status.total_inventory_value|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">按成本价计算的总金额</small>
                     </div>
                 </div>
@@ -239,7 +239,7 @@
                 <div class="card border-warning h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">呆滞库存金额</h6>
-                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">¥{{ inventory_status.idle_value|floatformat:2 }}</h4>
+                        <h4 class="mb-0 text-warning" style="font-size: 1.5rem;">¥{{ inventory_status.idle_value|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">呆滞物料对应的金额</small>
                     </div>
                 </div>
@@ -270,7 +270,7 @@
                 <div class="card border-success h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">采购总金额</h6>
-                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.total_amount|floatformat:2 }}</h4>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.total_amount|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">累计采购金额</small>
                     </div>
                 </div>
@@ -279,7 +279,7 @@
                 <div class="card border-info h-100">
                     <div class="card-body py-2">
                         <h6 class="text-muted mb-1" style="font-size: 0.75rem;">本期采购金额</h6>
-                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.current_month_amount|floatformat:2 }}</h4>
+                        <h4 class="mb-0" style="font-size: 1.5rem;">¥{{ purchase_status.current_month_amount|num }}</h4>
                         <small class="text-muted" style="font-size: 0.7rem;">本月采购金额</small>
                     </div>
                 </div>

@@ -65,15 +65,15 @@
                                 {{ adj.inventory.other_name|default:"-" }}
                             {% endif %}
                         </td>
-                        <td>{{ adj.current_quantity|floatformat:2 }}{{ adj.inventory.get_display_unit_name }}</td>
+                        <td>{{ adj.current_quantity|num }}{{ adj.inventory.get_display_unit_name }}</td>
                         <td>
                             {% if adj.adjust_quantity >= 0 %}
-                            <span class="text-success">+{{ adj.adjust_quantity|floatformat:2 }}</span>{{ adj.inventory.get_display_unit_name }}
+                            <span class="text-success">+{{ adj.adjust_quantity|num }}</span>{{ adj.inventory.get_display_unit_name }}
                             {% else %}
-                            <span class="text-danger">{{ adj.adjust_quantity|floatformat:2 }}</span>{{ adj.inventory.get_display_unit_name }}
+                            <span class="text-danger">{{ adj.adjust_quantity|num }}</span>{{ adj.inventory.get_display_unit_name }}
                             {% endif %}
                         </td>
-                        <td>{{ adj.new_quantity|floatformat:2 }}{{ adj.inventory.get_display_unit_name }}</td>
+                        <td>{{ adj.new_quantity|num }}{{ adj.inventory.get_display_unit_name }}</td>
                         <td>{{ adj.reason|truncatewords:10 }}</td>
                         <td>{{ adj.applicant.username }}</td>
                         <td>

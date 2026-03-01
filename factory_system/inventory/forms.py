@@ -70,57 +70,28 @@ class MaterialForm(forms.ModelForm):
 
 
 class InventoryAdjustmentRequestForm(forms.ModelForm):
-    """库存调整申请表单 — 双单位体系重构后，移除「单位调整」类型"""
-    ADJUSTMENT_TYPE_CHOICES = [
-        ('quantity', '数量调整'),
-        ('price', '单价调整'),
-    ]
-    
-    adjustment_type = forms.ChoiceField(
-        choices=ADJUSTMENT_TYPE_CHOICES,
+    """库存调整申请表单 — 仅支持数量调整；单价/单位调整请到「产品管理」模块"""
+    adjustment_type = forms.CharField(
         initial='quantity',
-        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
-        label='调整类型',
+        widget=forms.HiddenInput(),
         required=True,
     )
-    
+
     class Meta:
         model = InventoryAdjustmentRequest
-        fields = ['adjustment_type', 'adjust_quantity', 'adjust_unit_price', 'reason']
+        fields = ['adjustment_type', 'adjust_quantity', 'reason']
         widgets = {
             'adjust_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'adjust_unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'required': True}),
         }
         labels = {
             'adjust_quantity': '调整数量（基础单位）',
-            'adjust_unit_price': '调整单价（基础单位）',
             'reason': '调整原因',
         }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['adjust_quantity'].required = False
-        self.fields['adjust_unit_price'].required = False
-    
+
     def clean(self):
         cleaned_data = super().clean()
-        adjustment_type = cleaned_data.get('adjustment_type')
         adjust_quantity = cleaned_data.get('adjust_quantity')
-        adjust_unit_price = cleaned_data.get('adjust_unit_price')
-        
-        if adjustment_type == 'quantity':
-            if adjust_quantity is None:
-                raise forms.ValidationError('数量调整需要填写调整数量')
-        
-        if adjustment_type == 'price':
-            if adjust_unit_price is None:
-                raise forms.ValidationError('单价调整需要填写调整单价')
-        
-        if adjustment_type == 'quantity' and adjust_unit_price is not None:
-            raise forms.ValidationError('数量调整时，不应填写单价')
-        
-        if adjustment_type == 'price' and adjust_quantity is not None:
-            raise forms.ValidationError('单价调整时，不应填写数量')
-        
+        if adjust_quantity is None:
+            raise forms.ValidationError('请填写调整数量（正数增加、负数减少）')
         return cleaned_data

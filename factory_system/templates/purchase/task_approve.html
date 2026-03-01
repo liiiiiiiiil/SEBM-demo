@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}审批采购任务 - {{ task.task_no }}{% endblock %}
 
@@ -11,7 +12,7 @@
         <div class="alert alert-info">
             <h5>采购任务信息</h5>
             <p><strong>供应商：</strong>{{ task.supplier.name }}</p>
-            <p><strong>采购总额：</strong>¥{{ task.total_amount|floatformat:2 }}</p>
+            <p><strong>采购总额：</strong>¥{{ task.total_amount|num }}</p>
         </div>
         
         <h5>采购明细</h5>
@@ -21,6 +22,7 @@
                     <th>物料</th>
                     <th>类型</th>
                     <th>采购数量</th>
+                    <th>单位</th>
                     <th>单价</th>
                     <th>小计</th>
                 </tr>
@@ -30,16 +32,17 @@
                 <tr>
                     <td>{{ item.material.name }}</td>
                     <td>{{ item.material.get_material_type_display }}</td>
-                    <td>{{ item.quantity|floatformat:2 }}{{ item.material.display_unit.name }}</td>
-                    <td>¥{{ item.unit_price|floatformat:2 }}</td>
-                    <td>¥{{ item.subtotal|floatformat:2 }}</td>
+                    <td>{{ item.get_display_quantity|num }}</td>
+                    <td>{% if item.get_display_unit %}{{ item.get_display_unit.name }}{% else %}-{% endif %}</td>
+                    <td>¥{{ item.get_display_unit_price|num }}</td>
+                    <td>¥{{ item.subtotal|num }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr>
-                    <th colspan="4">合计</th>
-                    <th>¥{{ task.total_amount|floatformat:2 }}</th>
+                    <th colspan="5">合计</th>
+                    <th>¥{{ task.total_amount|num }}</th>
                 </tr>
             </tfoot>
         </table>

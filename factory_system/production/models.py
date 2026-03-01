@@ -16,6 +16,7 @@ class ProductionTask(models.Model):
         ('material_preparing', '备料中'),
         ('in_production', '生产中'),
         ('qc_checking', '质检中'),
+        ('pending_inbound', '待入库'),  # 生产已完成、未质检，等待成品入库；入库足量后变为已完成
         ('completed', '已完成'),
         ('cancelled', '已取消'),
         ('terminated', '已终结'),

@@ -88,19 +88,22 @@ class UnitMixin:
 
 
 class Material(UnitMixin, models.Model):
-    """原料与杂项库
-    
-    变更说明（双单位体系重构）：
-    - 删除旧 unit CharField → 被 display_unit 取代
-    - base_unit 从可空改为必填、不可变
-    - 新增 display_unit（FK→Unit, 必填）：当前显示单位，可随时修改
-    - unit_price / safety_stock 语义锁定为「基础单位」下的值
-    """
+    """原料与杂项库（业务层）；主数据来源为 product.Product（master_product）"""
+    master_product = models.OneToOneField(
+        'product.Product',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='inventory_material',
+        verbose_name='产品主数据',
+    )
     MATERIAL_TYPE_CHOICES = [
         ('raw', '原料'),
+        ('semi', '半成品'),
         ('auxiliary', '辅料'),
         ('tool', '工具'),
-        ('office', '办公用品'),
+        ('office', '办公物品'),
+        ('other', '其它'),
     ]
     
     sku = models.CharField(max_length=50, unique=True, verbose_name='SKU编码')
@@ -180,14 +183,15 @@ class ProductCategory(models.Model):
 
 
 class Product(UnitMixin, models.Model):
-    """成品信息
-    
-    变更说明（双单位体系重构）：
-    - 删除旧 unit CharField → 被 display_unit 取代
-    - base_unit 从可空改为必填、不可变
-    - 新增 display_unit（FK→Unit, 必填）：当前显示单位，可随时修改
-    - unit_price / sale_price / safety_stock 语义锁定为「基础单位」下的值
-    """
+    """成品信息（业务层）；主数据来源为 product.Product（master_product）"""
+    master_product = models.OneToOneField(
+        'product.Product',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='inventory_product',
+        verbose_name='产品主数据',
+    )
     sku = models.CharField(max_length=50, unique=True, verbose_name='SKU编码')
     name = models.CharField(max_length=200, verbose_name='产品名称')
     category = models.ForeignKey(ProductCategory, on_delete=models.PROTECT, null=True, blank=True, verbose_name='分类')
@@ -253,6 +257,22 @@ class Product(UnitMixin, models.Model):
                         'display_unit': '显示单位必须是基础单位或在换算表中已定义的单位'
                     })
 
+    def get_display_unit_price(self):
+        """获取显示单位下的单价。
+        显示单位单价 = 基础单价 × factor（因为 1 显示单位 = factor × 基础单位）
+        例：基础单价 0.35元/千克，1吨=1000千克 → 显示单价 = 0.35×1000 = 350元/吨
+        """
+        from decimal import Decimal
+        base_price = Decimal(str(self.unit_price or 0))
+        if self.display_unit_id and self.base_unit_id and self.display_unit_id != self.base_unit_id:
+            try:
+                from inventory.services.unit_conversion import UnitConversionService
+                factor = UnitConversionService.get_factor(self, self.display_unit)
+                return float(base_price * factor)
+            except (ValueError, Exception):
+                pass
+        return float(base_price)
+
 
 class ItemUnitConversion(models.Model):
     """统一单位换算表
@@ -266,6 +286,7 @@ class ItemUnitConversion(models.Model):
     CONTENT_TYPE_CHOICES = [
         ('material', '原料'),
         ('product', '成品'),
+        ('other', '其他'),
     ]
 
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES, verbose_name='类型')
@@ -284,6 +305,15 @@ class ItemUnitConversion(models.Model):
         blank=True,
         related_name='unit_conversions',
         verbose_name='成品',
+    )
+    master_product = models.ForeignKey(
+        'product.Product',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='inventory_unit_conversions',
+        verbose_name='产品主数据',
+        help_text='与 product/material 二选一，供物料主数据（product.Product）使用',
     )
     base_unit = models.ForeignKey(
         Unit,
@@ -325,6 +355,11 @@ class ItemUnitConversion(models.Model):
                 condition=models.Q(content_type='product'),
                 name='unique_product_target_unit',
             ),
+            models.UniqueConstraint(
+                fields=['master_product', 'target_unit'],
+                condition=models.Q(content_type='other'),
+                name='unique_other_master_target_unit',
+            ),
         ]
         ordering = ['content_type', 'created_at']
 
@@ -334,11 +369,13 @@ class ItemUnitConversion(models.Model):
             item_name = self.material.name
         elif self.content_type == 'product' and self.product:
             item_name = self.product.name
+        elif self.content_type == 'other' and self.master_product_id:
+            item_name = self.master_product.name
         return f"{item_name}: 1{self.target_unit.code}={self.factor}{self.base_unit.code}"
 
     def clean(self):
         super().clean()
-        # base_unit 必须等于关联物料/成品的 base_unit
+        # base_unit 必须等于关联物料/成品/主数据的基础单位
         if self.content_type == 'material' and self.material_id:
             if self.base_unit_id != self.material.base_unit_id:
                 raise ValidationError({
@@ -348,6 +385,11 @@ class ItemUnitConversion(models.Model):
             if self.base_unit_id != self.product.base_unit_id:
                 raise ValidationError({
                     'base_unit': '换算基准单位必须与成品的基础单位一致'
+                })
+        elif self.content_type == 'other' and self.master_product_id:
+            if self.base_unit_id != self.master_product.base_unit_id:
+                raise ValidationError({
+                    'base_unit': '换算基准单位必须与物品的基础单位一致'
                 })
         # target_unit 不能等于 base_unit
         if self.target_unit_id == self.base_unit_id:
@@ -434,6 +476,15 @@ class Inventory(models.Model):
     ]
     
     inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES, verbose_name='库存类型')
+    product_master = models.ForeignKey(
+        'product.Product',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='inventory_records',
+        verbose_name='产品主数据',
+        help_text='成品/原料库存优先引用产品主数据；与 product/material 二选一或同时存在（同步用）',
+    )
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True, related_name='inventory', verbose_name='成品')
     material = models.ForeignKey(Material, on_delete=models.CASCADE, null=True, blank=True, related_name='inventory', verbose_name='原料')
     other_name = models.CharField(max_length=200, blank=True, verbose_name='其它物品名称')
@@ -465,11 +516,10 @@ class Inventory(models.Model):
     
     def __str__(self):
         unit_name = self.get_unit_name()
-        if self.inventory_type == 'product' and self.product:
-            return f"{self.product.name} - {self.quantity}{unit_name}"
-        elif self.inventory_type == 'material' and self.material:
-            return f"{self.material.name} - {self.quantity}{unit_name}"
-        elif self.inventory_type == 'other' and self.other_name:
+        item = self.get_item()
+        if item and hasattr(item, 'name'):
+            return f"{item.name} - {self.quantity}{unit_name}"
+        if self.inventory_type == 'other' and self.other_name:
             return f"{self.other_name} - {self.quantity}"
         return f"库存 - {self.quantity}"
 
@@ -500,12 +550,28 @@ class Inventory(models.Model):
         return self.quantity
     
     def get_item(self):
-        """获取关联的产品或原料对象"""
+        """获取关联的物料对象。有 product_master 时优先返回产品主数据，库存的类型、单价、单位等均依赖主数据；仅数量为库存自身属性。"""
+        if self.product_master_id:
+            return self.product_master
         if self.inventory_type == 'product':
             return self.product
-        elif self.inventory_type == 'material':
+        if self.inventory_type == 'material':
             return self.material
         return None
+
+    def get_detailed_type_display(self):
+        """类型依赖产品主数据：有 product_master 时用主数据分类（成品/半成品/原料/辅料/工具/办公物品/其它），否则用库存自身。"""
+        if self.product_master_id:
+            from product.models import Product as MasterProduct
+            return dict(MasterProduct.CATEGORY_CHOICES).get(
+                self.product_master.category,
+                self.product_master.category or '其它',
+            )
+        if self.inventory_type == 'product':
+            return dict(self.INVENTORY_TYPE_CHOICES).get('product', '成品')
+        if self.inventory_type == 'material' and self.material_id:
+            return self.material.get_material_type_display()
+        return dict(self.INVENTORY_TYPE_CHOICES).get(self.inventory_type, '其它')
     
     def check_safety_stock(self):
         """检查是否低于安全库存（基础单位比较）"""
@@ -515,12 +581,11 @@ class Inventory(models.Model):
         return False
     
     def get_unit_price(self):
-        """获取基础单价（基础单位）"""
-        if self.inventory_type == 'product' and self.product:
-            return self.product.unit_price or 0
-        elif self.inventory_type == 'material' and self.material:
-            return self.material.unit_price or 0
-        elif self.inventory_type == 'other':
+        """获取基础单价（基础单位）；优先来自产品主数据"""
+        item = self.get_item()
+        if item and hasattr(item, 'unit_price') and item.unit_price is not None:
+            return item.unit_price
+        if self.inventory_type == 'other':
             return self.other_unit_price or 0
         return 0
 
@@ -550,6 +615,16 @@ class Inventory(models.Model):
         quantity = Decimal(str(self.quantity))
         return float(unit_price * quantity)
     
+    def save(self, *args, **kwargs):
+        # 成品/原料库存：若无 product_master 则从 product/material 的 master_product 回填
+        if not self.product_master_id and self.inventory_type == 'product' and self.product_id:
+            if hasattr(self.product, 'master_product_id') and self.product.master_product_id:
+                self.product_master_id = self.product.master_product_id
+        if not self.product_master_id and self.inventory_type == 'material' and self.material_id:
+            if hasattr(self.material, 'master_product_id') and self.material.master_product_id:
+                self.product_master_id = self.material.master_product_id
+        super().save(*args, **kwargs)
+
     def get_batches(self):
         """获取所有批次"""
         return Batch.objects.filter(inventory=self).order_by('batch_date', 'created_at')
@@ -649,7 +724,8 @@ class StockTransaction(models.Model):
     class Meta:
         verbose_name = '库存变动记录'
         verbose_name_plural = '库存变动记录'
-        ordering = ['-created_at']
+        # 同一时间下「生产领料出库」排在「生产完工入库」前，与业务顺序一致
+        ordering = ['-created_at', '-transaction_type']
     
     def __str__(self):
         unit_name = self.unit.name if self.unit_id else ''

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}单位变更历史 - {{ material.name }}{% endblock %}
 
@@ -67,11 +68,11 @@
                         <td>{{ history.changed_by.username }}</td>
                         <td>{{ history.old_unit }}</td>
                         <td><strong>{{ history.new_unit }}</strong></td>
-                        <td>{{ history.conversion_factor|floatformat:4 }}</td>
-                        <td>¥{{ history.old_unit_price|floatformat:2 }}/{{ history.old_unit }}</td>
-                        <td>¥{{ history.new_unit_price|floatformat:2 }}/{{ history.new_unit }}</td>
-                        <td>{{ history.old_inventory_quantity|floatformat:2 }} {{ history.old_unit }}</td>
-                        <td>{{ history.new_inventory_quantity|floatformat:2 }} {{ history.new_unit }}</td>
+                        <td>{{ history.conversion_factor|num }}</td>
+                        <td>¥{{ history.old_unit_price|num }}/{{ history.old_unit }}</td>
+                        <td>¥{{ history.new_unit_price|num }}/{{ history.new_unit }}</td>
+                        <td>{{ history.old_inventory_quantity|num }} {{ history.old_unit }}</td>
+                        <td>{{ history.new_inventory_quantity|num }} {{ history.new_unit }}</td>
                         <td>
                             <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ history.reason }}">
                                 {{ history.reason }}

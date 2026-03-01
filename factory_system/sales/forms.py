@@ -1,6 +1,6 @@
 from django import forms
 from .models import SalesOrder, SalesOrderItem, Customer
-from inventory.models import Product, Inventory
+from inventory.models import Product
 
 
 class CustomerForm(forms.ModelForm):
@@ -26,40 +26,21 @@ class CustomerForm(forms.ModelForm):
 class SalesOrderItemForm(forms.ModelForm):
     class Meta:
         model = SalesOrderItem
-        fields = ['product', 'quantity', 'unit_price']
+        fields = ['product', 'quantity', 'unit_price', 'manual_batch_allocation']
         widgets = {
             'product': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'manual_batch_allocation': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # 自定义产品选择框，在下拉选项中显示库存数量和基础单价
+        # 自定义产品选择框，仅显示产品名称
         products = Product.objects.all()
         choices = [('', '---------')]
-        
         for product in products:
-            try:
-                inventory = Inventory.objects.get(inventory_type='product', product=product)
-                disp_qty, _ = product.to_display(inventory.quantity)
-                quantity = float(disp_qty)
-                unit = product.display_unit.name if product.display_unit else ''
-            except Inventory.DoesNotExist:
-                quantity = 0.0
-                unit = product.display_unit.name if product.display_unit else ''
-            
-            # 获取基础单价
-            unit_price = float(product.unit_price) if product.unit_price else 0.0
-            
-            # 在选项文本中显示库存数量和基础单价，便于销售预判
-            if quantity <= 0:
-                display_text = f"{product.name} (库存: {quantity}{unit} - 缺货 | 基础单价: ¥{unit_price:.2f})"
-            else:
-                display_text = f"{product.name} (库存: {quantity}{unit} | 基础单价: ¥{unit_price:.2f})"
-            
-            choices.append((product.id, display_text))
-        
+            choices.append((product.id, product.name))
         self.fields['product'].widget.choices = choices
 
 

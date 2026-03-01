@@ -39,7 +39,6 @@
                     <small class="form-text text-muted d-block">选择后，分配的批次将被锁定，其他订单无法选择已锁定的批次</small>
                 </div>
             </div>
-            
             <h5 class="mt-4">订单明细</h5>
             {{ formset.management_form }}
             {% if formset.non_form_errors %}
@@ -61,9 +60,6 @@
                         {% if item_form.id %}
                         {{ item_form.id }}
                         {% endif %}
-                        <div class="inventory-info mt-1" style="display: none;">
-                            <small class="inventory-text">当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit"></span> | 基础单价: ¥<span class="inventory-unit-price">0.00</span></small>
-                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">数量</label>
@@ -71,6 +67,10 @@
                         {% if item_form.quantity.errors %}
                         <div class="text-danger small">{{ item_form.quantity.errors }}</div>
                         {% endif %}
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">单位</label>
+                        <span class="item-display-unit form-control-plaintext text-muted">{% if item_form.instance.product and item_form.instance.product.display_unit %}{{ item_form.instance.product.display_unit.name }}{% else %}-{% endif %}</span>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">单价</label>
@@ -84,8 +84,11 @@
                         <input type="text" class="form-control subtotal" readonly>
                     </div>
                     <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
-                                <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block" data-form-index="{{ forloop.counter0 }}">
+                                <div class="form-check form-check-inline">
+                                    {{ item_form.manual_batch_allocation }}
+                                    <label class="form-check-label">手动分配批次</label>
+                                </div>
+                                <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block mt-1" data-form-index="{{ forloop.counter0 }}">
                                     <i class="bi bi-list-ul"></i> 批次分配
                                 </button>
                             </div>
@@ -109,7 +112,7 @@
                             <div class="col-12">
                                 <div class="card card-body bg-light">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label class="form-label mb-0">批次选择（可选，如不选择将按FIFO自动分配）</label>
+                                        <label class="form-label mb-0">批次选择（勾选「手动分配批次」时填写；不勾选则按FIFO自动分配）</label>
                                         <button type="button" class="btn btn-sm btn-outline-secondary batch-close-btn" data-form-index="{{ forloop.counter0 }}">
                                             <i class="bi bi-x"></i> 关闭
                                         </button>
@@ -235,13 +238,14 @@
                 <select name="items-${newFormIndex}-product" class="form-control" id="id_items-${newFormIndex}-product" required>
                     ${productOptions}
                 </select>
-                <div class="inventory-info mt-1" style="display: none;">
-                    <small class="inventory-text">当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit"></span> | 基础单价: ¥<span class="inventory-unit-price">0.00</span></small>
-                </div>
             </div>
             <div class="col-md-2">
                 <label class="form-label">数量</label>
                 <input type="number" name="items-${newFormIndex}-quantity" class="form-control" step="0.01" id="id_items-${newFormIndex}-quantity" required>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">单位</label>
+                <span class="item-display-unit form-control-plaintext text-muted">-</span>
             </div>
             <div class="col-md-2">
                 <label class="form-label">单价</label>
@@ -252,8 +256,11 @@
                 <input type="text" class="form-control subtotal" readonly>
             </div>
             <div class="col-md-2">
-                        <label class="form-label">&nbsp;</label>
-                        <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block" data-form-index="${newFormIndex}">
+                        <div class="form-check form-check-inline">
+                            <input type="checkbox" name="items-${newFormIndex}-manual_batch_allocation" id="id_items-${newFormIndex}-manual_batch_allocation" class="form-check-input">
+                            <label class="form-check-label" for="id_items-${newFormIndex}-manual_batch_allocation">手动分配批次</label>
+                        </div>
+                        <button type="button" class="btn btn-outline-info btn-sm batch-toggle-btn d-block mt-1" data-form-index="${newFormIndex}">
                             <i class="bi bi-list-ul"></i> 批次分配
                         </button>
                     </div>
@@ -457,39 +464,32 @@
         }
     }
     
-    // 更新产品库存显示
+    // 产品选择变化时：更新单位、数量/单价格显示灰色参考信息（placeholder），并更新批次选择
     function updateInventoryInfo(productSelect, row) {
-        const inventoryInfo = row.querySelector('.inventory-info');
-        const inventoryQuantity = row.querySelector('.inventory-quantity');
-        const inventoryUnit = row.querySelector('.inventory-unit');
-        const inventoryUnitPrice = row.querySelector('.inventory-unit-price');
-        const inventoryText = row.querySelector('.inventory-text');
-        
-        if (!productSelect || !inventoryInfo) return;
-        
+        if (!productSelect) return;
+        const quantityInput = row.querySelector('input[name$="-quantity"]');
+        const unitPriceInput = row.querySelector('input[name$="-unit_price"]');
+        const displayUnitSpan = row.querySelector('.item-display-unit');
         const productId = productSelect.value;
         if (productId && productInventoryData[productId]) {
             const inventory = productInventoryData[productId];
-            inventoryQuantity.textContent = inventory.quantity;
-            inventoryUnit.textContent = inventory.unit;
-            if (inventoryUnitPrice) {
-                inventoryUnitPrice.textContent = inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00';
+            if (displayUnitSpan) displayUnitSpan.textContent = inventory.unit || '-';
+            if (quantityInput) {
+                quantityInput.placeholder = '库存' + (inventory.quantity != null ? String(inventory.quantity) : '0') + (inventory.unit || '');
             }
-            inventoryInfo.style.display = 'block';
-            
-            // 如果库存为0，显示警告
-            if (inventory.quantity <= 0) {
-                inventoryText.className = 'text-danger';
-                inventoryText.innerHTML = `当前库存: <span class="inventory-quantity">0</span> <span class="inventory-unit">${inventory.unit}</span> | 基础单价: ¥<span class="inventory-unit-price">${inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00'}</span> <span class="badge bg-danger">库存不足</span>`;
-            } else {
-                inventoryText.className = 'text-primary';
-                inventoryText.innerHTML = `当前库存: <span class="inventory-quantity">${inventory.quantity}</span> <span class="inventory-unit">${inventory.unit}</span> | 基础单价: ¥<span class="inventory-unit-price">${inventory.unit_price ? inventory.unit_price.toFixed(2) : '0.00'}</span>`;
+            if (unitPriceInput && inventory.unit_price != null) {
+                unitPriceInput.placeholder = String(inventory.unit_price.toFixed(2));
+                unitPriceInput.value = inventory.unit_price.toFixed(2);
+                updateAllSubtotals();
             }
-            
-            // 更新批次选择
             updateBatchSelection(productSelect, row);
         } else {
-            inventoryInfo.style.display = 'none';
+            if (displayUnitSpan) displayUnitSpan.textContent = '-';
+            if (quantityInput) quantityInput.placeholder = '';
+            if (unitPriceInput) {
+                unitPriceInput.placeholder = '';
+                unitPriceInput.value = '';
+            }
         }
     }
     

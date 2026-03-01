@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}退回订单 - {{ order.order_no }}{% endblock %}
 
@@ -12,11 +13,11 @@
             <h5>订单信息</h5>
             <p>客户：{{ order.customer.name }}</p>
             <p>销售员：{{ order.salesperson.username }}</p>
-            <p>订单总额：¥{{ order.total_amount|floatformat:2 }}</p>
+            <p>订单总额：¥{{ order.total_amount|num }}</p>
             <p>订单明细：</p>
             <ul>
                 {% for item in order.items.all %}
-                <li>{{ item.product.name }} x {{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }} = ¥{{ item.subtotal|floatformat:2 }}</li>
+                <li>{{ item.get_product_display_name }} x {{ item.get_display_quantity|num }}{{ item.get_display_unit_name }} = ¥{{ item.subtotal|num }}</li>
                 {% endfor %}
             </ul>
         </div>

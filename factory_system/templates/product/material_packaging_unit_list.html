@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}单位换算 - {{ master.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-boxes"></i> 单位换算 - {{ master.name }}</h2>
+    <div>
+        <a href="{% url 'product:material_packaging_unit_create' master.id %}" class="btn btn-primary"><i class="bi bi-plus-circle"></i> 添加换算单位</a>
+        <a href="{% url 'product:product_list' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> 返回产品列表</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5>物料信息</h5></div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-2"><strong>SKU：</strong>{{ material.sku }}</div>
+            <div class="col-md-2"><strong>名称：</strong>{{ material.name }}</div>
+            <div class="col-md-2"><strong>基础单位：</strong>{{ material.base_unit.name|default:"-" }}{% if material.base_unit.code %} ({{ material.base_unit.code }}){% endif %}</div>
+            <div class="col-md-2"><strong>当前显示单位：</strong>{{ material.display_unit.name|default:"-" }}
+                {% if material.display_unit_id != material.base_unit_id %}
+                <form method="post" action="{% url 'product:material_set_display_unit' master.id material.base_unit.id %}" class="d-inline ms-1">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">切回基础单位</button></form>
+                {% endif %}
+            </div>
+            <div class="col-md-2"><strong>单价（基础单位）：</strong>¥{{ material.unit_price|num }}/{{ material.base_unit.name|default:"-" }}</div>
+        </div>
+        <p class="text-muted mt-2 mb-0">显示单位与基础单位不同时，单价按换算系数自动换算。修改单价或基础单位请返回 <a href="{% url 'product:material_edit' master.id %}">编辑原料</a>。</p>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header"><h5>单位换算列表</h5></div>
+    <div class="card-body">
+        {% if conversions %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr><th>目标单位</th><th>基础单位</th><th>换算系数</th><th>说明</th><th>是否默认</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                    {% for conv in conversions %}
+                    <tr>
+                        <td>{{ conv.target_unit.name }}{% if conv.target_unit.code %} ({{ conv.target_unit.code }}){% endif %}</td>
+                        <td>{{ conv.base_unit.name }}</td>
+                        <td>{{ conv.factor|num }}</td>
+                        <td>{{ conv.get_display_text }}</td>
+                        <td>{% if conv.is_default %}<span class="badge bg-success">是</span>{% else %}<span class="badge bg-secondary">否</span>{% endif %}</td>
+                        <td>
+                            {% if material.display_unit_id == conv.target_unit_id %}
+                            <span class="badge bg-primary me-1">当前显示</span>
+                            {% else %}
+                            <form method="post" action="{% url 'product:material_set_display_unit' master.id conv.target_unit.id %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-primary">设为显示单位</button></form>
+                            {% endif %}
+                            <a href="{% url 'product:material_packaging_unit_edit' master.id conv.id %}" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                            <form method="post" action="{% url 'product:material_packaging_unit_delete' master.id conv.id %}" class="d-inline" onsubmit="return confirm('确定删除该换算关系？');">{% csrf_token %}<button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> 删除</button></form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info"><i class="bi bi-info-circle"></i> 暂无单位换算关系，请点击「添加换算单位」。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

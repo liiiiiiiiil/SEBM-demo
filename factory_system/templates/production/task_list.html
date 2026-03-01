@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}生产任务列表{% endblock %}
 
@@ -19,6 +20,7 @@
                     <option value="material_preparing" {% if status_filter == 'material_preparing' %}selected{% endif %}>备料中</option>
                     <option value="in_production" {% if status_filter == 'in_production' %}selected{% endif %}>生产中</option>
                     <option value="qc_checking" {% if status_filter == 'qc_checking' %}selected{% endif %}>质检中</option>
+                    <option value="pending_inbound" {% if status_filter == 'pending_inbound' %}selected{% endif %}>待入库</option>
                     <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>已完成</option>
                     <option value="terminated" {% if status_filter == 'terminated' %}selected{% endif %}>已终结</option>
                 </select>
@@ -27,9 +29,6 @@
             <div class="d-flex align-items-center gap-2">
                 <a href="{% url 'production:stock_task_create' %}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-circle"></i> 创建备货生产任务
-                </a>
-                <a href="{% url 'inventory:bom_list' %}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-list-check"></i> BOM配方
                 </a>
             </div>
         </div>
@@ -68,8 +67,8 @@
                             {% endif %}
                         </td>
                         <td>{{ task.product.name }}</td>
-                        <td>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
-                        <td>{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
+                        <td>{{ task.get_display_required_quantity|num }}{{ task.get_display_unit_name }}</td>
+                        <td>{{ task.get_display_completed_quantity|num }}{{ task.get_display_unit_name }}</td>
                         <td>
                             {% if task.status == 'pending' %}
                             <span class="badge bg-secondary">待接收</span>
@@ -83,6 +82,8 @@
                             <span class="badge bg-primary">生产中</span>
                             {% elif task.status == 'qc_checking' %}
                             <span class="badge" style="background-color: #6f42c1;">质检中</span>
+                            {% elif task.status == 'pending_inbound' %}
+                            <span class="badge bg-warning text-dark">待入库</span>
                             {% elif task.status == 'completed' %}
                             <span class="badge bg-success">已完成</span>
                             {% elif task.status == 'cancelled' %}

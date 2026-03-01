@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}生产任务详情 - {{ task.task_no }}{% endblock %}
 
@@ -52,17 +53,17 @@
                     </tr>
                     <tr>
                         <th>需求数量</th>
-                        <td>{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
+                        <td>{{ task.get_display_required_quantity|num }}{{ task.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>完成数量</th>
-                        <td id="completed-quantity">{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</td>
+                        <td id="completed-quantity">{{ task.get_display_completed_quantity|num }}{{ task.get_display_unit_name }}</td>
                     </tr>
                     <tr>
                         <th>缺口数量</th>
                         <td>
                             <span id="shortage-quantity" class="badge {% if shortage_quantity > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                {{ shortage_quantity|floatformat:2 }}{{ task.get_display_unit_name }}
+                                {{ shortage_quantity|num }}{{ task.get_display_unit_name }}
                             </span>
                         </td>
                     </tr>
@@ -81,6 +82,8 @@
                             <span class="badge bg-primary">生产中</span>
                             {% elif task.status == 'qc_checking' %}
                             <span class="badge" style="background-color: #6f42c1;">质检中</span>
+                            {% elif task.status == 'pending_inbound' %}
+                            <span class="badge bg-warning text-dark">待入库</span>
                             {% elif task.status == 'completed' %}
                             <span class="badge bg-success">已完成</span>
                             {% elif task.status == 'cancelled' %}
@@ -123,7 +126,7 @@
                         {% for bom in bom_items %}
                         <tr>
                             <td>{{ bom.material.name }}</td>
-                            <td>{{ bom.quantity|floatformat:2 }}</td>
+                            <td>{{ bom.quantity|num }}</td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -156,7 +159,7 @@
                                 <tr>
                                     <td><strong>{{ summary.material.name }}</strong></td>
                                     <td><small class="text-muted">{{ summary.material.sku }}</small></td>
-                                    <td><strong class="text-success">{{ summary.consumed_quantity|floatformat:2 }}</strong></td>
+                                    <td><strong class="text-success">{{ summary.consumed_quantity|num }}</strong></td>
                                     <td>{{ summary.unit }}</td>
                                 </tr>
                                 {% empty %}
@@ -198,9 +201,9 @@
                                 <tr data-material-id="{{ summary.material_id }}">
                                     <td><strong>{{ summary.material.name }}</strong></td>
                                     <td><small class="text-muted">{{ summary.material.sku }}</small></td>
-                                    <td class="total-qty-cell" data-material-id="{{ summary.material_id }}" data-original-total="{{ summary.original_total|floatformat:2 }}" data-unit="{{ summary.unit }}" data-can-edit="{{ can_edit_qty|yesno:'true,false' }}" data-is-overridden="{{ summary.is_overridden|yesno:'true,false' }}">
+                                    <td class="total-qty-cell" data-material-id="{{ summary.material_id }}" data-original-total="{{ summary.original_total|num }}" data-unit="{{ summary.unit }}" data-can-edit="{{ can_edit_qty|yesno:'true,false' }}" data-is-overridden="{{ summary.is_overridden|yesno:'true,false' }}">
                                         <span class="total-qty-display d-inline-flex align-items-center gap-1" {% if can_edit_qty %}style="cursor:pointer;" title="点击编辑"{% endif %}>
-                                            <strong class="text-primary total-qty-value">{{ summary.total_quantity|floatformat:2 }}</strong>
+                                            <strong class="text-primary total-qty-value">{{ summary.total_quantity|num }}</strong>
                                             {% if summary.is_overridden %}<span class="badge bg-info" style="font-size: 0.7em;">已调整</span>{% endif %}
                                         </span>
                                         {% if can_edit_qty %}
@@ -214,10 +217,10 @@
                                         </span>
                                         {% endif %}
                                     </td>
-                                    <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity|floatformat:2 }}</td>
+                                    <td id="material-available-{{ summary.material_id }}">{{ summary.available_quantity|num }}</td>
                                     <td>
                                         <span id="material-shortage-{{ summary.material_id }}" class="badge {% if summary.shortage > 0 %}bg-warning{% else %}bg-success{% endif %}">
-                                            {{ summary.shortage|floatformat:2 }} {{ summary.unit }}
+                                            {{ summary.shortage|num }} {{ summary.unit }}
                                         </span>
                                     </td>
                                     <td>{{ summary.unit }}</td>
@@ -250,12 +253,21 @@
             </a>
             {% endif %}
             {% if task.status == 'qc_checking' %}
+            <a href="{% url 'production:quality_inspection_list' %}" class="btn btn-outline-primary">
+                <i class="bi bi-clipboard-check"></i> 质量检验
+            </a>
             <a href="{% url 'production:qc_create' task.pk %}" class="btn btn-primary">
                 <i class="bi bi-clipboard-check"></i> 录入质检记录
             </a>
             <a href="{% url 'production:inbound_create' task.pk %}" class="btn btn-success">
                 <i class="bi bi-box-arrow-in"></i> 成品入库
             </a>
+            {% endif %}
+            {% if task.status == 'pending_inbound' %}
+            <a href="{% url 'production:inbound_create' task.pk %}" class="btn btn-success">
+                <i class="bi bi-box-arrow-in"></i> 成品入库
+            </a>
+            <p class="text-muted small mt-2 mb-0">生产已完成（未走质检），请进行成品入库，入库足量后任务将变为「已完成」。</p>
             {% endif %}
         </div>
     </div>

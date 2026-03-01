@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}创建库存调整申请{% endblock %}
 
@@ -20,22 +21,23 @@
                     {{ inventory.other_name }}
                 {% endif %}
             </p>
-            <p><strong>当前数量：</strong>{{ inventory.get_display_quantity|floatformat:2 }} {{ inventory.get_display_unit_name }}</p>
-            <p><strong>当前单价：</strong>¥{{ inventory.get_display_unit_price|floatformat:2 }}/{{ inventory.get_display_unit_name }}</p>
+            <p><strong>当前数量：</strong>{{ inventory.get_display_quantity|num }} {{ inventory.get_display_unit_name }}</p>
+            <p><strong>当前单价：</strong>¥{{ inventory.get_display_unit_price|num }}/{{ inventory.get_display_unit_name }}</p>
         </div>
         
         {% if inventory.inventory_type == 'other' %}
         <div class="alert alert-warning mb-4">
-            <i class="bi bi-info-circle"></i> 其它类型库存仅支持数量/单价调整，不支持单位调整。
+            <i class="bi bi-info-circle"></i> 其它类型库存仅支持数量调整；单价、单位以产品管理为准。
         </div>
         {% endif %}
         
         <hr class="my-4">
         
-        <h5 class="mb-3"><i class="bi bi-pencil"></i> 库存调整（数量 / 单价 / 单位统一申请）</h5>
-        
+        <h5 class="mb-3"><i class="bi bi-pencil"></i> 库存数量调整</h5>
+        <p class="text-muted">库存中的单价、单位仅引用 <a href="{% url 'product:product_list' %}">产品管理</a> 中维护的数据，不可在此修改。</p>
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="adjustment_type" value="quantity">
             {% if form.errors %}
             <div class="alert alert-danger">
                 {% for field, errors in form.errors.items %}
@@ -45,164 +47,35 @@
                 {% endfor %}
             </div>
             {% endif %}
-            
             <div class="mb-3">
-                <label class="form-label">{{ form.adjustment_type.label }} <span class="text-danger">*</span></label>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_quantity" value="quantity" checked onchange="toggleAdjustmentFields()">
-                    <label class="form-check-label" for="adjustment_type_quantity">
-                        数量调整
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_price" value="price" onchange="toggleAdjustmentFields()">
-                    <label class="form-check-label" for="adjustment_type_price">
-                        单价调整
-                    </label>
-                </div>
-                {% if show_unit_option %}
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="adjustment_type" id="adjustment_type_unit" value="unit" onchange="toggleAdjustmentFields()">
-                    <label class="form-check-label" for="adjustment_type_unit">
-                        单位调整
-                    </label>
-                </div>
-                {% endif %}
-                {% if form.adjustment_type.errors %}
-                <div class="text-danger">{{ form.adjustment_type.errors }}</div>
-                {% endif %}
-            </div>
-            
-            <div class="mb-3" id="quantity_field">
-                <label class="form-label">{{ form.adjust_quantity.label }}</label>
+                <label class="form-label">{{ form.adjust_quantity.label }} <span class="text-danger">*</span></label>
                 <div class="input-group">
                     <span class="input-group-text">调整数量</span>
                     {{ form.adjust_quantity }}
                 </div>
-                <small class="form-text text-muted">
-                    正数表示增加库存，负数表示减少库存。例如：+10 表示增加10，-5 表示减少5。
-                </small>
+                <small class="form-text text-muted">正数增加库存，负数减少库存。例如：+10 或 -5。</small>
                 {% if form.adjust_quantity.errors %}
                 <div class="text-danger">{{ form.adjust_quantity.errors }}</div>
                 {% endif %}
             </div>
-            
-            <div class="mb-3" id="price_field" style="display: none;">
-                <label class="form-label">{{ form.adjust_unit_price.label }}</label>
-                <div class="input-group">
-                    <span class="input-group-text">¥</span>
-                    {{ form.adjust_unit_price }}
-                </div>
-                <small class="form-text text-muted">
-                    填写新的单价，将替换当前单价。
-                </small>
-                {% if form.adjust_unit_price.errors %}
-                <div class="text-danger">{{ form.adjust_unit_price.errors }}</div>
-                {% endif %}
-            </div>
-            
-            <div class="mb-3" id="unit_field" style="display: none;">
-                <label class="form-label">{{ form.new_unit.label }}</label>
-                {{ form.new_unit }}
-                {% if available_units %}
-                <small class="form-text text-muted">可选：{% for u in available_units %}{{ u.code }}{% if not forloop.last %}、{% endif %}{% endfor %}</small>
-                {% else %}
-                <small class="form-text text-muted">如：袋、箱、kg。新数量 = 当前数量 × 转换系数。</small>
-                {% endif %}
-                {% if form.new_unit.errors %}
-                <div class="text-danger">{{ form.new_unit.errors }}</div>
-                {% endif %}
-                <label class="form-label mt-2">{{ form.conversion_factor.label }}</label>
-                {{ form.conversion_factor }}
-                {% if form.conversion_factor.errors %}
-                <div class="text-danger">{{ form.conversion_factor.errors }}</div>
-                {% endif %}
-            </div>
-            
             <div class="mb-3">
                 <label class="form-label">{{ form.reason.label }} <span class="text-danger">*</span></label>
                 {{ form.reason }}
-                <small class="form-text text-muted">请详细说明调整原因，此信息将提交给总经理审批。</small>
+                <small class="form-text text-muted">请说明调整原因，将提交总经理审批。</small>
                 {% if form.reason.errors %}
                 <div class="text-danger">{{ form.reason.errors }}</div>
                 {% endif %}
             </div>
-            
             <div class="alert alert-warning">
-                <strong>注意：</strong>库存调整（含数量、单价、单位）均需总经理审批通过后生效。调整后数量不能为负数。
+                <strong>注意：</strong>库存数量调整需总经理审批通过后生效。调整后数量不能为负数。
             </div>
-            
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-send"></i> 提交申请
-                </button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> 提交申请</button>
                 <a href="{% url 'inventory:inventory_detail' inventory.pk %}" class="btn btn-secondary">取消</a>
             </div>
         </form>
     </div>
 </div>
-
-{% if inventory.inventory_type == 'material' and inventory.material %}
-<div class="card mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> 单位换算与显示单位</h5>
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-3">
-            管理物料的单位换算关系（如 1袋=100kg、1吨=1000kg），或修改当前显示单位。显示单位修改即时生效，无需审批。
-        </p>
-        <a href="{% url 'inventory:packaging_unit_list' inventory.material.id %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left-right"></i> 进入单位换算表
-        </a>
-    </div>
-</div>
-{% elif inventory.inventory_type == 'product' and inventory.product %}
-<div class="card mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> 单位换算与显示单位</h5>
-    </div>
-    <div class="card-body">
-        <p class="text-muted mb-3">
-            管理成品的单位换算关系（如 1箱=12件），或修改当前显示单位。显示单位修改即时生效，无需审批。
-        </p>
-        <a href="{% url 'inventory:product_packaging_unit_list' inventory.product.id %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left-right"></i> 进入单位换算表
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
-{% block extra_js %}
-<script>
-function toggleAdjustmentFields() {
-    const adjustmentType = document.querySelector('input[name="adjustment_type"]:checked').value;
-    const quantityField = document.getElementById('quantity_field');
-    const priceField = document.getElementById('price_field');
-    const unitField = document.getElementById('unit_field');
-    
-    quantityField.style.display = adjustmentType === 'quantity' ? 'block' : 'none';
-    priceField.style.display = adjustmentType === 'price' ? 'block' : 'none';
-    if (unitField) {
-        unitField.style.display = adjustmentType === 'unit' ? 'block' : 'none';
-    }
-    
-    if (adjustmentType === 'quantity') {
-        if (document.getElementById('id_adjust_unit_price')) document.getElementById('id_adjust_unit_price').value = '';
-        if (document.getElementById('id_new_unit')) document.getElementById('id_new_unit').value = '';
-        if (document.getElementById('id_conversion_factor')) document.getElementById('id_conversion_factor').value = '';
-    } else if (adjustmentType === 'price') {
-        if (document.getElementById('id_adjust_quantity')) document.getElementById('id_adjust_quantity').value = '';
-        if (document.getElementById('id_new_unit')) document.getElementById('id_new_unit').value = '';
-        if (document.getElementById('id_conversion_factor')) document.getElementById('id_conversion_factor').value = '';
-    } else if (adjustmentType === 'unit') {
-        if (document.getElementById('id_adjust_quantity')) document.getElementById('id_adjust_quantity').value = '';
-        if (document.getElementById('id_adjust_unit_price')) document.getElementById('id_adjust_unit_price').value = '';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    toggleAdjustmentFields();
-});
-</script>
-{% endblock %}
+{% block extra_js %}{% endblock %}

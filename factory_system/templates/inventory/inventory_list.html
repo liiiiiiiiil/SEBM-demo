@@ -48,18 +48,18 @@
                         <td>
                             {% if record.type == 'adjustment' %}
                                 <span class="text-info">
-                                    {{ record.current_quantity|floatformat:2 }} → {{ record.new_quantity|floatformat:2 }}
+                                    {{ record.current_quantity|num }} → {{ record.new_quantity|num }}
                                     {% if record.adjust_quantity >= 0 %}
-                                        <span class="text-success">(+{{ record.adjust_quantity|floatformat:2 }})</span>
+                                        <span class="text-success">(+{{ record.adjust_quantity|num }})</span>
                                     {% else %}
-                                        <span class="text-danger">({{ record.adjust_quantity|floatformat:2 }})</span>
+                                        <span class="text-danger">({{ record.adjust_quantity|num }})</span>
                                     {% endif %}
                                 </span>
                             {% else %}
                                 {% if record.quantity > 0 %}
-                                    <span class="text-success">+{{ record.quantity|floatformat:2 }}</span>
+                                    <span class="text-success">+{{ record.quantity|num }}</span>
                                 {% elif record.quantity < 0 %}
-                                    <span class="text-danger">{{ record.quantity|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ record.quantity|num }}</span>
                                 {% else %}
                                     <span class="text-muted">0.00</span>
                                 {% endif %}
@@ -69,7 +69,7 @@
                         <td>
                             {% if record.old_unit_price is not None and record.new_unit_price is not None %}
                                 <span class="text-info">
-                                    ¥{{ record.old_unit_price|floatformat:2 }} → ¥{{ record.new_unit_price|floatformat:2 }}
+                                    ¥{{ record.old_unit_price|num }} → ¥{{ record.new_unit_price|num }}
                                 </span>
                             {% else %}
                                 <span class="text-muted">-</span>
@@ -199,18 +199,18 @@
                         <p>
                             {% if record.type == 'adjustment' %}
                                 <span class="text-info">
-                                    {{ record.current_quantity|floatformat:2 }} → {{ record.new_quantity|floatformat:2 }}
+                                    {{ record.current_quantity|num }} → {{ record.new_quantity|num }}
                                     {% if record.adjust_quantity >= 0 %}
-                                        <span class="text-success">(+{{ record.adjust_quantity|floatformat:2 }})</span>
+                                        <span class="text-success">(+{{ record.adjust_quantity|num }})</span>
                                     {% else %}
-                                        <span class="text-danger">({{ record.adjust_quantity|floatformat:2 }})</span>
+                                        <span class="text-danger">({{ record.adjust_quantity|num }})</span>
                                     {% endif %}
                                 </span>
                             {% else %}
                                 {% if record.quantity > 0 %}
-                                    <span class="text-success">+{{ record.quantity|floatformat:2 }}</span>
+                                    <span class="text-success">+{{ record.quantity|num }}</span>
                                 {% elif record.quantity < 0 %}
-                                    <span class="text-danger">{{ record.quantity|floatformat:2 }}</span>
+                                    <span class="text-danger">{{ record.quantity|num }}</span>
                                 {% else %}
                                     <span class="text-muted">0.00</span>
                                 {% endif %}
@@ -222,7 +222,7 @@
                         <p>
                             {% if record.old_unit_price is not None and record.new_unit_price is not None %}
                                 <span class="text-info">
-                                    ¥{{ record.old_unit_price|floatformat:2 }} → ¥{{ record.new_unit_price|floatformat:2 }}
+                                    ¥{{ record.old_unit_price|num }} → ¥{{ record.new_unit_price|num }}
                                 </span>
                             {% else %}
                                 <span class="text-muted">-</span>
@@ -266,31 +266,28 @@
         </button>
     </div>
     <div class="card-body">
-        <!-- 分类标签页 -->
-        <ul class="nav nav-tabs mb-3" id="inventoryTabs" role="tablist">
+        <!-- 分类标签页：按类型细分（与产品管理一致） -->
+        <ul class="nav nav-tabs mb-3 flex-wrap" id="inventoryTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <a class="nav-link {% if not inventory_type or inventory_type == 'product' %}active{% endif %}" 
-                   href="?type=product" 
-                   id="product-tab" 
-                   role="tab">
-                    <i class="bi bi-box-seam"></i> 成品库存
-                </a>
+                <a class="nav-link {% if not inventory_type or inventory_type == 'product' %}active{% endif %}" href="?type=product" role="tab"><i class="bi bi-box-seam"></i> 成品</a>
             </li>
             <li class="nav-item" role="presentation">
-                <a class="nav-link {% if inventory_type == 'material' %}active{% endif %}" 
-                   href="?type=material" 
-                   id="material-tab" 
-                   role="tab">
-                    <i class="bi bi-boxes"></i> 原料库存
-                </a>
+                <a class="nav-link {% if inventory_type == 'semi' %}active{% endif %}" href="?type=semi" role="tab"><i class="bi bi-gear"></i> 半成品</a>
             </li>
             <li class="nav-item" role="presentation">
-                <a class="nav-link {% if inventory_type == 'other' %}active{% endif %}" 
-                   href="?type=other" 
-                   id="other-tab" 
-                   role="tab">
-                    <i class="bi bi-archive"></i> 其它库存
-                </a>
+                <a class="nav-link {% if inventory_type == 'raw' or inventory_type == 'material' %}active{% endif %}" href="?type=raw" role="tab"><i class="bi bi-boxes"></i> 原料</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'auxiliary' %}active{% endif %}" href="?type=auxiliary" role="tab"><i class="bi bi-droplet"></i> 辅料</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'tool' %}active{% endif %}" href="?type=tool" role="tab"><i class="bi bi-wrench"></i> 工具</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'office' %}active{% endif %}" href="?type=office" role="tab"><i class="bi bi-briefcase"></i> 办公物品</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if inventory_type == 'other' %}active{% endif %}" href="?type=other" role="tab"><i class="bi bi-archive"></i> 其它</a>
             </li>
         </ul>
 
@@ -312,19 +309,9 @@
                 <tbody>
                     {% for inv in inventories %}
                     <tr>
-                        <td>{{ inv.get_inventory_type_display }}</td>
-                        <td>
-                            {% if inv.inventory_type == 'product' %}
-                                {{ inv.product.name|default:"-" }}
-                            {% elif inv.inventory_type == 'material' %}
-                                {{ inv.material.name|default:"-" }}
-                            {% elif inv.inventory_type == 'other' %}
-                                {{ inv.other_name|default:"-" }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td><strong>{{ inv.get_display_quantity|floatformat:2 }}</strong></td>
+                        <td>{{ inv.get_detailed_type_display }}</td>
+                        <td>{{ inv.display_name }}</td>
+                        <td><strong>{{ inv.get_display_quantity|num }}</strong></td>
                         <td>{{ inv.get_display_unit_name }}</td>
                         <td>
                             {% if inv.batches_list %}
@@ -335,8 +322,8 @@
                             <span class="text-muted">无批次</span>
                             {% endif %}
                         </td>
-                        <td>¥{{ inv.get_display_unit_price|floatformat:2 }}</td>
-                        <td><strong>¥{{ inv.get_total_value|floatformat:2 }}</strong></td>
+                        <td>¥{{ inv.get_display_unit_price|num }}</td>
+                        <td><strong>¥{{ inv.get_total_value|num }}</strong></td>
                         <td>{{ inv.updated_at|date:"Y-m-d H:i" }}</td>
                         <td>
                             <div class="btn-group" role="group">
@@ -407,8 +394,8 @@
                                 <tr {% if batch.is_expired %}class="table-danger"{% endif %}>
                                     <td>{{ batch.batch_no }}</td>
                                     <td>{{ batch.batch_date|date:"Y-m-d" }}</td>
-                                    <td><strong>{{ batch.display_quantity|floatformat:2 }}{{ inv.get_display_unit_name }}</strong></td>
-                                    <td>{% if batch.unit_price %}¥{{ batch.unit_price|floatformat:2 }}{% else %}-{% endif %}</td>
+                                    <td><strong>{{ batch.display_quantity|num }}{{ inv.get_display_unit_name }}</strong></td>
+                                    <td>{% if batch.unit_price %}¥{{ batch.unit_price|num }}{% else %}-{% endif %}</td>
                                     <td>
                                         {% if batch.expiry_date %}
                                             {{ batch.expiry_date|date:"Y-m-d" }}

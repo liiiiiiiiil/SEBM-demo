@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}完成采购任务 - {{ task.task_no }}{% endblock %}
 
@@ -21,10 +22,11 @@
                         <th>物料</th>
                         <th>类型</th>
                         <th>采购数量</th>
+                        <th>单位</th>
                         <th>收货数量</th>
                         <th>批次号</th>
                         <th>批次日期</th>
-                        <th>批次单价</th>
+                        <th>单价</th>
                         <th>过期日期</th>
                     </tr>
                 </thead>
@@ -45,18 +47,18 @@
                                 {{ item.get_item_type_display }}
                             {% endif %}
                         </td>
-                        <td>{{ item.quantity|floatformat:2 }}{% if item.material %}{{ item.material.display_unit.name }}{% endif %}</td>
+                        <td>{{ item.get_display_quantity|num }}</td>
+                        <td>{% if item.get_display_unit %}{{ item.get_display_unit.name }}{% else %}-{% endif %}</td>
                         <td>
                             <input type="number" 
                                    name="received_quantity_{{ item.id }}" 
                                    class="form-control" 
                                    step="0.01" 
                                    min="0" 
-                                   max="{{ item.quantity }}"
-                                   value="{{ item.quantity }}"
+                                   max="{{ item.get_display_quantity|num }}"
+                                   value="{{ item.get_display_quantity|num }}"
                                    required
                                    onchange="toggleBatchFields({{ item.id }})">
-                            <small class="text-muted">{% if item.material %}{{ item.material.display_unit.name }}{% endif %}</small>
                         </td>
                         <td>
                             <input type="text" 
@@ -81,7 +83,7 @@
                                    class="form-control batch-field" 
                                    step="0.01" 
                                    min="0"
-                                   value="{{ item.unit_price }}"
+                                   value="{{ item.get_display_unit_price|num }}"
                                    disabled>
                         </td>
                         <td>

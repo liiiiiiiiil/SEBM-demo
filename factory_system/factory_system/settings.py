@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'accounts',
+    'product',   # 产品管理（基础数据层），与客户、供应商平级
     'inventory',
     'sales',
     'production',

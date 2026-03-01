@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load permission_tags %}
 
 {% block title %}发货单详情 - {{ shipment.shipment_no }}{% endblock %}
 
@@ -53,7 +54,7 @@
                     </tr>
                     <tr>
                         <th>运费</th>
-                        <td>¥{{ shipment.freight_cost|floatformat:2 }}</td>
+                        <td>¥{{ shipment.freight_cost|num }}</td>
                     </tr>
                     <tr>
                         <th>状态</th>
@@ -109,8 +110,8 @@
                     <tbody>
                         {% for item in shipment.order.items.all %}
                         <tr>
-                            <td>{{ item.product.name }}</td>
-                            <td>{{ item.get_display_quantity|floatformat:2 }}{{ item.product.display_unit.name }}</td>
+                            <td>{{ item.get_product_display_name }}</td>
+                            <td>{{ item.get_display_quantity|num }}{{ item.get_display_unit_name }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

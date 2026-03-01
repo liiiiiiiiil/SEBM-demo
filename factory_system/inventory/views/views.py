@@ -13,7 +13,7 @@ from inventory.models import Inventory, StockTransaction, Product, Material, Pro
 @login_required
 @role_or_permission_required('warehouse', 'production', 'ceo', permission_code='inventory.view')
 def inventory_list(request):
-    """库存列表。默认只显示成品库存；可通过 ?type=material|other 查看原料或其它库存。"""
+    """库存列表。按类型细分：成品(product)、原料(raw)、半成品(semi)、辅料(auxiliary)、工具(tool)、办公物品(office)、其它(other)。"""
     inventory_type = request.GET.get('type', 'product')
     
     # 合并两类记录，创建一个统一的记录列表
@@ -56,7 +56,7 @@ def inventory_list(request):
             'record_type': '出入库',
             'transaction_type': trans.get_transaction_type_display(),
             'item_name': item_name,
-            'item_type': trans.inventory.get_inventory_type_display(),
+            'item_type': trans.inventory.get_detailed_type_display(),
             'quantity': qty_disp,
             'unit': disp_unit_name,
             'reference_no': trans.reference_no,
@@ -139,7 +139,7 @@ def inventory_list(request):
             'record_type': record_type_label,
             'transaction_type': record_type_label,
             'item_name': item_name,
-            'item_type': trans.inventory.get_inventory_type_display(),
+            'item_type': trans.inventory.get_detailed_type_display(),
             'quantity': qty_disp,
             'unit': disp_unit_name,
             'reference_no': trans.reference_no,
@@ -162,16 +162,27 @@ def inventory_list(request):
     page_obj = paginator.get_page(page_number)
     
     # 获取库存列表
-    inventories = Inventory.objects.select_related('product', 'material',
-                                                    'product__base_unit', 'product__display_unit',
-                                                    'material__base_unit', 'material__display_unit').prefetch_related('batches').all()
+    inventories = Inventory.objects.select_related(
+        'product_master', 'product_master__base_unit', 'product_master__display_unit',
+        'product', 'material',
+        'product__base_unit', 'product__display_unit',
+        'material__base_unit', 'material__display_unit',
+    ).prefetch_related('batches').all()
     
+    # 按类型细分：成品 | 原料/半成品/辅料/工具/办公物品/其它（物料+库存其它）
     if inventory_type == 'product':
         inventories = inventories.filter(inventory_type='product')
-    elif inventory_type == 'material':
-        inventories = inventories.filter(inventory_type='material')
     elif inventory_type == 'other':
-        inventories = inventories.filter(inventory_type='other')
+        inventories = inventories.filter(
+            Q(inventory_type='other') | Q(inventory_type='material', material__material_type='other')
+        )
+    elif inventory_type == 'material':
+        # 兼容旧链接：原料
+        inventories = inventories.filter(inventory_type='material', material__material_type='raw')
+    elif inventory_type in ('raw', 'semi', 'auxiliary', 'tool', 'office'):
+        inventories = inventories.filter(inventory_type='material', material__material_type=inventory_type)
+    else:
+        inventories = inventories.filter(inventory_type='product')
     
     # 为每个库存计算显示信息
     inventories_list = list(inventories)
@@ -191,6 +202,8 @@ def inventory_list(request):
         inv.display_qty = inv.get_display_quantity()
         inv.display_unit_name = inv.get_display_unit_name()
         inv.base_unit_name = inv.get_unit_name()
+        # 统一显示名称：优先产品主数据，其次 other_name（兼容未迁移的其它）
+        inv.display_name = (item.name if item else None) or getattr(inv, 'other_name', None) or '-'
     
     # 查询待审批的调整申请
     can_approve = request.user.profile.role == 'ceo' or request.user.profile.has_permission('inventory.adjustment.approve')
@@ -239,9 +252,12 @@ def stock_transactions(request):
 def inventory_detail(request, pk):
     """库存详情"""
     inventory = get_object_or_404(
-        Inventory.objects.select_related('product', 'material',
-                                         'product__base_unit', 'product__display_unit',
-                                         'material__base_unit', 'material__display_unit'),
+        Inventory.objects.select_related(
+            'product_master', 'product_master__base_unit', 'product_master__display_unit',
+            'product', 'material',
+            'product__base_unit', 'product__display_unit',
+            'material__base_unit', 'material__display_unit',
+        ),
         pk=pk,
     )
     
@@ -408,23 +424,13 @@ def inventory_adjustment_create(request, inventory_pk):
             adjustment.applicant = request.user
             adjustment.request_no = f"IAR{timezone.now().strftime('%Y%m%d%H%M%S')}"
             
-            adjustment_type = form.cleaned_data.get('adjustment_type')
+            # 库存管理仅支持数量调整；单价/单位请在「产品管理」中修改
             adjust_quantity = form.cleaned_data.get('adjust_quantity') or 0
-            adjust_unit_price = form.cleaned_data.get('adjust_unit_price')
-            
-            if adjustment_type == 'quantity':
-                adjustment.adjust_quantity = adjust_quantity
-                adjustment.new_quantity = adjustment.current_quantity + adjust_quantity
-                adjustment.adjust_unit_price = None
-                adjustment.new_unit_price = adjustment.current_unit_price
-            elif adjustment_type == 'price':
-                adjustment.adjust_quantity = 0
-                adjustment.new_quantity = adjustment.current_quantity
-                if adjust_unit_price is not None:
-                    adjustment.adjust_unit_price = adjust_unit_price
-                    adjustment.new_unit_price = adjust_unit_price
-                else:
-                    adjustment.new_unit_price = adjustment.current_unit_price
+            adjustment.adjustment_type = 'quantity'
+            adjustment.adjust_quantity = adjust_quantity
+            adjustment.new_quantity = adjustment.current_quantity + adjust_quantity
+            adjustment.adjust_unit_price = None
+            adjustment.new_unit_price = adjustment.current_unit_price
             
             if adjustment.new_quantity < 0:
                 messages.error(request, '调整后数量不能为负数')
@@ -494,26 +500,10 @@ def adjustment_approve(request, pk):
                 adjustment.approved_at = timezone.now()
                 adjustment.save()
                 
-                # 数量/单价调整
+                # 仅数量调整（单价/单位请在「产品管理」中修改）
                 inventory.quantity = adjustment.new_quantity
                 inventory.save()
-                
-                price_adjusted = False
-                if adjustment.adjust_unit_price is not None and adjustment.new_unit_price != adjustment.current_unit_price:
-                    item = inventory.get_item()
-                    if item:
-                        item.unit_price = adjustment.new_unit_price
-                        item.save()
-                        price_adjusted = True
-                    elif inventory.inventory_type == 'other':
-                        # "其它"库存没有关联的 Material/Product，单价存在 Inventory 上
-                        inventory.other_unit_price = adjustment.new_unit_price
-                        inventory.save()
-                        price_adjusted = True
-                
                 remark_parts = [f"库存调整：{adjustment.reason}"]
-                if price_adjusted:
-                    remark_parts.append(f"单价从¥{adjustment.current_unit_price}调整为¥{adjustment.new_unit_price}")
                 
                 # 获取基础单位用于 StockTransaction
                 item = inventory.get_item()
@@ -535,11 +525,7 @@ def adjustment_approve(request, pk):
                 
                 adjustment.status = 'completed'
                 adjustment.save()
-                
-                success_msg = f'库存调整申请 {adjustment.request_no} 已审批通过，库存已更新'
-                if price_adjusted:
-                    success_msg += f'，单价已从¥{adjustment.current_unit_price}更新为¥{adjustment.new_unit_price}'
-                messages.success(request, success_msg)
+                messages.success(request, f'库存调整申请 {adjustment.request_no} 已审批通过，库存已更新')
         
         elif action == 'reject':
             reject_reason = request.POST.get('reject_reason', '').strip()

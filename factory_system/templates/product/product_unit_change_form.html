@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}显示单位变更 - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header"><h4>显示单位变更 - {{ product.name }}</h4></div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <strong>SKU：</strong>{{ product.sku }} | <strong>名称：</strong>{{ product.name }} | <strong>基础单位：</strong>{{ product.base_unit.name }} | <strong>当前显示单位：</strong>{{ product.display_unit.name|default:"与基础单位相同" }}
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="display_unit" class="form-label">新显示单位 <span class="text-danger">*</span></label>
+                <select class="form-select" id="display_unit" name="display_unit" required>
+                    <option value="">-- 请选择 --</option>
+                    {% for unit in available_units %}
+                    <option value="{{ unit.id }}" {% if product.display_unit_id == unit.id %}selected{% endif %}>{{ unit.name }}{% if unit.code %} ({{ unit.code }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">仅影响前端显示，系统内部始终以基础单位计算。</small>
+            </div>
+            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> 确认变更</button>
+            <a href="{% url 'product:product_packaging_unit_list' product.id %}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

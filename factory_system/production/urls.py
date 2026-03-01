@@ -4,6 +4,7 @@ from . import views
 app_name = 'production'
 
 urlpatterns = [
+    path('quality/', views.quality_inspection_list, name='quality_inspection_list'),
     path('tasks/', views.task_list, name='task_list'),
     path('tasks/stock/create/', views.stock_task_create, name='stock_task_create'),
     path('tasks/<int:pk>/', views.task_detail, name='task_detail'),
