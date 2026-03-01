@@ -11,6 +11,7 @@ from django.db.models import Q
 from .models import SalesOrder, SalesOrderItem, SalesOrderItemBatch, Customer, CustomerTransfer
 from inventory.models import Product, Inventory, Batch
 from production.models import ProductionTask, MaterialRequisition
+from factory_system.utils import get_paginate_by
 
 
 @login_required
@@ -30,7 +31,8 @@ def order_list(request):
     # 注意：总经理默认显示所有订单，不再自动筛选为待审批订单
     
     # 分页处理
-    paginator = Paginator(orders, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(orders, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -967,7 +969,8 @@ def customer_list(request):
         )
     
     # 分页处理
-    paginator = Paginator(customers, 20)  # 每页20条
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(customers, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

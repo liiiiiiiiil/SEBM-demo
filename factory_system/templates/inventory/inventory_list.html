@@ -3,11 +3,293 @@
 
 {% block title %}库存管理{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .card-header .btn-sm {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.5rem;
+        }
+        
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-inventory-list {
+            display: block;
+        }
+        
+        .mobile-inventory-card {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-time {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #212529;
+        }
+        
+        .mobile-inventory-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-inventory-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-inventory-info-label {
+            color: #6c757d;
+        }
+        
+        .mobile-inventory-info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .mobile-inventory-quantity {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .mobile-inventory-quantity.positive {
+            color: #198754;
+        }
+        
+        .mobile-inventory-quantity.negative {
+            color: #dc3545;
+        }
+        
+        .mobile-inventory-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-actions .btn {
+            flex: 1;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+        }
+        
+        /* 库存概览卡片样式 */
+        .mobile-inventory-overview-card {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-overview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-overview-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #212529;
+        }
+        
+        .mobile-inventory-overview-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-inventory-overview-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-inventory-overview-info-label {
+            color: #6c757d;
+        }
+        
+        .mobile-inventory-overview-info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .mobile-inventory-overview-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        
+        .mobile-inventory-overview-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-inventory-overview-actions .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+        }
+        
+        /* 移动端主按钮 */
+        .mobile-main-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0 0.5rem;
+        }
+        
+        .mobile-main-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            text-align: center;
+            border: 2px solid #dee2e6;
+            background: #fff;
+            color: #495057;
+            transition: all 0.2s ease;
+        }
+        
+        .mobile-main-btn.active {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
+        }
+        
+        .mobile-main-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-main-btn i {
+            margin-right: 0.5rem;
+        }
+        
+        .desktop-section-header {
+            display: none !important;
+        }
+        
+        .mobile-hide {
+            display: none !important;
+        }
+        
+        /* 库存类型标签页 */
+        #inventoryTabs {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 0.5rem;
+        }
+        
+        #inventoryTabs .nav-item {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        #inventoryTabs .nav-link {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.25rem;
+            text-align: center;
+            white-space: nowrap;
+            border-radius: 0.375rem;
+        }
+        
+        #inventoryTabs .nav-link i {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-inventory-list {
+            display: none;
+        }
+        
+        .mobile-inventory-overview-list {
+            display: none;
+        }
+        
+        .mobile-main-buttons {
+            display: none;
+        }
+        
+        .desktop-section-header {
+            display: flex !important;
+        }
+        
+        .table th,
+        .table td {
+            font-size: 0.8125rem;
+            padding: 0.375rem 0.25rem;
+        }
+        
+        .table .btn-sm {
+            padding: 0.25rem 0.375rem;
+            font-size: 0.75rem;
+        }
+        
+        .badge {
+            font-size: 0.6875rem;
+            padding: 0.25rem 0.375rem;
+        }
+        
+        .nav-tabs .nav-link {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- 移动端主按钮 -->
+<div class="mobile-main-buttons">
+    <a href="?" class="btn mobile-main-btn {% if not request.GET.page %}active{% endif %}">
+        <i class="bi bi-box"></i> 库存情况
+    </a>
+    <a href="?page=1" class="btn mobile-main-btn {% if request.GET.page %}active{% endif %}">
+        <i class="bi bi-list-ul"></i> 库存记录
+    </a>
+</div>
+
 <!-- 库存记录：有分页参数时默认展开，避免翻页后回到主界面 -->
 <div class="collapse mb-4 {% if request.GET.page %}show{% endif %}" id="inventoryRecords">
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <div class="card-header d-flex justify-content-between align-items-center py-2 desktop-section-header">
             <h5 class="mb-0"><i class="bi bi-list-ul"></i> 库存记录</h5>
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="true" aria-controls="inventoryRecords">
                 <i class="bi bi-chevron-double-up"></i> 收起
@@ -92,51 +374,86 @@
             </table>
         </div>
         
+        <!-- 移动端卡片列表 -->
+        <div class="mobile-inventory-list">
+            {% for record in page_obj %}
+            <div class="mobile-inventory-card">
+                <div class="mobile-inventory-header">
+                    <div class="mobile-inventory-time">{{ record.created_at|date:"Y-m-d H:i:s" }}</div>
+                    <div>
+                        {% if record.type == 'adjustment' %}
+                            <span class="badge bg-info">{{ record.record_type }}</span>
+                        {% else %}
+                            <span class="badge bg-primary">{{ record.record_type }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mobile-inventory-info">
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">变动类型</span>
+                        <span class="mobile-inventory-info-value">{{ record.transaction_type }}</span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">物品类型</span>
+                        <span class="mobile-inventory-info-value">{{ record.item_type }}</span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">物品名称</span>
+                        <span class="mobile-inventory-info-value">{{ record.item_name }}</span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">单位</span>
+                        <span class="mobile-inventory-info-value">{{ record.unit }}</span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">变动数量</span>
+                        <span class="mobile-inventory-quantity">
+                            {% if record.type == 'adjustment' %}
+                                {{ record.current_quantity|floatformat:2 }} → {{ record.new_quantity|floatformat:2 }}
+                                {% if record.adjust_quantity >= 0 %}
+                                    <span class="positive">(+{{ record.adjust_quantity|floatformat:2 }})</span>
+                                {% else %}
+                                    <span class="negative">({{ record.adjust_quantity|floatformat:2 }})</span>
+                                {% endif %}
+                            {% else %}
+                                {% if record.quantity > 0 %}
+                                    <span class="positive">+{{ record.quantity|floatformat:2 }}</span>
+                                {% elif record.quantity < 0 %}
+                                    <span class="negative">{{ record.quantity|floatformat:2 }}</span>
+                                {% else %}
+                                    <span class="text-muted">0.00</span>
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">关联单号</span>
+                        <span class="mobile-inventory-info-value">{{ record.reference_no|default:"-" }}</span>
+                    </div>
+                    <div class="mobile-inventory-info-row">
+                        <span class="mobile-inventory-info-label">操作人</span>
+                        <span class="mobile-inventory-info-value">{{ record.operator }}</span>
+                    </div>
+                </div>
+                
+                <div class="mobile-inventory-actions">
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#detailModal{{ forloop.counter }}">
+                        <i class="bi bi-info-circle"></i> 详情
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无记录</p>
+            </div>
+            {% endfor %}
+        </div>
+        
         <!-- 分页 -->
-        {% if page_obj.has_other_pages %}
-        <nav aria-label="记录分页">
-            <ul class="pagination justify-content-center mb-0">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page=1{% if inventory_type %}&type={{ inventory_type }}{% endif %}">首页</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if inventory_type %}&type={{ inventory_type }}{% endif %}">上一页</a>
-                </li>
-                {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">首页</span>
-                </li>
-                <li class="page-item disabled">
-                    <span class="page-link">上一页</span>
-                </li>
-                {% endif %}
-                
-                <li class="page-item active">
-                    <span class="page-link">
-                        第 {{ page_obj.number }} 页，共 {{ page_obj.paginator.num_pages }} 页
-                    </span>
-                </li>
-                
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if inventory_type %}&type={{ inventory_type }}{% endif %}">下一页</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if inventory_type %}&type={{ inventory_type }}{% endif %}">末页</a>
-                </li>
-                {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">下一页</span>
-                </li>
-                <li class="page-item disabled">
-                    <span class="page-link">末页</span>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
-        <div class="mt-2 text-end">
+        {% include 'includes/pagination.html' with page_obj=page_obj extra_params=extra_params %}
+        <div class="mt-2 text-end desktop-section-header">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="true" aria-controls="inventoryRecords">
                 <i class="bi bi-chevron-double-up"></i> 收起
             </button>
@@ -258,8 +575,8 @@
 {% endfor %}
 
 <!-- 库存情况 -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center py-2">
+<div class="card {% if request.GET.page %}mobile-hide{% endif %}">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 desktop-section-header">
         <h5 class="mb-0"><i class="bi bi-box"></i> 库存情况</h5>
         <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#inventoryRecords" aria-expanded="{% if request.GET.page %}true{% else %}false{% endif %}" aria-controls="inventoryRecords">
             <i class="bi bi-list-ul"></i> 库存记录
@@ -367,6 +684,84 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        
+        <!-- 移动端库存概览卡片列表 -->
+        <div class="mobile-inventory-overview-list">
+            {% for inv in inventories %}
+            <div class="mobile-inventory-overview-card">
+                <div class="mobile-inventory-overview-header">
+                    <div class="mobile-inventory-overview-name">
+                        {% if inv.inventory_type == 'product' %}
+                            {{ inv.product.name|default:"-" }}
+                        {% elif inv.inventory_type == 'material' %}
+                            {{ inv.material.name|default:"-" }}
+                        {% elif inv.inventory_type == 'other' %}
+                            {{ inv.other_name|default:"-" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary">{{ inv.get_inventory_type_display }}</span>
+                    </div>
+                </div>
+                
+                <div class="mobile-inventory-overview-info">
+                    <div class="mobile-inventory-overview-info-row">
+                        <span class="mobile-inventory-overview-info-label">总数量</span>
+                        <span class="mobile-inventory-overview-value">{{ inv.get_display_quantity|floatformat:2 }} {{ inv.get_display_unit_name }}</span>
+                    </div>
+                    <div class="mobile-inventory-overview-info-row">
+                        <span class="mobile-inventory-overview-info-label">批次数量</span>
+                        <span class="mobile-inventory-overview-info-value">
+                            {% if inv.batches_list %}
+                                {{ inv.batches_list|length }} 个批次
+                            {% else %}
+                                无批次
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mobile-inventory-overview-info-row">
+                        <span class="mobile-inventory-overview-info-label">单价</span>
+                        <span class="mobile-inventory-overview-info-value">¥{{ inv.get_display_unit_price|floatformat:2 }}</span>
+                    </div>
+                    <div class="mobile-inventory-overview-info-row">
+                        <span class="mobile-inventory-overview-info-label">总价值</span>
+                        <span class="mobile-inventory-overview-value">¥{{ inv.get_total_value|floatformat:2 }}</span>
+                    </div>
+                    <div class="mobile-inventory-overview-info-row">
+                        <span class="mobile-inventory-overview-info-label">更新时间</span>
+                        <span class="mobile-inventory-overview-info-value">{{ inv.updated_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                </div>
+                
+                <div class="mobile-inventory-overview-actions">
+                    <a href="{% url 'inventory:inventory_detail' inv.pk %}" class="btn btn-outline-info">
+                        <i class="bi bi-info-circle"></i> 详情
+                    </a>
+                    {% if user.profile.role == 'warehouse' or user.profile.role == 'ceo' %}
+                    {% if user|has_permission:'inventory.adjustment.create' %}
+                    <a href="{% url 'inventory:adjustment_create' inv.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil"></i> 调整
+                    </a>
+                    {% endif %}
+                    {% if can_approve and inv.pending_adjustments %}
+                        {% for adj in inv.pending_adjustments %}
+                        <a href="{% url 'inventory:adjustment_approve' adj.pk %}" class="btn btn-outline-success">
+                            <i class="bi bi-check-circle"></i> 审批
+                        </a>
+                        {% endfor %}
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无库存数据</p>
+            </div>
+            {% endfor %}
         </div>
         
         <!-- 批次详情模态框 -->

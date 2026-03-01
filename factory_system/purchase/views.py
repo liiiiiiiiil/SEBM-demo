@@ -11,6 +11,7 @@ from .models import PurchaseTask, PurchaseTaskItem, Supplier
 from inventory.models import Material, Inventory, StockTransaction, Batch, BOM
 from production.models import ProductionTask
 from django.db.models import Q
+from factory_system.utils import get_paginate_by
 
 
 @login_required
@@ -23,7 +24,8 @@ def task_list(request):
     if status_filter:
         tasks = tasks.filter(status=status_filter)
     
-    paginator = Paginator(tasks, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(tasks, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -412,7 +414,8 @@ def supplier_list(request):
             Q(contact_phone__icontains=search)
         )
     
-    paginator = Paginator(suppliers, 20)
+    paginate_by = get_paginate_by(request, desktop_count=20, mobile_count=10)
+    paginator = Paginator(suppliers, paginate_by)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     

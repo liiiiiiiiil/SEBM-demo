@@ -3,6 +3,205 @@
 
 {% block title %}BOM配方列表 - 生产流程{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+        
+        .d-flex.justify-content-between h2 {
+            text-align: center;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .d-flex.justify-content-between > div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .d-flex.justify-content-between .btn-group {
+            width: 100%;
+        }
+        
+        .d-flex.justify-content-between .btn-group .btn {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .d-flex.justify-content-between .dropdown-menu {
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .d-flex.justify-content-between a.btn {
+            width: 100%;
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .card-body form .row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .card-body form .col-md-4,
+        .card-body form .col-md-2 {
+            width: 100%;
+        }
+        
+        .card-body form select,
+        .card-body form button {
+            width: 100%;
+            font-size: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+        }
+        
+        .card-body form button {
+            min-height: 48px;
+            font-weight: 600;
+        }
+        
+        .card .card-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+            padding: 1rem;
+        }
+        
+        .card .card-header h5 {
+            font-size: 1rem;
+            text-align: center;
+            margin-bottom: 0;
+        }
+        
+        .card .card-header > div {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .card .card-header .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            min-height: 44px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        /* 移动端下拉菜单优化 */
+        .dropdown-menu {
+            max-height: 60vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border: none;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        
+        .dropdown-item {
+            padding: 0.875rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            white-space: normal;
+            word-break: break-word;
+        }
+        
+        .dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            background-color: #e9ecef;
+            color: #0d6efd;
+            transform: translateX(5px);
+        }
+        
+        .dropdown-item:active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        
+        .card .card-body .table-responsive {
+            display: none;
+        }
+        
+        .mobile-bom-items {
+            display: block;
+            padding: 0.5rem 0;
+        }
+        
+        .mobile-bom-item {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-bom-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-bom-item-sku {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #212529;
+        }
+        
+        .mobile-bom-item-quantity {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        
+        .mobile-bom-item-name {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #495057;
+            line-height: 1.5;
+        }
+        
+        .collapse {
+            transition: height 0.3s ease;
+        }
+        
+        .collapse.show {
+            display: block;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-bom-items {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-list-check"></i> BOM配方列表</h2>
@@ -90,6 +289,18 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                    
+                    <div class="mobile-bom-items">
+                        {% for bom_item in bom_data.items %}
+                        <div class="mobile-bom-item">
+                            <div class="mobile-bom-item-header">
+                                <div class="mobile-bom-item-sku">{{ bom_item.material.sku }}</div>
+                                <div class="mobile-bom-item-quantity">{{ bom_item.quantity|floatformat:2 }} {{ bom_item.unit.name }}</div>
+                            </div>
+                            <div class="mobile-bom-item-name">{{ bom_item.material.name }}</div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>

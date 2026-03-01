@@ -2,6 +2,133 @@
 
 {% block title %}生产任务列表{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .card-body > .d-flex {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .card-body > .d-flex > form {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .card-body > .d-flex > form > select {
+            width: 100%;
+        }
+        
+        .card-body > .d-flex > form > button {
+            width: 100%;
+        }
+        
+        .card-body > .d-flex > div {
+            width: 100%;
+            flex-direction: column;
+        }
+        
+        .card-body > .d-flex > div > a {
+            width: 100%;
+        }
+        
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-task-list {
+            display: block;
+        }
+        
+        .mobile-task-card {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-task-no {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #212529;
+        }
+        
+        .mobile-task-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-task-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-task-info-label {
+            color: #6c757d;
+        }
+        
+        .mobile-task-info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .mobile-task-quantity {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        
+        .mobile-task-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-task-actions .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-task-list {
+            display: none;
+        }
+        
+        .table th,
+        .table td {
+            font-size: 0.875rem;
+            padding: 0.5rem;
+        }
+        
+        .table .btn-sm {
+            padding: 0.375rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-body">
@@ -110,6 +237,93 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        
+        <!-- 移动端卡片列表 -->
+        <div class="mobile-task-list">
+            {% for task in tasks %}
+            <div class="mobile-task-card">
+                <div class="mobile-task-header">
+                    <div class="mobile-task-no">{{ task.task_no }}</div>
+                    <div>
+                        {% if task.production_type == 'order' %}
+                            <span class="badge bg-primary">订单生产</span>
+                        {% else %}
+                            <span class="badge bg-info">备货生产</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mobile-task-info">
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">产品</span>
+                        <span class="mobile-task-info-value">{{ task.product.name }}</span>
+                    </div>
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">关联订单</span>
+                        <span class="mobile-task-info-value">
+                            {% if task.order %}
+                                {{ task.order.order_no }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">需求数量</span>
+                        <span class="mobile-task-quantity">{{ task.get_display_required_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</span>
+                    </div>
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">完成数量</span>
+                        <span class="mobile-task-quantity">{{ task.get_display_completed_quantity|floatformat:2 }}{{ task.get_display_unit_name }}</span>
+                    </div>
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">状态</span>
+                        <span class="mobile-task-info-value">
+                            {% if task.status == 'pending' %}
+                            <span class="badge bg-secondary">待接收</span>
+                            {% elif task.status == 'material_insufficient' %}
+                            <span class="badge bg-danger">原料不足</span>
+                            {% elif task.status == 'received' %}
+                            <span class="badge bg-info">已接收</span>
+                            {% elif task.status == 'material_preparing' %}
+                            <span class="badge bg-warning">备料中</span>
+                            {% elif task.status == 'in_production' %}
+                            <span class="badge bg-primary">生产中</span>
+                            {% elif task.status == 'qc_checking' %}
+                            <span class="badge" style="background-color: #6f42c1;">质检中</span>
+                            {% elif task.status == 'completed' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% elif task.status == 'cancelled' %}
+                            <span class="badge bg-dark">已取消</span>
+                            {% elif task.status == 'terminated' %}
+                            <span class="badge bg-danger">已终结</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mobile-task-info-row">
+                        <span class="mobile-task-info-label">创建时间</span>
+                        <span class="mobile-task-info-value">{{ task.created_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+                </div>
+                
+                <div class="mobile-task-actions">
+                    <a href="{% url 'production:task_detail' task.pk %}" class="btn btn-info">
+                        <i class="bi bi-eye"></i> 查看
+                    </a>
+                    {% if task.status == 'pending' or task.status == 'material_insufficient' %}
+                    <a href="{% url 'production:task_receive' task.pk %}" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> 接收
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无生产任务</p>
+            </div>
+            {% endfor %}
         </div>
         
         <!-- 分页 -->

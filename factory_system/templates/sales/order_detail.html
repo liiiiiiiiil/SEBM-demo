@@ -2,6 +2,195 @@
 
 {% block title %}订单详情 - {{ order.order_no }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 767.98px) {
+        .card-header {
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: stretch;
+            padding: 1rem;
+        }
+        
+        .card-header h4 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+        }
+        
+        .card-header > div {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .card-header .btn {
+            flex: 1;
+            min-width: calc(50% - 0.25rem);
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            min-height: 44px;
+            font-weight: 600;
+        }
+        
+        .card-body > .row > .col-md-6 {
+            margin-bottom: 1rem;
+        }
+        
+        .table-responsive {
+            display: none;
+        }
+        
+        .mobile-order-detail-card {
+            background: #f8f9fa;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .mobile-order-detail-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #212529;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #0d6efd;
+        }
+        
+        .mobile-order-detail-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .mobile-order-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-order-detail-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .mobile-order-detail-value {
+            color: #212529;
+            font-weight: 600;
+        }
+        
+        .mobile-order-detail-amount {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0d6efd;
+        }
+        
+        .mobile-order-detail-alert {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-order-item-card {
+            background: #fff;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .mobile-order-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .mobile-order-item-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #212529;
+            flex: 1;
+        }
+        
+        .mobile-order-item-sku {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .mobile-order-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-order-item-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-order-item-info-label {
+            color: #6c757d;
+        }
+        
+        .mobile-order-item-info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .mobile-order-item-subtotal {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #0d6efd;
+        }
+        
+        .mobile-order-item-batches {
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        
+        .mobile-order-item-batch {
+            font-size: 0.8125rem;
+            color: #495057;
+            padding: 0.25rem 0;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .mobile-order-detail-card,
+        .mobile-order-item-card {
+            display: none;
+        }
+        
+        .table th {
+            font-size: 0.875rem;
+            padding: 0.5rem;
+        }
+        
+        .table td {
+            font-size: 0.875rem;
+            padding: 0.5rem;
+        }
+        
+        .badge {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header d-flex justify-content-between">
@@ -191,6 +380,141 @@
                 </div>
             </div>
         </div>
+        
+        <!-- 移动端基本信息卡片 -->
+        <div class="mobile-order-detail-card">
+            <div class="mobile-order-detail-title">基本信息</div>
+            <div class="mobile-order-detail-info">
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">订单号</span>
+                    <span class="mobile-order-detail-value">{{ order.order_no }}</span>
+                </div>
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">客户</span>
+                    <span class="mobile-order-detail-value">{{ order.customer.name }}</span>
+                </div>
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">销售员</span>
+                    <span class="mobile-order-detail-value">{{ order.salesperson.username }}</span>
+                </div>
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">状态</span>
+                    <span class="mobile-order-detail-value">
+                        {% if order.status == 'pending' %}
+                        <span class="badge bg-warning">待审批</span>
+                        {% elif order.status == 'approved' %}
+                        <span class="badge bg-info">已审批</span>
+                        {% elif order.status == 'ceo_pending' %}
+                        <span class="badge bg-warning">待总经理审批</span>
+                        {% elif order.status == 'ceo_approved' %}
+                        <span class="badge bg-info">总经理已审批</span>
+                        {% elif order.status == 'rejected' %}
+                        <span class="badge bg-danger">已退回</span>
+                        {% elif order.status == 'in_production' %}
+                        <span class="badge bg-primary">生产中</span>
+                        {% elif order.status == 'ready_to_ship' %}
+                        <span class="badge" style="background-color: #fd7e14;">待发货</span>
+                        {% elif order.status == 'shipped' %}
+                        <span class="badge bg-secondary">已发货</span>
+                        {% elif order.status == 'completed' %}
+                        <span class="badge bg-success">已完成</span>
+                        {% elif order.status == 'cancelled' %}
+                        <span class="badge bg-dark">已取消</span>
+                        {% elif order.status == 'terminated' %}
+                        <span class="badge bg-danger">已终结</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if order.approved_by %}
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">审批人</span>
+                    <span class="mobile-order-detail-value">{{ order.approved_by.username }} - {{ order.approved_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                {% endif %}
+                {% if order.ceo_approved_by %}
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">总经理审批人</span>
+                    <span class="mobile-order-detail-value">{{ order.ceo_approved_by.username }} - {{ order.ceo_approved_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                {% endif %}
+                {% if order.status == 'rejected' %}
+                <div class="mobile-order-detail-alert">
+                    <strong>退回原因：</strong>{{ order.reject_reason|default:"无" }}
+                </div>
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">退回人</span>
+                    <span class="mobile-order-detail-value">{{ order.rejected_by.username|default:"-" }}</span>
+                </div>
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">退回时间</span>
+                    <span class="mobile-order-detail-value">{{ order.rejected_at|date:"Y-m-d H:i"|default:"-" }}</span>
+                </div>
+                {% endif %}
+                <div class="mobile-order-detail-row">
+                    <span class="mobile-order-detail-label">订单总额</span>
+                    <span class="mobile-order-detail-amount">¥{{ order.total_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 移动端订单明细卡片 -->
+        {% for item_info in items_with_batch_info %}
+        <div class="mobile-order-item-card">
+            <div class="mobile-order-item-header">
+                <div>
+                    <div class="mobile-order-item-name">{{ item_info.item.product.name }}</div>
+                    <div class="mobile-order-item-sku">{{ item_info.item.product.sku }}</div>
+                </div>
+            </div>
+            
+            <div class="mobile-order-item-info">
+                <div class="mobile-order-item-info-row">
+                    <span class="mobile-order-item-info-label">需求数量</span>
+                    <span class="mobile-order-item-info-value">{{ item_info.item.get_display_quantity|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</span>
+                </div>
+                <div class="mobile-order-item-info-row">
+                    <span class="mobile-order-item-info-label">单价</span>
+                    <span class="mobile-order-item-info-value">¥{{ item_info.item.unit_price|floatformat:2 }}</span>
+                </div>
+                <div class="mobile-order-item-info-row">
+                    <span class="mobile-order-item-info-label">已分配批次</span>
+                    <span class="mobile-order-item-info-value">
+                        {% if item_info.batch_allocated_qty > 0 %}
+                        <span class="badge bg-info">{{ item_info.batch_allocated_qty|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">未分配</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="mobile-order-item-info-row">
+                    <span class="mobile-order-item-info-label">缺口数量</span>
+                    <span class="mobile-order-item-info-value">
+                        {% if item_info.shortage > 0 %}
+                        <span class="badge bg-warning">{{ item_info.shortage|floatformat:2 }}{{ item_info.item.product.display_unit.name }}</span>
+                        <small class="text-muted">需生产</small>
+                        {% else %}
+                        <span class="badge bg-success">充足</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="mobile-order-item-info-row">
+                    <span class="mobile-order-item-info-label">小计</span>
+                    <span class="mobile-order-item-subtotal">¥{{ item_info.item.subtotal|floatformat:2 }}</span>
+                </div>
+            </div>
+            
+            {% if item_info.batch_allocations %}
+            <div class="mobile-order-item-batches">
+                <strong>批次分配详情：</strong>
+                {% for batch in item_info.batch_allocations %}
+                <div class="mobile-order-item-batch">
+                    {{ batch.batch_no }} ({{ batch.batch_date|date:"Y-m-d" }})：{{ batch.quantity|floatformat:2 }}{{ batch.unit }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}
